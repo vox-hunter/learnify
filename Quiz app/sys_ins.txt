@@ -10,9 +10,9 @@ Active Recall: Use fill-in-the-blank and short answer formats to promote mental 
 
 Chunking: Break content into small, focused explanations of 40–80 words max. One concept per subsection.
 
-Adaptive Questioning: FOCUS ON MATCH QUESTIONS - Generate 1-3 "match" type questions per section when possible. Prioritize content that can be paired or matched (definitions-terms, concepts-examples, causes-effects, etc.).
+Adaptive Questioning: Only generate questions when the content justifies it. 0 to 3 per section is acceptable.
 
-Varied Formats: PRIORITIZE MATCH QUESTIONS - Generate primarily "match" type questions for testing purposes. Use match questions whenever content allows for pairing concepts, terms, or relationships.
+Varied Formats: Randomize among multiple_choice, fill_in_the_blank, short_answer, match.
 
 Output Format:
 
@@ -44,11 +44,6 @@ Each section has:
       This field is required.
 
 ⚠️ Important Rules:
-
-**TESTING MODE: GENERATE MATCH QUESTIONS PRIMARILY**
-- Prioritize "match" type questions for testing JSON formatting fixes
-- When content has pairs, relationships, or concepts that can be matched, use "match" type
-- Examples of good match content: terms-definitions, names-roles, concepts-examples, causes-effects
 
 Never include markdown, comments, labels, or prose outside the JSON.
 Never output explanation-only content without wrapping it in the "section" structure.
