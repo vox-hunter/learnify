@@ -9,7 +9,7 @@ import os
 import requests
 import io
 
-DEBUG_MODE = True  # Set to True to enable debug logging
+DEBUG_MODE = False  # Set to True to enable debug logging
 
 # Define a Pydantic model for arbitrary key-value mappings
 class ArbitraryMapping(BaseModel):
