@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import re
+import random
 from st_fill_in_the_blanks import fill_in_the_blanks_input
 import local_backend
 import yaml
