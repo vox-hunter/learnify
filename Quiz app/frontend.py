@@ -13,7 +13,37 @@ import os
 
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    layout="wide", 
+    page_title="AI Quiz Generator",
+    page_icon="🧠"
+)
+
+# Apply custom CSS for consistent theming (fallback for cloud deployment)
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #0a0014 !important;
+    }
+    .stSidebar {
+        background-color: #1a0033 !important;
+    }
+    .stButton > button {
+        background-color: #9d00ff !important;
+        color: white !important;
+    }
+    .stButton > button:hover {
+        background-color: #7a00cc !important;
+    }
+    .stFileUploader > div > div {
+        background-color: #1a0033 !important;
+        border: 2px dashed #9d00ff !important;
+    }
+    .stProgress > div > div {
+        background-color: #9d00ff !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Function to initialize all session state variables
 def initialize_session_state():
