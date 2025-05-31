@@ -180,7 +180,7 @@ def generate_course(file_content=None, file_url=None):
         logger.info("Sending request to Gemini AI...")
         # Generate content using Gemini API
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-preview-05-20",
             config=types.GenerateContentConfig(
                 system_instruction=sys_ins,
                 response_mime_type="application/json",

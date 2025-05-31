@@ -3,6 +3,12 @@ import json
 import re
 from st_fill_in_the_blanks import fill_in_the_blanks_input
 import local_backend
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
+import os
+
+
 
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -30,9 +36,49 @@ def initialize_session_state():
         st.session_state.course_data = None
     if "error_message" not in st.session_state:
         st.session_state.error_message = None
+    # Authentication and course limit tracking
+    if "courses_generated" not in st.session_state:
+        st.session_state.courses_generated = 0
+    if "authentication_status" not in st.session_state:
+        st.session_state.authentication_status = None
+    if "name" not in st.session_state:
+        st.session_state.name = None
+    if "username" not in st.session_state:
+        st.session_state.username = None
 
 # Initialize session state at module level
 initialize_session_state()
+
+# Load authentication config
+def load_config():
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml')
+    with open(config_path, 'r') as file:
+        config = yaml.load(file, Loader=SafeLoader)
+    return config
+
+# Save config function
+def save_config(config):
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml')
+    with open(config_path, 'w') as file:
+        yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+
+# Create authenticator
+def get_authenticator():
+    config = load_config()
+    authenticator = stauth.Authenticate(
+        config['credentials'],
+        config['cookie']['name'],
+        config['cookie']['key'],
+        config['cookie']['expiry_days'],
+        config.get('preauthorized', [])
+    )
+    return authenticator, config
+
+def check_course_limit():
+    """Check if user has reached the course generation limit"""
+    if st.session_state.authentication_status:
+        return True  # Authenticated users have unlimited access
+    return st.session_state.courses_generated < 3
 
 def reset_section_attempt_state():
     st.session_state.user_answers = {}
@@ -531,8 +577,96 @@ def display_section_content(section_data, section_key_prefix):
                 display_section_content(sub_section_data, sub_section_key)
 
 def main():
+    # Initialize authenticator
+    authenticator, config = get_authenticator()
+    
     # SET The main title for the application
     st.title("AI Quiz and Course Generator") 
+    
+    # Authentication section
+    if not st.session_state.authentication_status:
+        # Show login options
+        st.markdown("---")
+        st.subheader("🔐 Authentication")
+          # Create tabs for different login methods
+        login_tab, register_tab, forgot_tab = st.tabs(["Login", "Register", "Forgot Password"])
+        
+        with login_tab:
+            st.markdown("### Login with Username/Password")
+            try:
+                authenticator.login()
+            except Exception as e:
+                st.error(f"Login error: {e}")
+            
+            st.markdown("### Or Login with OAuth")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                try:
+                    authenticator.experimental_guest_login('Login with Google',
+                                                         provider='google',
+                                                         oauth2=config['oauth2'])
+                except Exception as e:
+                    st.error(f"Google login error: {e}")
+            
+            with col2:
+                try:
+                    authenticator.experimental_guest_login('Login with Microsoft',
+                                                         provider='microsoft',
+                                                         oauth2=config['oauth2'])
+                except Exception as e:
+                    st.error(f"Microsoft login error: {e}")
+        
+        with register_tab:
+            st.markdown("### Create New Account")
+            try:
+                email_of_registered_user, \
+                username_of_registered_user, \
+                name_of_registered_user = authenticator.register_user()
+                if email_of_registered_user:
+                    st.success('User registered successfully')
+                    # Important: Reload the config to get the updated credentials
+                    config = load_config()
+                    save_config(config)
+                    st.info("Please use your new credentials to login in the Login tab.")
+            except Exception as e:
+                st.error(f"Registration error: {e}")
+        
+        with forgot_tab:
+            st.markdown("### Reset Password")
+            try:
+                username_of_forgotten_password, \
+                email_of_forgotten_password, \
+                new_random_password = authenticator.forgot_password()
+                if username_of_forgotten_password:
+                    st.success('New password generated. Please check your email.')
+                    save_config(config)
+                elif username_of_forgotten_password == False:
+                    st.error('Username not found')
+            except Exception as e:
+                st.error(f"Password reset error: {e}")
+    
+    # User status display
+    if st.session_state.authentication_status is False:
+        st.error('Username/password is incorrect')
+    elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
+        st.warning('⚠️ You have reached the limit of 3 free courses. Please login to continue generating courses.')
+    
+    # Logout and user info
+    if st.session_state.authentication_status:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
+        with col2:
+            try:
+                authenticator.logout()
+            except Exception as e:
+                st.error(f"Logout error: {e}")
+    elif st.session_state.courses_generated < 3:
+        courses_remaining = 3 - st.session_state.courses_generated
+        st.info(f"🆓 Free tier: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
+    
+    st.markdown("---")
     
     # ADD the description here
     st.write("Upload a PDF or provide a URL to generate a course with quizzes.")
@@ -542,9 +676,7 @@ def main():
         st.error(f"❌ {st.session_state.error_message}")
         if st.button("Clear Error"):
             st.session_state.error_message = None
-            st.rerun()
-
-    # --- UI for input (in sidebar) ---
+            st.rerun()    # --- UI for input (in sidebar) ---
     st.sidebar.header("Input PDF")
     input_method = st.sidebar.radio("Choose input method:", ("Upload File", "Provide URL"))
 
@@ -571,6 +703,22 @@ def main():
             st.sidebar.warning("Please enter a valid URL starting with http:// or https://")
             pdf_url = None
 
+    # Show course generation status for unauthenticated users
+    if not st.session_state.authentication_status:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 📊 Free Tier Status")
+        courses_used = st.session_state.courses_generated
+        courses_remaining = 3 - courses_used
+        
+        if courses_remaining > 0:
+            st.sidebar.success(f"✅ {courses_remaining} free course{'s' if courses_remaining != 1 else ''} remaining")
+            # Show progress bar
+            progress = courses_used / 3
+            st.sidebar.progress(progress, text=f"Used: {courses_used}/3")
+        else:
+            st.sidebar.error("❌ Free courses limit reached")
+            st.sidebar.info("Login above for unlimited access!")
+
     # Add helpful tips in sidebar
     with st.sidebar.expander("💡 Tips"):
         st.write("""
@@ -586,10 +734,25 @@ def main():
         - Short answer
         - True/False
         - Matching
-        """)
-
-    if st.sidebar.button("Generate Course", type="primary"):
+        """)    # Check if user can generate courses
+    can_generate = check_course_limit()
+    
+    # Disable button if limit reached and not authenticated
+    button_disabled = not can_generate
+    button_text = "Generate Course" if can_generate else "Login Required (Limit Reached)"
+    
+    if st.sidebar.button(button_text, type="primary", disabled=button_disabled):
+        # Check if either input method is provided
         if uploaded_file or pdf_url:
+            # Check course limit one more time before processing
+            if not check_course_limit():
+                st.sidebar.error("You have reached the limit of 3 free courses. Please login to continue.")
+                return
+            
+            # Increment course count for non-authenticated users
+            if not st.session_state.authentication_status:
+                st.session_state.courses_generated += 1
+            
             # Clear previous state
             st.session_state.course_data = None
             st.session_state.error_message = None
@@ -652,7 +815,15 @@ def main():
                         st.session_state.error_message = error_message
                     if course_data:
                         st.session_state.course_data = course_data
-                        st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
+                        # Show different success messages based on authentication status
+                        if st.session_state.authentication_status:
+                            st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
+                        else:
+                            remaining = 3 - st.session_state.courses_generated
+                            if remaining > 0:
+                                st.success(f"🎉 Course created! You have {remaining} free course{'s' if remaining != 1 else ''} remaining.")
+                            else:
+                                st.success("🎉 Course created! This was your last free course. Login for unlimited access.")
                     
                     # Clear progress indicators
                     progress_bar.empty()
