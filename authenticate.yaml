@@ -1,4 +1,3 @@
-api_key: 43f503rpr4xzs6ih0biusdiabm59wwr3
 cookie:
   expiry_days: 30
   key: cdassdca
@@ -27,3 +26,4 @@ oauth2:
     redirect_uri: https://learnique.streamlit.app
     tenant_id: e3ab9648-cc92-4ea1-be13-f3d4a052e32b
 preauthorized: null
+api_key: 43f503rpr4xzs6ih0biusdiabm59wwr3
