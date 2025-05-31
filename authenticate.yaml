@@ -20,10 +20,10 @@ oauth2:
   google:
     client_id: 418318847857-45e4kha4dg8vlsqvoc05viu56i2sh54m.apps.googleusercontent.com
     client_secret: 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
-    redirect_uri: http://192.168.1.121:8501
+    redirect_uri: https://learnify.streamlit.app
   microsoft:
     client_id: fd4bc4f4-eae3-41fc-bf99-5b5989c6bf0b
     client_secret: 2748aaa8-eb3b-4c81-8ae7-a3956de06587
-    redirect_uri: http://google.com
+    redirect_uri: https://learnify.streamlit.app
     tenant_id: e3ab9648-cc92-4ea1-be13-f3d4a052e32b
 preauthorized: null
