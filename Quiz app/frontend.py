@@ -623,7 +623,10 @@ def main():
             try:
                 email_of_registered_user, \
                 username_of_registered_user, \
-                name_of_registered_user = authenticator.register_user()
+                name_of_registered_user = authenticator.register_user(
+                    fields={'Form name':'', 'Email':'Email', 'Username':'Username', 'Password':'Password', 'Repeat password':'Repeat password', 'Password hint':'Password hint', 'Captcha':'Captcha', 'Register':'Sign Up'},
+                    two_factor_auth=True
+                )
                 if email_of_registered_user:
                     st.success('User registered successfully')
                     # Important: Reload the config to get the updated credentials
@@ -638,7 +641,7 @@ def main():
             try:
                 username_of_forgotten_password, \
                 email_of_forgotten_password, \
-                new_random_password = authenticator.forgot_password()
+                new_random_password = authenticator.forgot_password(send_email=True)
                 if username_of_forgotten_password:
                     st.success('New password generated. Please check your email.')
                     save_config(config)
