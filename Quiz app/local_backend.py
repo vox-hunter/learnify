@@ -68,7 +68,7 @@ api_key = None
 
 if STREAMLIT_AVAILABLE:
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets.GEMINI_API_KEY
         logger.info("Successfully loaded API key from Streamlit secrets")
     except (KeyError, FileNotFoundError):
         logger.info("Streamlit secrets not available or key not found, trying environment variables")
