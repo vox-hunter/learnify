@@ -71,7 +71,8 @@ def get_authenticator():
         config['cookie']['name'],
         config['cookie']['key'],
         config['cookie']['expiry_days'],
-        config.get('preauthorized', [])
+        config.get('preauthorized', []),
+        api_key=config.get('api_key')
     )
     return authenticator, config
 
