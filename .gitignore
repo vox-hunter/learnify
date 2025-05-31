@@ -284,3 +284,10 @@ yarn.lock
 # models/
 # data/
 # checkpoints/
+
+# Streamlit secrets (contains API keys)
+.streamlit/secrets.toml
+**/secrets.toml
+
+# Environment files
+.env
