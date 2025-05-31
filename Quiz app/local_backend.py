@@ -9,6 +9,12 @@ import os
 import requests
 import io
 
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
 
 # Define a Pydantic model for arbitrary key-value mappings
@@ -57,11 +63,25 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Validate API key
-api_key = os.getenv("GEMINI_API_KEY")
+# Validate API key - try Streamlit secrets first, then environment variables
+api_key = None
+
+if STREAMLIT_AVAILABLE:
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        logger.info("Successfully loaded API key from Streamlit secrets")
+    except (KeyError, FileNotFoundError):
+        logger.info("Streamlit secrets not available or key not found, trying environment variables")
+
+# Fallback to environment variables if Streamlit secrets not available
 if not api_key:
-    logger.error("GEMINI_API_KEY not found in environment variables. Please check your .env file.")
-    raise ValueError("GEMINI_API_KEY is required but not found in environment variables")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        logger.info("Successfully loaded API key from environment variables")
+
+if not api_key:
+    logger.error("GEMINI_API_KEY not found in Streamlit secrets or environment variables. Please check your configuration.")
+    raise ValueError("GEMINI_API_KEY is required but not found in Streamlit secrets or environment variables")
 
 try:
     client = genai.Client(api_key=api_key)
