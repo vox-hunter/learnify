@@ -282,11 +282,11 @@ def display_question(question_item, section_key, question_idx):
                 key=f"fitb_{question_key}",
                 default_value=current_blank_value,
                 disabled=is_answered
-            )              # If the component's value changed, update session_state and trigger submission handler
+            )            # If the component's value changed, update session_state and trigger submission handler
             if user_input_for_blank != current_blank_value:
                 st.session_state[question_key] = user_input_for_blank
                 handle_answer_submission(question_key, correct_answer_for_blank, question_type)
-                st.rerun()
+                # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
     
     elif question_type == "match":
         # Get the matching items from the question's answer
@@ -431,13 +431,12 @@ def display_question(question_item, section_key, question_idx):
                         # Convert to string format for answer checking
                         user_match_str = json.dumps(user_match_dict, sort_keys=True)
                         correct_match_str = json.dumps(match_data, sort_keys=True)
-                        
-                        # Store the formatted answer in session state for the question key
+                          # Store the formatted answer in session state for the question key
                         st.session_state[question_key] = user_match_str
                         
                         # Call the answer submission handler
                         handle_answer_submission(question_key, correct_match_str, "match")
-                        st.rerun()
+                        # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
                         
                 # Display a visual summary of matches if answered
                 if is_answered:
@@ -632,10 +631,31 @@ def main():
             if st.button(button_text, type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
                 st.rerun()
-    
-    # Show authentication status messages
+      # Show authentication status messages
     if st.session_state.authentication_status:
         st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
+        
+        # Add password reset widget for authenticated users
+        if 'show_password_reset' not in st.session_state:
+            st.session_state.show_password_reset = False
+            
+        if st.button("🔑 Change Password", type="secondary"):
+            st.session_state.show_password_reset = not st.session_state.show_password_reset
+            st.rerun()
+        
+        if st.session_state.show_password_reset:
+            st.markdown("---")
+            st.subheader("🔑 Change Password")
+            try:
+                if authenticator.reset_password(st.session_state.username):
+                    st.success('Password modified successfully')
+                    # Save the updated config to YAML file
+                    save_config(config)
+                    st.session_state.show_password_reset = False
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Password reset error: {e}")
+        
     elif st.session_state.authentication_status is False:
         st.error('Username/password is incorrect')
     elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:

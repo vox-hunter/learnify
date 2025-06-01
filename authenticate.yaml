@@ -1,3 +1,4 @@
+api_key: 43f503rpr4xzs6ih0biusdiabm59wwr3
 cookie:
   expiry_days: 30
   key: cdassdca
@@ -10,7 +11,7 @@ credentials:
       first_name: Vox
       last_name: Hunter
       logged_in: false
-      password: $2b$12$d77fwkcuhMZM/NZMm0sGlul1P387zqkaCy4NrV31fjdMavYpeFGgq
+      password: $2b$12$ENnS0cAEdvBdgpIEOHMKauOjVDWgzv1FObwhi6dO.8h4OxbTdjYq.
       roles:
       - admin
       - editor
@@ -26,4 +27,3 @@ oauth2:
     redirect_uri: https://learnique.streamlit.app
     tenant_id: e3ab9648-cc92-4ea1-be13-f3d4a052e32b
 preauthorized: null
-api_key: 43f503rpr4xzs6ih0biusdiabm59wwr3
