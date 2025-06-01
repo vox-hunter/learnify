@@ -67,9 +67,9 @@ def initialize_session_state():
         st.session_state.course_data = None
     if "error_message" not in st.session_state:
         st.session_state.error_message = None
-    # Authentication and course limit tracking    if "courses_generated" not in st.session_state:
-        st.session_state.courses_generated = 0
-    if "authentication_status" not in st.session_state:
+    # Authentication and course limit tracking
+    if "courses_generated" not in st.session_state:
+        st.session_state.courses_generated = 0    if "authentication_status" not in st.session_state:
         st.session_state.authentication_status = None
     if "name" not in st.session_state:
         st.session_state.name = None
@@ -612,7 +612,8 @@ def display_section_content(section_data, section_key_prefix):
 def main():
     # Initialize authenticator
     authenticator, config = get_authenticator()
-      # Top bar with title and login button
+    
+    # Top bar with title and login button
     col1, col2 = st.columns([4, 1])
     
     with col1:
@@ -627,9 +628,8 @@ def main():
             except Exception as e:
                 st.error(f"Logout error: {e}")
         else:
-            # Show login/hide button for non-authenticated users
-            button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
-            if st.button(button_text, type="secondary"):
+            # Show login button for non-authenticated users
+            if st.button("🔐 Login", type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
                 st.rerun()
     
@@ -648,7 +648,8 @@ def main():
     if not st.session_state.authentication_status and st.session_state.show_login:
         # Show login options
         st.markdown("---")
-        st.subheader("🔐 Authentication")        # Create tabs for different login methods
+        st.subheader("🔐 Authentication")
+          # Create tabs for different login methods
         login_tab, register_tab, forgot_tab = st.tabs(["Login", "Register", "Forgot Password"])
         
         with login_tab:
@@ -679,8 +680,7 @@ def main():
         
         with register_tab:
             st.markdown("### Create New Account")
-            try:
-                email_of_registered_user, \
+            try:                email_of_registered_user, \
                 username_of_registered_user, \
                 name_of_registered_user = authenticator.register_user(
                     fields={'Form name':'', 'Email':'Email', 'Username':'Username', 'Password':'Password', 'Repeat password':'Repeat password', 'Password hint':'Password hint', 'Captcha':'Captcha', 'Register':'Sign Up'},
