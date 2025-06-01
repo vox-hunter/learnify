@@ -85,31 +85,82 @@ def initialize_session_state():
 # Initialize session state at module level
 initialize_session_state()
 
-# Load authentication config
+# Load authentication config with multiple fallback paths
 def load_config():
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml')
-    with open(config_path, 'r') as file:
-        config = yaml.load(file, Loader=SafeLoader)
-    return config
+    """Load authentication config with fallback paths for cloud deployment"""
+    potential_paths = [
+        # Current directory (cloud deployment)
+        'authenticate.yaml',
+        # Parent directory (local development)
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
+        # Same directory as script
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
+        # Streamlit secrets fallback
+        None  # Will use Streamlit secrets
+    ]
+    
+    for config_path in potential_paths:
+        if config_path is None:
+            # Try to load from Streamlit secrets as fallback
+            try:
+                if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
+                    return dict(st.secrets['authenticate'])
+            except Exception:
+                continue
+        else:
+            try:
+                if os.path.exists(config_path):
+                    with open(config_path, 'r') as file:
+                        config = yaml.load(file, Loader=SafeLoader)
+                    return config
+            except Exception as e:
+                st.warning(f"Failed to load config from {config_path}: {e}")
+                continue
+    
+    # Return minimal config if all methods fail
+    return {
+        'credentials': {'usernames': {}},
+        'cookie': {'name': 'auth_cookie', 'key': 'default_key', 'expiry_days': 30},
+        'api_key': 'default_key',
+        'preauthorized': []
+    }
 
-# Save config function
+# Save config function with error handling
 def save_config(config):
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml')
-    with open(config_path, 'w') as file:
-        yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+    """Save config with error handling for cloud deployment"""
+    potential_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
+        'authenticate.yaml'
+    ]
+    
+    for config_path in potential_paths:
+        try:
+            with open(config_path, 'w') as file:
+                yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+            return True
+        except Exception:
+            continue
+    return False
 
-# Create authenticator
+# Create authenticator with error handling
 def get_authenticator():
-    config = load_config()
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-        config['cookie']['expiry_days'],
-        config.get('preauthorized', []),
-        api_key=config.get('api_key')
-    )
-    return authenticator, config
+    """Create authenticator with robust error handling"""
+    try:
+        config = load_config()
+        authenticator = stauth.Authenticate(
+            config['credentials'],
+            config['cookie']['name'],
+            config['cookie']['key'],
+            config['cookie']['expiry_days'],
+            config.get('preauthorized', []),
+            api_key=config.get('api_key')
+        )
+        return authenticator, config
+    except Exception as e:
+        st.error(f"Authentication system initialization failed: {e}")
+        # Return None to indicate authentication is not available
+        return None, None
 
 def check_course_limit():
     """Check if user has reached the course generation limit"""
@@ -629,7 +680,7 @@ def display_section_content(section_data, section_key_prefix):
                 display_section_content(sub_section_data, sub_section_key)
 
 def main():
-    # Initialize authenticator
+    # Initialize authenticator with error handling
     authenticator, config = get_authenticator()
     
     # Simple title bar with login functionality
@@ -639,54 +690,66 @@ def main():
         st.title("AI Quiz and Course Generator")
     
     with col2:
-        # Show different buttons based on authentication status
-        if st.session_state.authentication_status:
+        # Show different buttons based on authentication status and availability
+        if authenticator is None:
+            # Authentication system not available (cloud deployment issue)
+            st.warning("🔐 Login temporarily unavailable")
+        elif st.session_state.authentication_status:
             # Show logout button for authenticated users
             try:
                 authenticator.logout(location='main')
             except Exception as e:
                 st.error(f"Logout error: {e}")
-        else:            # Show login/hide button for non-authenticated users
+        else:
+            # Show login/hide button for non-authenticated users
             button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
             if st.button(button_text, type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
-                st.rerun()
-    
-    # Show authentication status messages
-    if st.session_state.authentication_status:
-        st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
-        
-        # Add password reset widget for authenticated users
-        if 'show_password_reset' not in st.session_state:
-            st.session_state.show_password_reset = False
+                st.rerun()    
+    # Show authentication status messages and functionality
+    if authenticator is not None:
+        # Authentication system is available
+        if st.session_state.authentication_status:
+            st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
             
-        if st.button("🔑 Change Password", type="secondary"):
-            st.session_state.show_password_reset = not st.session_state.show_password_reset
-            st.rerun()
-        
-        if st.session_state.show_password_reset:
-            st.markdown("---")
-            st.subheader("🔑 Change Password")
-            try:
-                if authenticator.reset_password(st.session_state.username):
-                    st.success('Password modified successfully')
-                    # Save the updated config to YAML file
-                    save_config(config)
-                    st.session_state.show_password_reset = False
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Password reset error: {e}")
-        
-    elif st.session_state.authentication_status is False:
-        st.error('Username/password is incorrect')
-    elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
-        st.warning('⚠️ You have reached the limit of 3 guest courses. Please login to continue generating courses.')
-    elif st.session_state.courses_generated < 3:
-        courses_remaining = 3 - st.session_state.courses_generated
-        st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
+            # Add password reset widget for authenticated users
+            if 'show_password_reset' not in st.session_state:
+                st.session_state.show_password_reset = False
+                
+            if st.button("🔑 Change Password", type="secondary"):
+                st.session_state.show_password_reset = not st.session_state.show_password_reset
+                st.rerun()
+            
+            if st.session_state.show_password_reset:
+                st.markdown("---")
+                st.subheader("🔑 Change Password")
+                try:
+                    if authenticator.reset_password(st.session_state.username):
+                        st.success('Password modified successfully')
+                        # Save the updated config to YAML file
+                        save_config(config)
+                        st.session_state.show_password_reset = False
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Password reset error: {e}")
+            
+        elif st.session_state.authentication_status is False:
+            st.error('Username/password is incorrect')
+        elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
+            st.warning('⚠️ You have reached the limit of 3 guest courses. Please login to continue generating courses.')
+        elif st.session_state.courses_generated < 3:
+            courses_remaining = 3 - st.session_state.courses_generated
+            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
+    else:
+        # Authentication system not available - guest mode only
+        if st.session_state.courses_generated >= 3:
+            st.warning('⚠️ You have reached the limit of 3 guest courses. Authentication system is temporarily unavailable.')
+        else:
+            courses_remaining = 3 - st.session_state.courses_generated
+            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")
     
     # Conditionally show authentication section
-    if not st.session_state.authentication_status and st.session_state.show_login:
+    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:
         # Show login options
         st.markdown("---")
         st.subheader("🔐 Authentication")        # Create tabs for different login methods
