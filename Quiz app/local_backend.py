@@ -33,7 +33,7 @@ class QuizItem(BaseModel):
     ]  # accept both formats
     question: str
     options: Optional[List[str]] = Field(default=None, alias="choices")
-    answer: Union[str, bool, ArbitraryMapping]
+    answer: Union[str, bool, List[str], ArbitraryMapping]
 
 class Section(BaseModel):
     section_title: str = Field(alias="section")
@@ -221,6 +221,8 @@ def generate_course(file_content=None, file_url=None):
             # Try to parse with Pydantic validation first
             parsed = ActualApiResponse.model_validate_json(response.text)
             logger.info("Successfully validated response with Pydantic schema")
+            if DEBUG_MODE:
+                logger.info(f"Parsed response: {parsed}")
             return parsed.root, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")

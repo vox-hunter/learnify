@@ -15,33 +15,32 @@ MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 st.set_page_config(
     layout="wide", 
-    page_title="AI Quiz Generator",
+    page_title="Learnique",
     page_icon="🧠"
 )
 
 # Apply custom CSS for consistent theming (fallback for cloud deployment)
 st.markdown("""
 <style>
-    .stApp {
+    .stApp {{
         background-color: #0a0014 !important;
-    }
-    .stSidebar {
+    }}
+    .stSidebar {{
         background-color: #1a0033 !important;
-    }
-    .stButton > button {
+    }}
+    .stButton > button {{
         background-color: #9d00ff !important;
         color: white !important;
-    }
-    .stButton > button:hover {
+    }}
+    .stButton > button:hover {{
         background-color: #7a00cc !important;
-    }
-    .stFileUploader > div > div {
+    }}
+    .stFileUploader > div > div {{
         background-color: #1a0033 !important;
         border: 2px dashed #9d00ff !important;
-    }
-    .stProgress > div > div {
+    }}    .stProgress > div > div {{
         background-color: #9d00ff !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,21 +52,26 @@ def initialize_session_state():
     if "user_answers" not in st.session_state:
         st.session_state.user_answers = {}
     if "checked_answers" not in st.session_state:
-        st.session_state.checked_answers = {}
-    # Scoring system state
-    if "current_score" not in st.session_state:
+        st.session_state.checked_answers = {}    # Scoring system state    if "current_score" not in st.session_state:
         st.session_state.current_score = 0
     if "total_questions_in_course" not in st.session_state:
         st.session_state.total_questions_in_course = 0
     if "scored_correctly_keys" not in st.session_state:
         st.session_state.scored_correctly_keys = set()
-    if "feedback" not in st.session_state: 
+    if "feedback" not in st.session_state:
         st.session_state.feedback = {}
     if "course_data" not in st.session_state:
         st.session_state.course_data = None
     if "error_message" not in st.session_state:
         st.session_state.error_message = None
-    # Authentication and course limit tracking    if "courses_generated" not in st.session_state:
+    if "is_generating_course" not in st.session_state:
+        st.session_state.is_generating_course = False
+    if "pending_uploaded_file" not in st.session_state:
+        st.session_state.pending_uploaded_file = None
+    if "pending_pdf_url" not in st.session_state:
+        st.session_state.pending_pdf_url = None
+    # Authentication and course limit tracking
+    if "courses_generated" not in st.session_state:
         st.session_state.courses_generated = 0
     if "authentication_status" not in st.session_state:
         st.session_state.authentication_status = None
@@ -139,6 +143,18 @@ def generate_course(files=None, file_url=None):
         st.error(f"Error generating course: {e}")
         return None, f"Error generating course: {e}"
 
+def is_answer_correct(user_answer, correct_answer, question_type):
+    """Check if user answer matches any acceptable answer"""
+    user_clean = str(user_answer).strip().lower()
+    
+    # Handle multiple acceptable answers
+    if isinstance(correct_answer, list):
+        acceptable_answers = [str(ans).strip().lower() for ans in correct_answer]
+        return user_clean in acceptable_answers
+    else:
+        # Single answer (backward compatibility)
+        return user_clean == str(correct_answer).strip().lower()
+
 def handle_answer_submission(question_key, correct_answer, question_type, placeholder_option_value=None):
     user_answer = st.session_state.get(question_key)
     
@@ -160,12 +176,13 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         user_answer_bool = str(user_answer).lower() == "true"
         if user_answer_bool == correct_answer_bool:
             is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
-    # Revert short_answer to simple string comparison
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"    # Revert short_answer to simple string comparison
     elif question_type in ["short_answer", "short answer"]:
-        if str(user_answer).strip().lower() == str(correct_answer).strip().lower():
+        if is_answer_correct(user_answer, correct_answer, question_type):
             is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Expected: {correct_answer}"
+        # Display first acceptable answer if multiple exist
+        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+        feedback_message = f"Your answer: {user_answer}, Expected: {display_answer}"
     # For match questions, we have JSON strings representing dictionaries
     elif question_type == "match":
         try:
@@ -184,13 +201,16 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
             else:
                 feedback_message = f"You matched {correct_count} out of {total_count} items correctly."
         except json.JSONDecodeError:
-            feedback_message = "Error processing match answers."
-    # For other text-based answers (multiple_choice, fill_in_the_blank)
-    elif str(user_answer).strip().lower() == str(correct_answer).strip().lower():
+            feedback_message = "Error processing match answers."    # For other text-based answers (multiple_choice, fill_in_the_blank)
+    elif is_answer_correct(user_answer, correct_answer, question_type):
         is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
+        # Display first acceptable answer if multiple exist
+        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
     else: # Default case for incorrect non-boolean, non-short-answer
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
+        # Display first acceptable answer if multiple exist
+        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
 
     if is_correct_locally:
         st.session_state.feedback[question_key] = "Correct!" 
@@ -611,7 +631,8 @@ def display_section_content(section_data, section_key_prefix):
 def main():
     # Initialize authenticator
     authenticator, config = get_authenticator()
-      # Top bar with title and login button
+    
+    # Simple title bar with login functionality
     col1, col2 = st.columns([4, 1])
     
     with col1:
@@ -625,13 +646,13 @@ def main():
                 authenticator.logout(location='main')
             except Exception as e:
                 st.error(f"Logout error: {e}")
-        else:
-            # Show login/hide button for non-authenticated users
+        else:            # Show login/hide button for non-authenticated users
             button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
             if st.button(button_text, type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
                 st.rerun()
-      # Show authentication status messages
+    
+    # Show authentication status messages
     if st.session_state.authentication_status:
         st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
         
@@ -796,24 +817,33 @@ def main():
         - Fill in the blank
         - Short answer
         - True/False
-        - Matching
-        """)    # Check if user can generate courses
+        - Matching        """)
+      # Check if user can generate courses
     can_generate = check_course_limit()
     
-    # Disable button if limit reached and not authenticated
-    button_disabled = not can_generate
-    button_text = "Generate Course" if can_generate else "Login Required (Limit Reached)"
-    
+    # Simple button logic: disable only if generating or limit reached
+    if st.session_state.is_generating_course:
+        button_text = "🤖 Generating..."
+        button_disabled = True
+    elif can_generate:
+        button_text = "Generate Course"
+        button_disabled = False
+    else:
+        button_text = "Login Required (Limit Reached)"
+        button_disabled = True
+      # Two-phase button logic to properly handle disable state
     if st.sidebar.button(button_text, type="primary", disabled=button_disabled):
         # Check if either input method is provided
-        if uploaded_file or pdf_url:            # Check course limit one more time before processing
+        if uploaded_file or pdf_url:
+            # Check course limit one more time before processing
             if not check_course_limit():
                 st.sidebar.error("You have reached the limit of 3 guest courses. Please login to continue.")
                 return
             
-            # Increment course count for non-authenticated users
-            if not st.session_state.authentication_status:
-                st.session_state.courses_generated += 1
+            # Phase 1: Set up generation state and store inputs, then rerun
+            st.session_state.is_generating_course = True
+            st.session_state.pending_uploaded_file = uploaded_file
+            st.session_state.pending_pdf_url = pdf_url
             
             # Clear previous state
             st.session_state.course_data = None
@@ -821,83 +851,99 @@ def main():
             st.session_state.current_section_index = 0
             reset_section_attempt_state()
             
-            # Show loading message with more details
-            with st.spinner("🤖 Generating course... This may take 30-60 seconds for complex PDFs."):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                try:
-                    if uploaded_file:
-                        status_text.text("📄 Processing uploaded PDF...")
-                        progress_bar.progress(25)
-                        course_data, error_message = generate_course(files=uploaded_file)
-                    elif pdf_url:
-                        status_text.text("🌐 Downloading PDF from URL...")
-                        progress_bar.progress(25)
-                        course_data, error_message = generate_course(file_url=pdf_url)
-                    
-                    progress_bar.progress(75)
-                    status_text.text("🧠 AI is analyzing content and creating questions...")
-                    
-                    # Reset score and calculate total questions for new course
-                    st.session_state.current_score = 0
-                    st.session_state.scored_correctly_keys = set()
-
-                    # Helper function to count questions recursively
-                    def _count_questions_recursively(sections_list):
-                        total_q = 0
-                        if not sections_list:
-                            return 0
-                        for section_item in sections_list:
-                            # Ensure section_item is a dictionary before processing
-                            if hasattr(section_item, '__dict__') and not hasattr(section_item, 'get'):
-                                # This is a Pydantic model
-                                total_q += len(getattr(section_item, "quiz", []))
-                                sub_sections = getattr(section_item, "subsections", [])
-                                if sub_sections:
-                                    total_q += _count_questions_recursively(sub_sections)
-                            elif isinstance(section_item, dict):
-                                # This is a dictionary
-                                total_q += len(section_item.get('questions', [])) 
-                                sub_sections = section_item.get('sub_sections')
-                                # Ensure sub_sections is a list before recursing
-                                if sub_sections and isinstance(sub_sections, list):
-                                    total_q += _count_questions_recursively(sub_sections)
-                        return total_q
-
-                    if course_data and (isinstance(course_data, list) or hasattr(course_data, '__iter__')):
-                        st.session_state.total_questions_in_course = _count_questions_recursively(course_data)
-                    else:
-                        st.session_state.total_questions_in_course = 0
-                    
-                    progress_bar.progress(100)
-                    status_text.text("✅ Course generated successfully!")
-                    
-                    if error_message:
-                        st.session_state.error_message = error_message
-                    if course_data:
-                        st.session_state.course_data = course_data                        # Show different success messages based on authentication status
-                        if st.session_state.authentication_status:
-                            st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
-                        else:
-                            remaining = 3 - st.session_state.courses_generated
-                            if remaining > 0:
-                                st.success(f"🎉 Course created! You have {remaining} guest course{'s' if remaining != 1 else ''} remaining.")
-                            else:
-                                st.success("🎉 Course created! This was your last guest course. Login for unlimited access.")
-                    
-                    # Clear progress indicators
-                    progress_bar.empty()
-                    status_text.empty()
-                    
-                except Exception as e:
-                    progress_bar.empty()
-                    status_text.empty()
-                    st.session_state.error_message = f"Unexpected error: {str(e)}"
-                
-            st.rerun() # Rerun to apply new course data and reset view
+            # Increment course count for non-authenticated users
+            if not st.session_state.authentication_status:
+                st.session_state.courses_generated += 1
+            
+            # Rerun to show disabled button immediately
+            st.rerun()
         else:
             st.sidebar.warning("Please provide a PDF input.")
+    
+    # Phase 2: Execute generation if we're in generating state
+    if st.session_state.is_generating_course and (st.session_state.pending_uploaded_file or st.session_state.pending_pdf_url):
+        # Show loading message with more details
+        with st.spinner("🤖 Generating course... This may take 30-60 seconds for complex PDFs."):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            try:
+                if st.session_state.pending_uploaded_file:
+                    status_text.text("📄 Processing uploaded PDF...")
+                    progress_bar.progress(25)
+                    course_data, error_message = generate_course(files=st.session_state.pending_uploaded_file)
+                elif st.session_state.pending_pdf_url:
+                    status_text.text("🌐 Downloading PDF from URL...")
+                    progress_bar.progress(25)
+                    course_data, error_message = generate_course(file_url=st.session_state.pending_pdf_url)                
+                progress_bar.progress(75)
+                status_text.text("🧠 AI is analyzing content and creating questions...")
+                
+                # Reset score and calculate total questions for new course
+                st.session_state.current_score = 0
+                st.session_state.scored_correctly_keys = set()
+
+                # Helper function to count questions recursively
+                def _count_questions_recursively(sections_list):
+                    total_q = 0
+                    if not sections_list:
+                        return 0
+                    for section_item in sections_list:
+                        # Ensure section_item is a dictionary before processing
+                        if hasattr(section_item, '__dict__') and not hasattr(section_item, 'get'):
+                            # This is a Pydantic model
+                            total_q += len(getattr(section_item, "quiz", []))
+                            sub_sections = getattr(section_item, "subsections", [])
+                            if sub_sections:
+                                total_q += _count_questions_recursively(sub_sections)
+                        elif isinstance(section_item, dict):
+                            # This is a dictionary
+                            total_q += len(section_item.get('questions', [])) 
+                            sub_sections = section_item.get('sub_sections')
+                            # Ensure sub_sections is a list before recursing
+                            if sub_sections and isinstance(sub_sections, list):
+                                total_q += _count_questions_recursively(sub_sections)
+                    return total_q
+
+                if course_data and (isinstance(course_data, list) or hasattr(course_data, '__iter__')):
+                    st.session_state.total_questions_in_course = _count_questions_recursively(course_data)
+                else:
+                    st.session_state.total_questions_in_course = 0
+                
+                progress_bar.progress(100)
+                status_text.text("✅ Course generated successfully!")
+                
+                if error_message:
+                    st.session_state.error_message = error_message
+                if course_data:
+                    st.session_state.course_data = course_data
+                    
+                    # Show different success messages based on authentication status
+                    if st.session_state.authentication_status:
+                        st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
+                    else:
+                        remaining = 3 - st.session_state.courses_generated
+                        if remaining > 0:
+                            st.success(f"🎉 Course created! You have {remaining} guest course{'s' if remaining != 1 else ''} remaining.")
+                        else:
+                            st.success("🎉 Course created! This was your last guest course. Login for unlimited access.")
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+            except Exception as e:
+                progress_bar.empty()
+                status_text.empty()
+                st.session_state.error_message = f"Unexpected error: {str(e)}"
+            finally:
+                # Reset generating state and clear pending inputs
+                st.session_state.is_generating_course = False
+                st.session_state.pending_uploaded_file = None
+                st.session_state.pending_pdf_url = None
+            
+            # Rerun to apply new course data and reset view
+            st.rerun()
 
     # The score metric will be displayed here
     if st.session_state.total_questions_in_course > 0:
