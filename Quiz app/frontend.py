@@ -48,11 +48,14 @@ st.markdown("""
 def initialize_session_state():
     # Initialize session state
     if "current_section_index" not in st.session_state:  
-        st.session_state.current_section_index = 0     
+        st.session_state.current_section_index = 0
     if "user_answers" not in st.session_state:
         st.session_state.user_answers = {}
     if "checked_answers" not in st.session_state:
-        st.session_state.checked_answers = {}    # Scoring system state    if "current_score" not in st.session_state:
+        st.session_state.checked_answers = {}
+    
+    # Scoring system state
+    if "current_score" not in st.session_state:
         st.session_state.current_score = 0
     if "total_questions_in_course" not in st.session_state:
         st.session_state.total_questions_in_course = 0
@@ -749,10 +752,11 @@ def main():
             st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")
     
     # Conditionally show authentication section
-    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:
-        # Show login options
+    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:        # Show login options
         st.markdown("---")
-        st.subheader("🔐 Authentication")        # Create tabs for different login methods
+        st.subheader("🔐 Authentication")
+        
+        # Create tabs for different login methods
         login_tab, register_tab, forgot_tab = st.tabs(["Login", "Register", "Forgot Password"])
         
         with login_tab:
@@ -767,17 +771,23 @@ def main():
             
             with col1:
                 try:
-                    authenticator.experimental_guest_login('Login with Google',
-                                                         provider='google',
-                                                         oauth2=config['oauth2'])
+                    if config and 'oauth2' in config:
+                        authenticator.experimental_guest_login('Login with Google',
+                                                             provider='google',
+                                                             oauth2=config['oauth2'])
+                    else:
+                        st.info("OAuth login not configured")
                 except Exception as e:
                     st.error(f"Google login error: {e}")
             
             with col2:
                 try:
-                    authenticator.experimental_guest_login('Login with Microsoft',
-                                                         provider='microsoft',
-                                                         oauth2=config['oauth2'])
+                    if config and 'oauth2' in config:
+                        authenticator.experimental_guest_login('Login with Microsoft',
+                                                             provider='microsoft',
+                                                             oauth2=config['oauth2'])
+                    else:
+                        st.info("OAuth login not configured")
                 except Exception as e:
                     st.error(f"Microsoft login error: {e}")
         
@@ -1060,10 +1070,10 @@ def fix_json_format(data_str):
         try:
             # Try to fix multiple common JSON formatting issues
             import re
-            
-            # Remove extra whitespace and newlines, but preserve structure
+              # Remove extra whitespace and newlines, but preserve structure
             cleaned = str(data_str).strip()
-              # Handle case 1: Key='Value' format (single quotes around values)
+            
+            # Handle case 1: Key='Value' format (single quotes around values)
             # Convert Key='Value' to "Key":"Value"
             cleaned = re.sub(r"([A-Za-z0-9\s]+)='([^']*)'", r'"\1":"\2"', cleaned)
             
@@ -1099,10 +1109,10 @@ def fix_json_format(data_str):
             
         except (json.JSONDecodeError, Exception):
             # If regex approach fails, try manual key-value extraction
-            try:
-                # Extract key-value pairs using a more robust approach
+            try:                # Extract key-value pairs using a more robust approach
                 import re
-                  # First try to handle the Key='Value' format specifically
+                
+                # First try to handle the Key='Value' format specifically
                 pattern_single_quotes = r"([A-Za-z0-9\s]+)='([^']*)'"
                 matches = re.findall(pattern_single_quotes, str(data_str))
                 
