@@ -133,6 +133,71 @@ def validate_pdf_content(pdf_bytes):
     
     return True
 
+def validate_short_answer_with_ai(question, user_answer, expected_answer):
+    """
+    Use AI to validate a short answer question and provide feedback.
+    
+    Args:
+        question: The original question text
+        user_answer: The user's submitted answer
+        expected_answer: The expected/correct answer
+        
+    Returns:
+        tuple: (is_correct, explanation)
+            - is_correct: Boolean indicating if the answer is correct
+            - explanation: String explanation of why the answer is correct/incorrect
+    """
+    try:
+        validation_prompt = f"""
+You are an expert teacher evaluating a student's short answer response. 
+
+Question: {question}
+Expected Answer: {expected_answer}
+Student's Answer: {user_answer}
+
+Please evaluate if the student's answer is correct or incorrect. Consider:
+1. The core meaning and concepts should match
+2. Minor spelling, grammar, or formatting differences should not matter
+3. Synonyms and equivalent expressions should be accepted
+4. The answer should demonstrate understanding of the key concepts
+
+Respond with a JSON object in this exact format:
+{{
+    "is_correct": true/false,
+    "explanation": "Brief explanation (1-2 sentences) of why the answer is correct or what's missing/wrong if incorrect"
+}}
+
+Be fair but accurate in your evaluation.
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3  # Lower temperature for more consistent evaluation
+            ),
+            contents=[validation_prompt]
+        )
+        
+        if not response.text:
+            logger.warning("Empty response from AI validation")
+            return None, "AI validation failed"
+        
+        # Parse the JSON response
+        validation_result = json.loads(response.text)
+        is_correct = validation_result.get("is_correct", False)
+        explanation = validation_result.get("explanation", "No explanation provided")
+        
+        logger.info(f"AI validation result: {'Correct' if is_correct else 'Incorrect'}")
+        return is_correct, explanation
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI validation response: {e}")
+        return None, "AI validation response was invalid"
+    except Exception as e:
+        logger.error(f"Error in AI validation: {e}")
+        return None, f"AI validation error: {str(e)}"
+    
 def generate_course(file_content=None, file_url=None):
     """
     Generate a course structure from PDF content or a PDF URL.

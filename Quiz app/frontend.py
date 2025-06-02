@@ -230,13 +230,36 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         user_answer_bool = str(user_answer).lower() == "true"
         if user_answer_bool == correct_answer_bool:
             is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"    # Revert short_answer to simple string comparison
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"    # AI-powered validation for short answer questions
     elif question_type in ["short_answer", "short answer"]:
-        if is_answer_correct(user_answer, correct_answer, question_type):
-            is_correct_locally = True
-        # Display first acceptable answer if multiple exist
-        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
-        feedback_message = f"Your answer: {user_answer}, Expected: {display_answer}"
+        # First try AI validation
+        try:
+            # Get the original question text from session state
+            question_text = st.session_state.get(f"{question_key}_question", "")
+            
+            # Use AI validation
+            ai_result, ai_explanation = local_backend.validate_short_answer_with_ai(
+                question_text, user_answer, correct_answer
+            )
+            
+            if ai_result is not None:  # AI validation succeeded
+                is_correct_locally = ai_result
+                if is_correct_locally:
+                    feedback_message = f"Correct! {ai_explanation}"
+                else:
+                    feedback_message = f"Incorrect. {ai_explanation}"
+            else:  # AI validation failed, fallback to simple comparison
+                if is_answer_correct(user_answer, correct_answer, question_type):
+                    is_correct_locally = True
+                display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+                feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable: {ai_explanation})"
+                
+        except Exception as e:
+            # Fallback to simple string comparison if AI validation fails
+            if is_answer_correct(user_answer, correct_answer, question_type):
+                is_correct_locally = True
+            display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+            feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation error)"
     # For match questions, we have JSON strings representing dictionaries
     elif question_type == "match":
         try:
@@ -294,6 +317,9 @@ def display_question(question_item, section_key, question_idx):
     
     question_key = f"{section_key}_q_{question_idx}"
     is_answered = st.session_state.checked_answers.get(question_key, False)
+
+    # Store question text in session state for AI validation
+    st.session_state[f"{question_key}_question"] = question_text_full
 
     # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
     if question_type not in ["fill_in_the_blank", "fill in the blank"]:
