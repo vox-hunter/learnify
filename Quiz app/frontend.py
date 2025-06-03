@@ -734,20 +734,19 @@ def main():
             button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
             if st.button(button_text, type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
-                st.rerun()    
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
     # Show authentication status messages and functionality
     if authenticator is not None:
         # Authentication system is available
         if st.session_state.authentication_status:
             st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
-            
             # Add password reset widget for authenticated users
             if 'show_password_reset' not in st.session_state:
                 st.session_state.show_password_reset = False
                 
             if st.button("🔑 Change Password", type="secondary"):
                 st.session_state.show_password_reset = not st.session_state.show_password_reset
-                st.rerun()
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
             
             if st.session_state.show_password_reset:
                 st.markdown("---")
@@ -758,7 +757,7 @@ def main():
                         # Save the updated config to YAML file
                         save_config(config)
                         st.session_state.show_password_reset = False
-                        st.rerun()
+                        # Removed st.rerun() - Streamlit automatically reruns when session state changes
                 except Exception as e:
                     st.error(f"Password reset error: {e}")
             
@@ -775,10 +774,9 @@ def main():
             st.warning('⚠️ You have reached the limit of 3 guest courses. Authentication system is temporarily unavailable.')
         else:
             courses_remaining = 3 - st.session_state.courses_generated
-            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")
-    
-    # Conditionally show authentication section
-    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:        # Show login options
+            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")      # Conditionally show authentication section
+    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:
+        # Show login options
         st.markdown("---")
         st.subheader("🔐 Authentication")
         
@@ -859,7 +857,7 @@ def main():
         st.error(f"❌ {st.session_state.error_message}")
         if st.button("Clear Error"):
             st.session_state.error_message = None
-            st.rerun()
+            # Removed st.rerun() - Streamlit automatically reruns when session state changes
     
     # --- UI for input (in sidebar) ---
     st.sidebar.header("Input PDF")
@@ -900,6 +898,7 @@ def main():
             st.sidebar.progress(progress, text=f"Used: {courses_used}/3")
         else:
             st.sidebar.error("❌ Guest courses limit reached")
+            st.sidebar.warning("We require you to login to prevent abuse of our service.")
             st.sidebar.info("Login above for unlimited access!")
 
     # Add helpful tips in sidebar
@@ -1055,18 +1054,16 @@ def main():
 
     if "course_data" in st.session_state and st.session_state.course_data:
         course_data = st.session_state.course_data
-        total_sections = len(course_data)
-
-        # Navigation buttons
+        total_sections = len(course_data)        # Navigation buttons
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             if st.button("⬅️ Previous Section", disabled=st.session_state.current_section_index == 0):
                 st.session_state.current_section_index -= 1
-                st.rerun()
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
         with col3:
             if st.button("Next Section ➡️", disabled=st.session_state.current_section_index == total_sections - 1):
                 st.session_state.current_section_index += 1
-                st.rerun()
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
         
         with col2:
             st.write(f"Displaying Section {st.session_state.current_section_index + 1} of {total_sections}")
