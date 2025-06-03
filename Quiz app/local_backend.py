@@ -9,6 +9,12 @@ import os
 import requests
 import io
 
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
 
 # Define a Pydantic model for arbitrary key-value mappings
@@ -27,7 +33,7 @@ class QuizItem(BaseModel):
     ]  # accept both formats
     question: str
     options: Optional[List[str]] = Field(default=None, alias="choices")
-    answer: Union[str, bool, ArbitraryMapping]
+    answer: Union[str, bool, List[str], ArbitraryMapping]
 
 class Section(BaseModel):
     section_title: str = Field(alias="section")
@@ -57,11 +63,25 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Validate API key
-api_key = os.getenv("GEMINI_API_KEY")
+# Validate API key - try Streamlit secrets first, then environment variables
+api_key = None
+
+if STREAMLIT_AVAILABLE:
+    try:
+        api_key = st.secrets.GEMINI_API_KEY
+        logger.info("Successfully loaded API key from Streamlit secrets")
+    except (KeyError, FileNotFoundError):
+        logger.info("Streamlit secrets not available or key not found, trying environment variables")
+
+# Fallback to environment variables if Streamlit secrets not available
 if not api_key:
-    logger.error("GEMINI_API_KEY not found in environment variables. Please check your .env file.")
-    raise ValueError("GEMINI_API_KEY is required but not found in environment variables")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        logger.info("Successfully loaded API key from environment variables")
+
+if not api_key:
+    logger.error("GEMINI_API_KEY not found in Streamlit secrets or environment variables. Please check your configuration.")
+    raise ValueError("GEMINI_API_KEY is required but not found in Streamlit secrets or environment variables")
 
 try:
     client = genai.Client(api_key=api_key)
@@ -113,6 +133,71 @@ def validate_pdf_content(pdf_bytes):
     
     return True
 
+def validate_short_answer_with_ai(question, user_answer, expected_answer):
+    """
+    Use AI to validate a short answer question and provide feedback.
+    
+    Args:
+        question: The original question text
+        user_answer: The user's submitted answer
+        expected_answer: The expected/correct answer
+        
+    Returns:
+        tuple: (is_correct, explanation)
+            - is_correct: Boolean indicating if the answer is correct
+            - explanation: String explanation of why the answer is correct/incorrect
+    """
+    try:
+        validation_prompt = f"""
+You are an expert teacher evaluating a student's short answer response. 
+
+Question: {question}
+Expected Answer: {expected_answer}
+Student's Answer: {user_answer}
+
+Please evaluate if the student's answer is correct or incorrect. Consider:
+1. The core meaning and concepts should match
+2. Minor spelling, grammar, or formatting differences should not matter
+3. Synonyms and equivalent expressions should be accepted
+4. The answer should demonstrate understanding of the key concepts
+
+Respond with a JSON object in this exact format:
+{{
+    "is_correct": true/false,
+    "explanation": "Brief explanation (1-2 sentences) of why the answer is correct or what's missing/wrong if incorrect"
+}}
+
+Be fair but accurate in your evaluation.
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3  # Lower temperature for more consistent evaluation
+            ),
+            contents=[validation_prompt]
+        )
+        
+        if not response.text:
+            logger.warning("Empty response from AI validation")
+            return None, "AI validation failed"
+        
+        # Parse the JSON response
+        validation_result = json.loads(response.text)
+        is_correct = validation_result.get("is_correct", False)
+        explanation = validation_result.get("explanation", "No explanation provided")
+        
+        logger.info(f"AI validation result: {'Correct' if is_correct else 'Incorrect'}")
+        return is_correct, explanation
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI validation response: {e}")
+        return None, "AI validation response was invalid"
+    except Exception as e:
+        logger.error(f"Error in AI validation: {e}")
+        return None, f"AI validation error: {str(e)}"
+    
 def generate_course(file_content=None, file_url=None):
     """
     Generate a course structure from PDF content or a PDF URL.
@@ -180,7 +265,7 @@ def generate_course(file_content=None, file_url=None):
         logger.info("Sending request to Gemini AI...")
         # Generate content using Gemini API
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-preview-05-20",
             config=types.GenerateContentConfig(
                 system_instruction=sys_ins,
                 response_mime_type="application/json",
@@ -201,6 +286,8 @@ def generate_course(file_content=None, file_url=None):
             # Try to parse with Pydantic validation first
             parsed = ActualApiResponse.model_validate_json(response.text)
             logger.info("Successfully validated response with Pydantic schema")
+            if DEBUG_MODE:
+                logger.info(f"Parsed response: {parsed}")
             return parsed.root, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")

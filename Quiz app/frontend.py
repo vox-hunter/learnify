@@ -1,22 +1,59 @@
 import streamlit as st
 import json
 import re
+import random
 from st_fill_in_the_blanks import fill_in_the_blanks_input
 import local_backend
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
+import os
+
+
 
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    layout="wide", 
+    page_title="Learnique",
+    page_icon="🧠"
+)
+
+# Apply custom CSS for consistent theming (fallback for cloud deployment)
+st.markdown("""
+<style>
+    .stApp {{
+        background-color: #0a0014 !important;
+    }}
+    .stSidebar {{
+        background-color: #1a0033 !important;
+    }}
+    .stButton > button {{
+        background-color: #9d00ff !important;
+        color: white !important;
+    }}
+    .stButton > button:hover {{
+        background-color: #7a00cc !important;
+    }}
+    .stFileUploader > div > div {{
+        background-color: #1a0033 !important;
+        border: 2px dashed #9d00ff !important;
+    }}    .stProgress > div > div {{
+        background-color: #9d00ff !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 # Function to initialize all session state variables
 def initialize_session_state():
     # Initialize session state
     if "current_section_index" not in st.session_state:  
-        st.session_state.current_section_index = 0     
+        st.session_state.current_section_index = 0
     if "user_answers" not in st.session_state:
         st.session_state.user_answers = {}
     if "checked_answers" not in st.session_state:
         st.session_state.checked_answers = {}
+    
     # Scoring system state
     if "current_score" not in st.session_state:
         st.session_state.current_score = 0
@@ -24,15 +61,115 @@ def initialize_session_state():
         st.session_state.total_questions_in_course = 0
     if "scored_correctly_keys" not in st.session_state:
         st.session_state.scored_correctly_keys = set()
-    if "feedback" not in st.session_state: 
+    if "feedback" not in st.session_state:
         st.session_state.feedback = {}
     if "course_data" not in st.session_state:
         st.session_state.course_data = None
     if "error_message" not in st.session_state:
         st.session_state.error_message = None
+    if "is_generating_course" not in st.session_state:
+        st.session_state.is_generating_course = False
+    if "pending_uploaded_file" not in st.session_state:
+        st.session_state.pending_uploaded_file = None
+    if "pending_pdf_url" not in st.session_state:
+        st.session_state.pending_pdf_url = None
+    # Authentication and course limit tracking
+    if "courses_generated" not in st.session_state:
+        st.session_state.courses_generated = 0
+    if "authentication_status" not in st.session_state:
+        st.session_state.authentication_status = None
+    if "name" not in st.session_state:
+        st.session_state.name = None
+    if "username" not in st.session_state:
+        st.session_state.username = None
+    if "show_login" not in st.session_state:
+        st.session_state.show_login = False
 
 # Initialize session state at module level
 initialize_session_state()
+
+# Load authentication config with multiple fallback paths
+def load_config():
+    """Load authentication config with fallback paths for cloud deployment"""
+    potential_paths = [
+        # Current directory (cloud deployment)
+        'authenticate.yaml',
+        # Parent directory (local development)
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
+        # Same directory as script
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
+        # Streamlit secrets fallback
+        None  # Will use Streamlit secrets
+    ]
+    
+    for config_path in potential_paths:
+        if config_path is None:
+            # Try to load from Streamlit secrets as fallback
+            try:
+                if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
+                    return dict(st.secrets['authenticate'])
+            except Exception:
+                continue
+        else:
+            try:
+                if os.path.exists(config_path):
+                    with open(config_path, 'r') as file:
+                        config = yaml.load(file, Loader=SafeLoader)
+                    return config
+            except Exception as e:
+                st.warning(f"Failed to load config from {config_path}: {e}")
+                continue
+    
+    # Return minimal config if all methods fail
+    return {
+        'credentials': {'usernames': {}},
+        'cookie': {'name': 'auth_cookie', 'key': 'default_key', 'expiry_days': 30},
+        'api_key': 'default_key',
+        'preauthorized': []
+    }
+
+# Save config function with error handling
+def save_config(config):
+    """Save config with error handling for cloud deployment"""
+    potential_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
+        'authenticate.yaml'
+    ]
+    
+    for config_path in potential_paths:
+        try:
+            with open(config_path, 'w') as file:
+                yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+            return True
+        except Exception:
+            continue
+    return False
+
+# Create authenticator with error handling
+def get_authenticator():
+    """Create authenticator with robust error handling"""
+    try:
+        config = load_config()
+        authenticator = stauth.Authenticate(
+            config['credentials'],
+            config['cookie']['name'],
+            config['cookie']['key'],
+            config['cookie']['expiry_days'],
+            config.get('preauthorized', []),
+            api_key=config.get('api_key')
+        )
+        return authenticator, config
+    except Exception as e:
+        st.error(f"Authentication system initialization failed: {e}")
+        # Return None to indicate authentication is not available
+        return None, None
+
+def check_course_limit():
+    """Check if user has reached the course generation limit"""
+    if st.session_state.authentication_status:
+        return True  # Authenticated users have unlimited access
+    return st.session_state.courses_generated < 3
 
 def reset_section_attempt_state():
     st.session_state.user_answers = {}
@@ -60,6 +197,18 @@ def generate_course(files=None, file_url=None):
         st.error(f"Error generating course: {e}")
         return None, f"Error generating course: {e}"
 
+def is_answer_correct(user_answer, correct_answer, question_type):
+    """Check if user answer matches any acceptable answer"""
+    user_clean = str(user_answer).strip().lower()
+    
+    # Handle multiple acceptable answers
+    if isinstance(correct_answer, list):
+        acceptable_answers = [str(ans).strip().lower() for ans in correct_answer]
+        return user_clean in acceptable_answers
+    else:
+        # Single answer (backward compatibility)
+        return user_clean == str(correct_answer).strip().lower()
+
 def handle_answer_submission(question_key, correct_answer, question_type, placeholder_option_value=None):
     user_answer = st.session_state.get(question_key)
     
@@ -81,12 +230,36 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         user_answer_bool = str(user_answer).lower() == "true"
         if user_answer_bool == correct_answer_bool:
             is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
-    # Revert short_answer to simple string comparison
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"    # AI-powered validation for short answer questions
     elif question_type in ["short_answer", "short answer"]:
-        if str(user_answer).strip().lower() == str(correct_answer).strip().lower():
-            is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Expected: {correct_answer}"
+        # First try AI validation
+        try:
+            # Get the original question text from session state
+            question_text = st.session_state.get(f"{question_key}_question", "")
+            
+            # Use AI validation
+            ai_result, ai_explanation = local_backend.validate_short_answer_with_ai(
+                question_text, user_answer, correct_answer
+            )
+            
+            if ai_result is not None:  # AI validation succeeded
+                is_correct_locally = ai_result
+                if is_correct_locally:
+                    feedback_message = f"Correct! {ai_explanation}"
+                else:
+                    feedback_message = f"Incorrect. {ai_explanation}"
+            else:  # AI validation failed, fallback to simple comparison
+                if is_answer_correct(user_answer, correct_answer, question_type):
+                    is_correct_locally = True
+                display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+                feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable: {ai_explanation})"
+                
+        except Exception as e:
+            # Fallback to simple string comparison if AI validation fails
+            if is_answer_correct(user_answer, correct_answer, question_type):
+                is_correct_locally = True
+            display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+            feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation error)"
     # For match questions, we have JSON strings representing dictionaries
     elif question_type == "match":
         try:
@@ -105,13 +278,16 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
             else:
                 feedback_message = f"You matched {correct_count} out of {total_count} items correctly."
         except json.JSONDecodeError:
-            feedback_message = "Error processing match answers."
-    # For other text-based answers (multiple_choice, fill_in_the_blank)
-    elif str(user_answer).strip().lower() == str(correct_answer).strip().lower():
+            feedback_message = "Error processing match answers."    # For other text-based answers (multiple_choice, fill_in_the_blank)
+    elif is_answer_correct(user_answer, correct_answer, question_type):
         is_correct_locally = True
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
+        # Display first acceptable answer if multiple exist
+        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
     else: # Default case for incorrect non-boolean, non-short-answer
-        feedback_message = f"Your answer: {user_answer}, Correct answer: {correct_answer}"
+        # Display first acceptable answer if multiple exist
+        display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+        feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
 
     if is_correct_locally:
         st.session_state.feedback[question_key] = "Correct!" 
@@ -141,6 +317,9 @@ def display_question(question_item, section_key, question_idx):
     
     question_key = f"{section_key}_q_{question_idx}"
     is_answered = st.session_state.checked_answers.get(question_key, False)
+
+    # Store question text in session state for AI validation
+    st.session_state[f"{question_key}_question"] = question_text_full
 
     # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
     if question_type not in ["fill_in_the_blank", "fill in the blank"]:
@@ -203,11 +382,11 @@ def display_question(question_item, section_key, question_idx):
                 key=f"fitb_{question_key}",
                 default_value=current_blank_value,
                 disabled=is_answered
-            )              # If the component's value changed, update session_state and trigger submission handler
+            )            # If the component's value changed, update session_state and trigger submission handler
             if user_input_for_blank != current_blank_value:
                 st.session_state[question_key] = user_input_for_blank
                 handle_answer_submission(question_key, correct_answer_for_blank, question_type)
-                st.rerun()
+                # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
     
     elif question_type == "match":
         # Get the matching items from the question's answer
@@ -352,13 +531,12 @@ def display_question(question_item, section_key, question_idx):
                         # Convert to string format for answer checking
                         user_match_str = json.dumps(user_match_dict, sort_keys=True)
                         correct_match_str = json.dumps(match_data, sort_keys=True)
-                        
-                        # Store the formatted answer in session state for the question key
+                          # Store the formatted answer in session state for the question key
                         st.session_state[question_key] = user_match_str
                         
                         # Call the answer submission handler
                         handle_answer_submission(question_key, correct_match_str, "match")
-                        st.rerun()
+                        # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
                         
                 # Display a visual summary of matches if answered
                 if is_answered:
@@ -531,19 +709,156 @@ def display_section_content(section_data, section_key_prefix):
                 display_section_content(sub_section_data, sub_section_key)
 
 def main():
-    # SET The main title for the application
-    st.title("AI Quiz and Course Generator") 
+    # Initialize authenticator with error handling
+    authenticator, config = get_authenticator()
+    
+    # Simple title bar with login functionality
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        st.title("AI Quiz and Course Generator")
+    
+    with col2:
+        # Show different buttons based on authentication status and availability
+        if authenticator is None:
+            # Authentication system not available (cloud deployment issue)
+            st.warning("🔐 Login temporarily unavailable")
+        elif st.session_state.authentication_status:
+            # Show logout button for authenticated users
+            try:
+                authenticator.logout(location='main')
+            except Exception as e:
+                st.error(f"Logout error: {e}")
+        else:
+            # Show login/hide button for non-authenticated users
+            button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
+            if st.button(button_text, type="secondary"):
+                st.session_state.show_login = not st.session_state.show_login
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
+    # Show authentication status messages and functionality
+    if authenticator is not None:
+        # Authentication system is available
+        if st.session_state.authentication_status:
+            st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
+            # Add password reset widget for authenticated users
+            if 'show_password_reset' not in st.session_state:
+                st.session_state.show_password_reset = False
+                
+            if st.button("🔑 Change Password", type="secondary"):
+                st.session_state.show_password_reset = not st.session_state.show_password_reset
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
+            
+            if st.session_state.show_password_reset:
+                st.markdown("---")
+                st.subheader("🔑 Change Password")
+                try:
+                    if authenticator.reset_password(st.session_state.username):
+                        st.success('Password modified successfully')
+                        # Save the updated config to YAML file
+                        save_config(config)
+                        st.session_state.show_password_reset = False
+                        # Removed st.rerun() - Streamlit automatically reruns when session state changes
+                except Exception as e:
+                    st.error(f"Password reset error: {e}")
+            
+        elif st.session_state.authentication_status is False:
+            st.error('Username/password is incorrect')
+        elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
+            st.warning('⚠️ You have reached the limit of 3 guest courses. Please login to continue generating courses.')
+        elif st.session_state.courses_generated < 3:
+            courses_remaining = 3 - st.session_state.courses_generated
+            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
+    else:
+        # Authentication system not available - guest mode only
+        if st.session_state.courses_generated >= 3:
+            st.warning('⚠️ You have reached the limit of 3 guest courses. Authentication system is temporarily unavailable.')
+        else:
+            courses_remaining = 3 - st.session_state.courses_generated
+            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")      # Conditionally show authentication section
+    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:
+        # Show login options
+        st.markdown("---")
+        st.subheader("🔐 Authentication")
+        
+        # Create tabs for different login methods
+        login_tab, register_tab, forgot_tab = st.tabs(["Login", "Register", "Forgot Password"])
+        
+        with login_tab:
+            st.markdown("### Login with Username/Password")
+            try:
+                authenticator.login()
+            except Exception as e:
+                st.error(f"Login error: {e}")
+            
+            st.markdown("### Or Login with OAuth")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                try:
+                    if config and 'oauth2' in config:
+                        authenticator.experimental_guest_login('Login with Google',
+                                                             provider='google',
+                                                             oauth2=config['oauth2'])
+                    else:
+                        st.info("OAuth login not configured")
+                except Exception as e:
+                    st.error(f"Google login error: {e}")
+            
+            with col2:
+                try:
+                    if config and 'oauth2' in config:
+                        authenticator.experimental_guest_login('Login with Microsoft',
+                                                             provider='microsoft',
+                                                             oauth2=config['oauth2'])
+                    else:
+                        st.info("OAuth login not configured")
+                except Exception as e:
+                    st.error(f"Microsoft login error: {e}")
+        
+        with register_tab:
+            st.markdown("### Create New Account")
+            try:
+                email_of_registered_user, \
+                username_of_registered_user, \
+                name_of_registered_user = authenticator.register_user(
+                    fields={'Form name':'', 'Email':'Email', 'Username':'Username', 'Password':'Password', 'Repeat password':'Repeat password', 'Password hint':'Password hint', 'Captcha':'Captcha', 'Register':'Sign Up'},
+                    two_factor_auth=True
+                )
+                if email_of_registered_user:
+                    st.success('User registered successfully')
+                    # Important: Reload the config to get the updated credentials
+                    config = load_config()
+                    save_config(config)
+                    st.info("Please use your new credentials to login in the Login tab.")
+            except Exception as e:
+                st.error(f"Registration error: {e}")
+        
+        with forgot_tab:
+            st.markdown("### Reset Password")
+            try:
+                username_of_forgotten_password, \
+                email_of_forgotten_password, \
+                new_random_password = authenticator.forgot_password(send_email=True)
+                if username_of_forgotten_password:
+                    st.success('New password generated. Please check your email.')
+                    save_config(config)
+                elif username_of_forgotten_password == False:
+                    st.error('Username not found')
+            except Exception as e:
+                st.error(f"Password reset error: {e}")
+    
+    st.markdown("---")
     
     # ADD the description here
     st.write("Upload a PDF or provide a URL to generate a course with quizzes.")
-
+    
     # Check for errors and display them prominently
     if st.session_state.error_message:
         st.error(f"❌ {st.session_state.error_message}")
         if st.button("Clear Error"):
             st.session_state.error_message = None
-            st.rerun()
-
+            # Removed st.rerun() - Streamlit automatically reruns when session state changes
+    
     # --- UI for input (in sidebar) ---
     st.sidebar.header("Input PDF")
     input_method = st.sidebar.radio("Choose input method:", ("Upload File", "Provide URL"))
@@ -569,7 +884,22 @@ def main():
         )
         if pdf_url and not pdf_url.startswith(('http://', 'https://')):
             st.sidebar.warning("Please enter a valid URL starting with http:// or https://")
-            pdf_url = None
+            pdf_url = None    # Show course generation status for unauthenticated users
+    if not st.session_state.authentication_status:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 📊 Guest Access Status")
+        courses_used = st.session_state.courses_generated
+        courses_remaining = 3 - courses_used
+        
+        if courses_remaining > 0:
+            st.sidebar.success(f"✅ {courses_remaining} guest course{'s' if courses_remaining != 1 else ''} remaining")
+            # Show progress bar
+            progress = courses_used / 3
+            st.sidebar.progress(progress, text=f"Used: {courses_used}/3")
+        else:
+            st.sidebar.error("❌ Guest courses limit reached")
+            st.sidebar.warning("We require you to login to prevent abuse of our service.")
+            st.sidebar.info("Login above for unlimited access!")
 
     # Add helpful tips in sidebar
     with st.sidebar.expander("💡 Tips"):
@@ -585,87 +915,133 @@ def main():
         - Fill in the blank
         - Short answer
         - True/False
-        - Matching
-        """)
-
-    if st.sidebar.button("Generate Course", type="primary"):
+        - Matching        """)
+      # Check if user can generate courses
+    can_generate = check_course_limit()
+    
+    # Simple button logic: disable only if generating or limit reached
+    if st.session_state.is_generating_course:
+        button_text = "🤖 Generating..."
+        button_disabled = True
+    elif can_generate:
+        button_text = "Generate Course"
+        button_disabled = False
+    else:
+        button_text = "Login Required (Limit Reached)"
+        button_disabled = True
+      # Two-phase button logic to properly handle disable state
+    if st.sidebar.button(button_text, type="primary", disabled=button_disabled):
+        # Check if either input method is provided
         if uploaded_file or pdf_url:
+            # Check course limit one more time before processing
+            if not check_course_limit():
+                st.sidebar.error("You have reached the limit of 3 guest courses. Please login to continue.")
+                return
+            
+            # Phase 1: Set up generation state and store inputs, then rerun
+            st.session_state.is_generating_course = True
+            st.session_state.pending_uploaded_file = uploaded_file
+            st.session_state.pending_pdf_url = pdf_url
+            
             # Clear previous state
             st.session_state.course_data = None
             st.session_state.error_message = None
             st.session_state.current_section_index = 0
             reset_section_attempt_state()
             
-            # Show loading message with more details
-            with st.spinner("🤖 Generating course... This may take 30-60 seconds for complex PDFs."):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                try:
-                    if uploaded_file:
-                        status_text.text("📄 Processing uploaded PDF...")
-                        progress_bar.progress(25)
-                        course_data, error_message = generate_course(files=uploaded_file)
-                    elif pdf_url:
-                        status_text.text("🌐 Downloading PDF from URL...")
-                        progress_bar.progress(25)
-                        course_data, error_message = generate_course(file_url=pdf_url)
-                    
-                    progress_bar.progress(75)
-                    status_text.text("🧠 AI is analyzing content and creating questions...")
-                    
-                    # Reset score and calculate total questions for new course
-                    st.session_state.current_score = 0
-                    st.session_state.scored_correctly_keys = set()
-
-                    # Helper function to count questions recursively
-                    def _count_questions_recursively(sections_list):
-                        total_q = 0
-                        if not sections_list:
-                            return 0
-                        for section_item in sections_list:
-                            # Ensure section_item is a dictionary before processing
-                            if hasattr(section_item, '__dict__') and not hasattr(section_item, 'get'):
-                                # This is a Pydantic model
-                                total_q += len(getattr(section_item, "quiz", []))
-                                sub_sections = getattr(section_item, "subsections", [])
-                                if sub_sections:
-                                    total_q += _count_questions_recursively(sub_sections)
-                            elif isinstance(section_item, dict):
-                                # This is a dictionary
-                                total_q += len(section_item.get('questions', [])) 
-                                sub_sections = section_item.get('sub_sections')
-                                # Ensure sub_sections is a list before recursing
-                                if sub_sections and isinstance(sub_sections, list):
-                                    total_q += _count_questions_recursively(sub_sections)
-                        return total_q
-
-                    if course_data and (isinstance(course_data, list) or hasattr(course_data, '__iter__')):
-                        st.session_state.total_questions_in_course = _count_questions_recursively(course_data)
-                    else:
-                        st.session_state.total_questions_in_course = 0
-                    
-                    progress_bar.progress(100)
-                    status_text.text("✅ Course generated successfully!")
-                    
-                    if error_message:
-                        st.session_state.error_message = error_message
-                    if course_data:
-                        st.session_state.course_data = course_data
-                        st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
-                    
-                    # Clear progress indicators
-                    progress_bar.empty()
-                    status_text.empty()
-                    
-                except Exception as e:
-                    progress_bar.empty()
-                    status_text.empty()
-                    st.session_state.error_message = f"Unexpected error: {str(e)}"
-                
-            st.rerun() # Rerun to apply new course data and reset view
+            # Increment course count for non-authenticated users
+            if not st.session_state.authentication_status:
+                st.session_state.courses_generated += 1
+            
+            # Rerun to show disabled button immediately
+            st.rerun()
         else:
             st.sidebar.warning("Please provide a PDF input.")
+    
+    # Phase 2: Execute generation if we're in generating state
+    if st.session_state.is_generating_course and (st.session_state.pending_uploaded_file or st.session_state.pending_pdf_url):
+        # Show loading message with more details
+        with st.spinner("🤖 Generating course... This may take 30-60 seconds for complex PDFs."):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            try:
+                if st.session_state.pending_uploaded_file:
+                    status_text.text("📄 Processing uploaded PDF...")
+                    progress_bar.progress(25)
+                    course_data, error_message = generate_course(files=st.session_state.pending_uploaded_file)
+                elif st.session_state.pending_pdf_url:
+                    status_text.text("🌐 Downloading PDF from URL...")
+                    progress_bar.progress(25)
+                    course_data, error_message = generate_course(file_url=st.session_state.pending_pdf_url)                
+                progress_bar.progress(75)
+                status_text.text("🧠 AI is analyzing content and creating questions...")
+                
+                # Reset score and calculate total questions for new course
+                st.session_state.current_score = 0
+                st.session_state.scored_correctly_keys = set()
+
+                # Helper function to count questions recursively
+                def _count_questions_recursively(sections_list):
+                    total_q = 0
+                    if not sections_list:
+                        return 0
+                    for section_item in sections_list:
+                        # Ensure section_item is a dictionary before processing
+                        if hasattr(section_item, '__dict__') and not hasattr(section_item, 'get'):
+                            # This is a Pydantic model
+                            total_q += len(getattr(section_item, "quiz", []))
+                            sub_sections = getattr(section_item, "subsections", [])
+                            if sub_sections:
+                                total_q += _count_questions_recursively(sub_sections)
+                        elif isinstance(section_item, dict):
+                            # This is a dictionary
+                            total_q += len(section_item.get('questions', [])) 
+                            sub_sections = section_item.get('sub_sections')
+                            # Ensure sub_sections is a list before recursing
+                            if sub_sections and isinstance(sub_sections, list):
+                                total_q += _count_questions_recursively(sub_sections)
+                    return total_q
+
+                if course_data and (isinstance(course_data, list) or hasattr(course_data, '__iter__')):
+                    st.session_state.total_questions_in_course = _count_questions_recursively(course_data)
+                else:
+                    st.session_state.total_questions_in_course = 0
+                
+                progress_bar.progress(100)
+                status_text.text("✅ Course generated successfully!")
+                
+                if error_message:
+                    st.session_state.error_message = error_message
+                if course_data:
+                    st.session_state.course_data = course_data
+                    
+                    # Show different success messages based on authentication status
+                    if st.session_state.authentication_status:
+                        st.success(f"🎉 Course created with {len(course_data)} sections and {st.session_state.total_questions_in_course} questions!")
+                    else:
+                        remaining = 3 - st.session_state.courses_generated
+                        if remaining > 0:
+                            st.success(f"🎉 Course created! You have {remaining} guest course{'s' if remaining != 1 else ''} remaining.")
+                        else:
+                            st.success("🎉 Course created! This was your last guest course. Login for unlimited access.")
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+            except Exception as e:
+                progress_bar.empty()
+                status_text.empty()
+                st.session_state.error_message = f"Unexpected error: {str(e)}"
+            finally:
+                # Reset generating state and clear pending inputs
+                st.session_state.is_generating_course = False
+                st.session_state.pending_uploaded_file = None
+                st.session_state.pending_pdf_url = None
+            
+            # Rerun to apply new course data and reset view
+            st.rerun()
 
     # The score metric will be displayed here
     if st.session_state.total_questions_in_course > 0:
@@ -678,18 +1054,16 @@ def main():
 
     if "course_data" in st.session_state and st.session_state.course_data:
         course_data = st.session_state.course_data
-        total_sections = len(course_data)
-
-        # Navigation buttons
+        total_sections = len(course_data)        # Navigation buttons
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             if st.button("⬅️ Previous Section", disabled=st.session_state.current_section_index == 0):
                 st.session_state.current_section_index -= 1
-                st.rerun()
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
         with col3:
             if st.button("Next Section ➡️", disabled=st.session_state.current_section_index == total_sections - 1):
                 st.session_state.current_section_index += 1
-                st.rerun()
+                # Removed st.rerun() - Streamlit automatically reruns when session state changes
         
         with col2:
             st.write(f"Displaying Section {st.session_state.current_section_index + 1} of {total_sections}")
@@ -719,10 +1093,10 @@ def fix_json_format(data_str):
         try:
             # Try to fix multiple common JSON formatting issues
             import re
-            
-            # Remove extra whitespace and newlines, but preserve structure
+              # Remove extra whitespace and newlines, but preserve structure
             cleaned = str(data_str).strip()
-              # Handle case 1: Key='Value' format (single quotes around values)
+            
+            # Handle case 1: Key='Value' format (single quotes around values)
             # Convert Key='Value' to "Key":"Value"
             cleaned = re.sub(r"([A-Za-z0-9\s]+)='([^']*)'", r'"\1":"\2"', cleaned)
             
@@ -758,10 +1132,10 @@ def fix_json_format(data_str):
             
         except (json.JSONDecodeError, Exception):
             # If regex approach fails, try manual key-value extraction
-            try:
-                # Extract key-value pairs using a more robust approach
+            try:                # Extract key-value pairs using a more robust approach
                 import re
-                  # First try to handle the Key='Value' format specifically
+                
+                # First try to handle the Key='Value' format specifically
                 pattern_single_quotes = r"([A-Za-z0-9\s]+)='([^']*)'"
                 matches = re.findall(pattern_single_quotes, str(data_str))
                 

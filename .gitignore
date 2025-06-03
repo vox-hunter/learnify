@@ -251,9 +251,6 @@ dist
 ehthumbs.db
 Thumbs.db
 
-# Streamlit
-.streamlit/
-
 # API Keys and sensitive information
 *.key
 *.pem
@@ -284,3 +281,11 @@ yarn.lock
 # models/
 # data/
 # checkpoints/
+
+# Streamlit secrets (contains API keys) - keep config.toml but ignore secrets
+.streamlit/secrets.toml
+**/secrets.toml
+
+# Environment files
+.env
+.devcontainer
