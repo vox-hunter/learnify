@@ -176,7 +176,7 @@ def reset_section_attempt_state():
     st.session_state.checked_answers = {}
 
 # --- Helper function to call local backend ---
-def generate_course(files=None, file_url=None):
+def generate_course(files=None, file_url=None, status_callback=None):
     file_content = None
     
     if files:
@@ -191,8 +191,8 @@ def generate_course(files=None, file_url=None):
         return None, "No input provided. Please upload a file or provide a URL."
 
     try:
-        # Call our local backend function directly
-        return local_backend.generate_course(file_content=file_content, file_url=file_url)
+        # Call our local backend function directly with status callback
+        return local_backend.generate_course(file_content=file_content, file_url=file_url, status_callback=status_callback)
     except Exception as e:
         st.error(f"Error generating course: {e}")
         return None, f"Error generating course: {e}"
@@ -957,25 +957,36 @@ def main():
             st.rerun()
         else:
             st.sidebar.warning("Please provide a PDF input.")
-    
-    # Phase 2: Execute generation if we're in generating state
+      # Phase 2: Execute generation if we're in generating state
     if st.session_state.is_generating_course and (st.session_state.pending_uploaded_file or st.session_state.pending_pdf_url):
         # Show loading message with more details
         with st.spinner("🤖 Generating course... This may take 30-60 seconds for complex PDFs."):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
+            # Status callback function for real-time updates
+            def status_callback(message, progress=None):
+                status_text.text(message)
+                if progress is not None:
+                    progress_bar.progress(progress)
+                # Add a small delay to ensure users can see the status
+                import time
+                time.sleep(2.2)  # Show each status for at least 2.2 seconds
+            
             try:
                 if st.session_state.pending_uploaded_file:
-                    status_text.text("📄 Processing uploaded PDF...")
-                    progress_bar.progress(25)
-                    course_data, error_message = generate_course(files=st.session_state.pending_uploaded_file)
+                    course_data, error_message = generate_course(
+                        files=st.session_state.pending_uploaded_file, 
+                        status_callback=status_callback
+                    )
                 elif st.session_state.pending_pdf_url:
-                    status_text.text("🌐 Downloading PDF from URL...")
-                    progress_bar.progress(25)
-                    course_data, error_message = generate_course(file_url=st.session_state.pending_pdf_url)                
-                progress_bar.progress(75)
-                status_text.text("🧠 AI is analyzing content and creating questions...")
+                    course_data, error_message = generate_course(
+                        file_url=st.session_state.pending_pdf_url, 
+                        status_callback=status_callback
+                    )
+                
+                # Final processing steps
+                status_callback("🔢 Calculating total questions...", 95)
                 
                 # Reset score and calculate total questions for new course
                 st.session_state.current_score = 0
@@ -1008,8 +1019,8 @@ def main():
                 else:
                     st.session_state.total_questions_in_course = 0
                 
-                progress_bar.progress(100)
-                status_text.text("✅ Course generated successfully!")
+                # Final status update
+                status_callback("✅ Course ready! Preparing interface...", 100)
                 
                 if error_message:
                     st.session_state.error_message = error_message
@@ -1026,7 +1037,9 @@ def main():
                         else:
                             st.success("🎉 Course created! This was your last guest course. Login for unlimited access.")
                 
-                # Clear progress indicators
+                # Clear progress indicators after a brief moment
+                import time
+                time.sleep(1)
                 progress_bar.empty()
                 status_text.empty()
                 
