@@ -8,6 +8,9 @@ import json
 import os
 import requests
 import io
+import re
+import PyPDF2
+import pdfplumber
 
 try:
     import streamlit as st
@@ -265,22 +268,31 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
         except Exception as e:
             logger.error(f"Error fetching PDF from URL: {e}")
             return None, f"Unable to fetch PDF from URL: {e}"
-    
-    # Check if we have PDF content
+      # Check if we have PDF content
     if not pdf_bytes:
         return None, "No file content or file_url provided, or an error occurred processing the input."
     
-    update_status("📏 Checking file size limits...", 25)
-    # Check file size limits
-    max_size = 20 * 1024 * 1024  # 20MB
+    update_status("📏 Checking file size and content limits...", 25)
+    # Check file size limits (reduced from 20MB to 10MB)
+    max_size = 10 * 1024 * 1024  # 10MB
     if len(pdf_bytes) > max_size:
-        return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (20MB)."
+        return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (10MB)."
+      # Analyze PDF content for word count
+    update_status("📊 Analyzing PDF content and word count...", 30)
+    pdf_analysis = analyze_pdf_content(pdf_bytes)
+    word_count = pdf_analysis['word_count']
+    
+    if word_count == 0:
+        return None, "Could not extract readable text from this PDF. Please ensure the PDF contains text content."
+    
+    if word_count > 15000:
+        return None, f"PDF contains too many words ({word_count:,}). Maximum allowed is 15,000 words. Please use a shorter document."
     
     try:
-        update_status("🤖 Connecting to Gemini AI...", 30)
+        update_status("🤖 Connecting to Gemini AI...", 35)
         logger.info("Sending request to Gemini AI...")
         
-        update_status("📤 Uploading PDF to AI for analysis...", 40)
+        update_status("📤 Uploading PDF to AI for analysis...", 45)
         # Generate content using Gemini API
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
@@ -294,7 +306,7 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             ],
         )
         
-        update_status("🧠 AI is analyzing content...", 60)
+        update_status("🧠 AI is analyzing content...", 65)
         if not response.text:
             logger.error("Received empty response from Gemini AI")
             return None, "Empty response from AI model. Please try again."
@@ -338,3 +350,94 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             error_message = "Request timed out. The PDF may be too complex or the service is busy."
         
         return None, f"Error generating course: {error_message}"
+
+def extract_text_from_pdf(pdf_bytes):
+    """Extract text from PDF bytes using multiple methods for reliability"""
+    text = ""
+    
+    try:
+        # Method 1: Try pdfplumber first (usually more accurate)
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+                    
+        if text.strip():
+            return text
+            
+    except Exception as e:
+        logger.warning(f"pdfplumber extraction failed: {e}")
+    
+    try:
+        # Method 2: Fallback to PyPDF2
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+                
+    except Exception as e:
+        logger.warning(f"PyPDF2 extraction failed: {e}")
+    
+    return text
+
+def count_words_in_text(text):
+    """Count words in text, excluding very short words and numbers only"""
+    if not text:
+        return 0
+    
+    # Remove extra whitespace and normalize
+    text = re.sub(r'\s+', ' ', text.strip())
+    
+    # Split into words and filter
+    words = text.split()
+    
+    # Count meaningful words (length > 2 and not just numbers/symbols)
+    meaningful_words = [
+        word for word in words 
+        if len(word) > 2 and re.search(r'[a-zA-Z]', word)
+    ]
+    
+    return len(meaningful_words)
+
+def estimate_generation_time(word_count):
+    """Estimate course generation time based on word count"""
+    if word_count < 1000:
+        return "30-45 seconds"
+    elif word_count < 3000:
+        return "45-75 seconds"
+    elif word_count < 7000:
+        return "75-120 seconds"
+    elif word_count < 12000:
+        return "2-3 minutes"
+    else:
+        return "3-5 minutes"
+
+def analyze_pdf_content(pdf_bytes):
+    """Analyze PDF content and return word count and estimated time"""
+    try:
+        # Extract text from PDF
+        text = extract_text_from_pdf(pdf_bytes)
+        
+        # Count words
+        word_count = count_words_in_text(text)
+        
+        # Estimate generation time
+        estimated_time = estimate_generation_time(word_count)
+        
+        return {
+            'word_count': word_count,
+            'estimated_time': estimated_time,
+            'text_length': len(text),
+            'has_content': bool(text.strip())
+        }
+        
+    except Exception as e:
+        logger.error(f"Error analyzing PDF content: {e}")
+        return {
+            'word_count': 0,
+            'estimated_time': "Unknown",
+            'text_length': 0,
+            'has_content': False
+        }

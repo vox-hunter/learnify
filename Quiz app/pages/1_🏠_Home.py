@@ -291,8 +291,7 @@ def main():
     
     # Main content container
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
-    
-    # Main title
+      # Main title
     st.markdown('<h1 class="main-title">What will you learn today?</h1>', unsafe_allow_html=True)
     
     # Show status message
@@ -305,22 +304,60 @@ def main():
             st.info(f"🎯 Welcome! You have {remaining} free course{'s' if remaining != 1 else ''} remaining as a guest.")
         else:
             st.warning("🔒 You've used all 3 guest courses. Please login for unlimited access!")
+    
+    st.markdown("---")
 
     # Input tabs
     tab1, tab2 = st.tabs(["📁 Upload File", "🔗 URL"])
     uploaded_file = None
     pdf_url = None
+    
     with tab1:
         st.markdown("### Upload your PDF file")
         uploaded_file = st.file_uploader(
             "Choose a PDF file",
             type=["pdf"],
-            help="Maximum file size: 20MB",
+            help="Maximum file size: 10MB, Maximum words: 15,000",
             label_visibility="collapsed"
         )
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
-            st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size / (1024*1024):.1f} MB)")
+            file_size_mb = file_size / (1024*1024)
+            
+            # Check file size limit (10MB)
+            if file_size > 10 * 1024 * 1024:
+                st.error(f"❌ File too large ({file_size_mb:.1f} MB). Maximum size is 10MB.")
+                uploaded_file = None
+            else:
+                # Analyze PDF content for word count
+                try:
+                    pdf_analysis = local_backend.analyze_pdf_content(uploaded_file.getvalue())
+                    word_count = pdf_analysis['word_count']
+                    estimated_time = pdf_analysis['estimated_time']
+                    
+                    if word_count > 15000:
+                        st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                        st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                        uploaded_file = None
+                    elif word_count == 0:
+                        st.error("❌ Could not extract text from this PDF. Please try a different file.")
+                        uploaded_file = None
+                    else:
+                        st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                          # Show word count and estimated time
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.info(f"📊 **Words:** {word_count:,}")
+                        with col2:
+                            st.info(f"⏱️ **Est. time:** {estimated_time}")
+                        
+                        if word_count > 12000:
+                            st.warning("⚠️ Large document detected. Generation may take longer than usual.")
+                            
+                except Exception as e:
+                    st.error(f"❌ Error analyzing PDF: {str(e)}")
+                    uploaded_file = None
+    
     with tab2:
         st.markdown("### Enter PDF URL")
         pdf_url = st.text_input(
@@ -332,6 +369,9 @@ def main():
         if pdf_url and not pdf_url.startswith(('http://', 'https://')):
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
+        elif pdf_url:
+            st.info("📝 **Note:** Word count and time estimation will be shown during generation for URL uploads.")
+            st.warning("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
     
     # Generate button
     st.markdown("<br>", unsafe_allow_html=True)
@@ -340,13 +380,19 @@ def main():
     can_generate = check_course_limit()
     
     if st.session_state.get('is_generating_course', False):
-        st.button("🤖 Generating Course...", disabled=True)
+        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")
         # Show progress
         show_generation_progress()
     elif can_generate:
-        if st.button("✨ Generate Course", type="primary"):
+        if st.button("✨ Generate Course", type="primary", key="generate_btn"):
             if uploaded_file or pdf_url:
-                generate_and_redirect(uploaded_file, pdf_url)
+                # Store file data in session state for progress function
+                st.session_state.current_uploaded_file = uploaded_file
+                st.session_state.current_pdf_url = pdf_url
+                
+                # Set generating state immediately and rerun to update UI
+                st.session_state.is_generating_course = True
+                st.rerun()
             else:
                 st.error("⚠️ Please upload a file or enter a URL first")
     else:
@@ -366,8 +412,15 @@ def check_course_limit():
     return st.session_state.get('courses_generated', 0) < 3
 
 def show_generation_progress():
-    """Show course generation progress placeholder"""
-    st.info("🤖 Generating your course... Please wait for detailed progress updates below.")
+    """Show course generation progress and start generation"""
+    # Get the file data from session state (set when button was clicked)
+    uploaded_file = st.session_state.get('current_uploaded_file')
+    pdf_url = st.session_state.get('current_pdf_url')
+    
+    if uploaded_file or pdf_url:
+        generate_and_redirect(uploaded_file, pdf_url)
+    else:
+        st.error("❌ No file or URL found for generation")
 
 def generate_and_redirect(uploaded_file, pdf_url):
     """Generate course and redirect to course page with real-time progress"""
@@ -435,26 +488,29 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 
                 # Update counters
                 if not st.session_state.get('authentication_status'):
-                    st.session_state.courses_generated += 1
-                
-                # Final status update
+                    st.session_state.courses_generated += 1                # Final status update
                 progress_bar.progress(100)
                 status_text.text("✅ Course created successfully!")
                 
-                # Reset generation state
+                # Reset generation state and clear stored file data
                 st.session_state.is_generating_course = False
+                st.session_state.current_uploaded_file = None
+                st.session_state.current_pdf_url = None
                 
                 # Set current course and redirect
                 st.session_state.current_course_id = course_id
                 st.switch_page("pages/3_📚_Course.py")
-            
             else:
                 st.error(f"❌ {error_message}")
                 st.session_state.is_generating_course = False
+                st.session_state.current_uploaded_file = None
+                st.session_state.current_pdf_url = None
                 
         except Exception as e:
             st.error(f"❌ Error generating course: {str(e)}")
             st.session_state.is_generating_course = False
+            st.session_state.current_uploaded_file = None
+            st.session_state.current_pdf_url = None
 
 def count_total_questions(course_data):
     """Count total questions in course recursively"""
