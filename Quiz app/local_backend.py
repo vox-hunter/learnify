@@ -287,7 +287,8 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             config=types.GenerateContentConfig(
                 system_instruction=sys_ins,
                 response_mime_type="application/json",
-            ),        contents=[
+            ),
+            contents=[
                 types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
                 prompt,
             ],
