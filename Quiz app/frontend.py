@@ -965,14 +965,12 @@ def main():
             status_text = st.empty()
             
             # Status callback function for real-time updates
-            def status_callback(message, progress=None):
+            def status_callback(message, progress=None, delay=1.0):
                 status_text.text(message)
                 if progress is not None:
                     progress_bar.progress(progress)
                 # Add a small delay to ensure users can see the status
-                import time
-                time.sleep(2.2)  # Show each status for at least 2.2 seconds
-            
+                time.sleep(delay)  # Show each status for at least the specified delay
             try:
                 if st.session_state.pending_uploaded_file:
                     course_data, error_message = generate_course(
