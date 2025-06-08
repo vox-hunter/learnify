@@ -198,36 +198,48 @@ Be fair but accurate in your evaluation.
         logger.error(f"Error in AI validation: {e}")
         return None, f"AI validation error: {str(e)}"
     
-def generate_course(file_content=None, file_url=None):
+def generate_course(file_content=None, file_url=None, status_callback=None):
     """
     Generate a course structure from PDF content or a PDF URL.
     
     Args:
         file_content: The binary content of a PDF file
         file_url: URL to a PDF file
+        status_callback: Optional callback function to report progress status
         
     Returns:
         tuple: (course_data, error_message)
             - course_data: List of Section objects or None if an error occurred
             - error_message: Error message or None if successful
     """
+    def update_status(message, progress=None):
+        """Helper function to update status via callback"""
+        if status_callback:
+            status_callback(message, progress)
+        logger.info(message)
+    
     pdf_bytes = None
+    update_status("🚀 Starting course generation process...", 5)
     
     # Handle file content
     if file_content:
+        update_status("📄 Validating uploaded PDF file...", 10)
         logger.info(f"Processing uploaded PDF file ({len(file_content)} bytes)")
         if not validate_pdf_content(file_content):
             return None, "Invalid PDF file. Please ensure you're uploading a valid PDF document."
         pdf_bytes = file_content
+        update_status("✅ PDF file validated successfully", 20)
     
     # Handle file URL
     elif file_url:
+        update_status("🌐 Connecting to PDF URL...", 10)
         logger.info(f"Fetching PDF from URL: {file_url}")
         try:
             # Add headers to mimic a browser request
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
+            update_status("📥 Downloading PDF from URL...", 15)
             resp = requests.get(file_url, headers=headers, timeout=30)
             resp.raise_for_status()
             
@@ -236,10 +248,12 @@ def generate_course(file_content=None, file_url=None):
             if 'application/pdf' not in content_type and not file_url.lower().endswith('.pdf'):
                 logger.warning(f"Content type '{content_type}' may not be a PDF")
             
+            update_status("🔍 Validating downloaded PDF...", 18)
             if not validate_pdf_content(resp.content):
                 return None, "The URL does not point to a valid PDF file."
             
             pdf_bytes = resp.content
+            update_status(f"✅ PDF downloaded successfully ({len(pdf_bytes)} bytes)", 20)
             logger.info(f"Successfully fetched PDF ({len(pdf_bytes)} bytes)")
             
         except requests.exceptions.Timeout:
@@ -256,13 +270,17 @@ def generate_course(file_content=None, file_url=None):
     if not pdf_bytes:
         return None, "No file content or file_url provided, or an error occurred processing the input."
     
+    update_status("📏 Checking file size limits...", 25)
     # Check file size limits
     max_size = 20 * 1024 * 1024  # 20MB
     if len(pdf_bytes) > max_size:
         return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (20MB)."
     
     try:
+        update_status("🤖 Connecting to Gemini AI...", 30)
         logger.info("Sending request to Gemini AI...")
+        
+        update_status("📤 Uploading PDF to AI for analysis...", 40)
         # Generate content using Gemini API
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
@@ -276,25 +294,32 @@ def generate_course(file_content=None, file_url=None):
             ],
         )
         
+        update_status("🧠 AI is analyzing content...", 60)
         if not response.text:
             logger.error("Received empty response from Gemini AI")
             return None, "Empty response from AI model. Please try again."
         
+        update_status("📝 Generating course structure and questions...", 70)
         logger.info(f"Received response from Gemini AI ({len(response.text)} characters)")
         
+        update_status("🔧 Processing AI response...", 80)
         try:
             # Try to parse with Pydantic validation first
+            update_status("✅ Validating course content...", 90)
             parsed = ActualApiResponse.model_validate_json(response.text)
             logger.info("Successfully validated response with Pydantic schema")
             if DEBUG_MODE:
                 logger.info(f"Parsed response: {parsed}")
+            update_status("🎉 Course generated successfully!", 100)
             return parsed.root, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")
             try:
+                update_status("🔄 Using fallback parsing method...", 85)
                 # Fallback to raw JSON parsing
                 raw_data = json.loads(response.text)
                 logger.info("Successfully parsed as raw JSON (schema validation failed)")
+                update_status("🎉 Course generated successfully!", 100)
                 return raw_data, None
             except json.JSONDecodeError as je:
                 logger.error(f"JSON decode error: {je}")
