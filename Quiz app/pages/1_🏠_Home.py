@@ -4,11 +4,74 @@ Home Page - Main course generation interface
 import streamlit as st
 import sys
 import os
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import local_backend
+
+# Load authentication functions
+def load_config():
+    """Load authentication config with fallback paths for cloud deployment"""
+    potential_paths = [
+        'authenticate.yaml',
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
+    ]
+    
+    for config_path in potential_paths:
+        try:
+            with open(config_path, 'r', encoding='utf-8') as file:
+                config = yaml.load(file, Loader=SafeLoader)
+            return config
+        except (FileNotFoundError, PermissionError):
+            continue
+    
+    # Fallback to Streamlit secrets
+    try:
+        if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
+            return dict(st.secrets['authenticate'])
+    except Exception:
+        pass
+    
+    return None
+
+def get_authenticator():
+    """Create authenticator with robust error handling"""
+    try:
+        config = load_config()
+        if not config:
+            return None, None
+            
+        authenticator = stauth.Authenticate(
+            config['credentials'],
+            config['cookie']['name'],
+            config['cookie']['key'],
+            config['cookie']['expiry_days'],
+            config.get('preauthorized', []),
+            api_key=config.get('api_key')
+        )
+        return authenticator, config
+    except Exception as e:
+        return None, None
+
+def check_authentication():
+    """Check if user is authenticated via cookies on page load"""
+    try:
+        authenticator, config = get_authenticator()
+        if authenticator:
+            # Check cookies without rendering login form
+            try:
+                authenticator.login(location='unrendered')
+            except:
+                pass  # If login widget fails, that's okay - we just want cookie check
+            return authenticator, config
+    except Exception as e:
+        pass
+    return None, None
 
 # Initialize session state function
 def initialize_session_state():
@@ -303,38 +366,42 @@ def check_course_limit():
     return st.session_state.get('courses_generated', 0) < 3
 
 def show_generation_progress():
-    """Show course generation progress"""
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    # This will be handled by the actual generation process
-    if 'generation_progress' in st.session_state:
-        progress_bar.progress(st.session_state.generation_progress)
-        status_text.text(st.session_state.get('generation_status', 'Generating...'))
+    """Show course generation progress placeholder"""
+    st.info("🤖 Generating your course... Please wait for detailed progress updates below.")
 
 def generate_and_redirect(uploaded_file, pdf_url):
-    """Generate course and redirect to course page"""
+    """Generate course and redirect to course page with real-time progress"""
     # Set generation state
     st.session_state.is_generating_course = True
     
-    # Start generation process
-    with st.spinner("🤖 Generating your course..."):
+    # Create progress containers
+    progress_container = st.container()
+    with progress_container:
         progress_bar = st.progress(0)
         status_text = st.empty()
+          # Status callback function for real-time updates
+        def status_callback(status_message, progress_percent):
+            """Update progress and status in real-time"""
+            print(f"DEBUG: Status callback called with: {status_message}, {progress_percent}%")
+            progress_bar.progress(progress_percent / 100)
+            status_text.text(status_message)
+            # Use Streamlit's time delay instead of sleep
+            import time
+            time.sleep(2.2)  # Allow users to read the status
         
         try:
-            # Update progress
-            progress_bar.progress(25)
-            status_text.text("📄 Processing PDF...")
-            
-            # Generate course
+            # Generate course with real-time status updates
             if uploaded_file:
                 uploaded_file.seek(0)  # Reset file pointer
-                course_data, error_message = local_backend.generate_course(file_content=uploaded_file.read())
+                course_data, error_message = local_backend.generate_course(
+                    file_content=uploaded_file.read(), 
+                    status_callback=status_callback
+                )
             else:
-                course_data, error_message = local_backend.generate_course(file_url=pdf_url)
-            progress_bar.progress(75)
-            status_text.text("🧠 Creating questions...")
+                course_data, error_message = local_backend.generate_course(
+                    file_url=pdf_url, 
+                    status_callback=status_callback
+                )
             
             if course_data and not error_message:
                 # Store course data
@@ -370,6 +437,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 if not st.session_state.get('authentication_status'):
                     st.session_state.courses_generated += 1
                 
+                # Final status update
                 progress_bar.progress(100)
                 status_text.text("✅ Course created successfully!")
                 
@@ -435,5 +503,22 @@ def show_course_history():
                 remaining = 3 - courses_used
                 st.info(f"🎯 Guest: {remaining}/3 courses remaining")
 
+# Cookie authentication check on page load (without showing login form)
+try:
+    authenticator, config = check_authentication()
+    if authenticator and config:
+        # Use 'unrendered' location to check cookies without showing login form
+        authenticator.login(location='unrendered')
+        
+        # The authentication status is automatically updated in session state
+        # No need to manually update it - streamlit-authenticator handles this
+        
+except Exception as e:
+    # If authentication fails, continue as guest
+    st.session_state.authentication_status = None
+    st.session_state.name = None
+    st.session_state.username = None
+
+# Call main function to render the page
 if __name__ == "__main__":
     main()
