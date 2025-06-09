@@ -215,6 +215,10 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             - course_data: List of Section objects or None if an error occurred
             - error_message: Error message or None if successful
     """
+    # Start timing for performance measurement
+    import time
+    start_time = time.time()
+    
     def update_status(message, progress=None):
         """Helper function to update status via callback"""
         if status_callback:
@@ -276,17 +280,19 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
     # Check file size limits (reduced from 20MB to 10MB)
     max_size = 10 * 1024 * 1024  # 10MB
     if len(pdf_bytes) > max_size:
-        return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (10MB)."
-      # Analyze PDF content for word count
+        return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (10MB)."      # Analyze PDF content for word count
     update_status("📊 Analyzing PDF content and word count...", 30)
     pdf_analysis = analyze_pdf_content(pdf_bytes)
     word_count = pdf_analysis['word_count']
+    estimated_time = pdf_analysis['estimated_time']
     
     if word_count == 0:
         return None, "Could not extract readable text from this PDF. Please ensure the PDF contains text content."
     
     if word_count > 15000:
         return None, f"PDF contains too many words ({word_count:,}). Maximum allowed is 15,000 words. Please use a shorter document."
+      # Update status with estimated time information
+    update_status(f"📊 AI is analyzing PDF content (Est. time: {estimated_time})", 32)
     
     try:
         update_status("🤖 Connecting to Gemini AI...", 35)
@@ -323,6 +329,11 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             if DEBUG_MODE:
                 logger.info(f"Parsed response: {parsed}")
             update_status("🎉 Course generated successfully!", 100)
+            
+            # Log actual generation time for performance tracking
+            actual_time = time.time() - start_time
+            logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
+            
             return parsed.root, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")
@@ -332,13 +343,21 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
                 raw_data = json.loads(response.text)
                 logger.info("Successfully parsed as raw JSON (schema validation failed)")
                 update_status("🎉 Course generated successfully!", 100)
+                
+                # Log actual generation time for performance tracking
+                actual_time = time.time() - start_time
+                logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
+                
                 return raw_data, None
             except json.JSONDecodeError as je:
                 logger.error(f"JSON decode error: {je}")
                 return None, f"Failed to parse AI response as valid JSON. Please try again."
         
     except Exception as e:
-        logger.error(f"Error generating course: {e}")
+        # Log timing even for failed attempts
+        actual_time = time.time() - start_time
+        logger.error(f"Error generating course after {actual_time:.1f} seconds: {e}")
+        
         error_message = str(e)
         
         # Provide more specific error messages for common issues
@@ -402,17 +421,95 @@ def count_words_in_text(text):
     return len(meaningful_words)
 
 def estimate_generation_time(word_count):
-    """Estimate course generation time based on word count"""
-    if word_count < 1000:
-        return "30-45 seconds"
+    """
+    Estimate course generation time based on word count and AI processing complexity.
+    
+    Factors considered:
+    - PDF text extraction and processing
+    - AI model processing time (scales with content complexity)
+    - Course structure generation
+    - Question generation complexity
+    
+    The AI model (Gemini 2.5 Flash) typically processes:
+    - Simple documents: ~200-500 words per second
+    - Complex documents: ~100-300 words per second
+    
+    Additional overhead:
+    - PDF processing: 2-5 seconds
+    - AI connection and setup: 3-8 seconds  
+    - Response processing and validation: 2-5 seconds
+    """
+    # Base overhead time for PDF processing, AI setup, and response validation
+    base_overhead = 10  # seconds
+    
+    # AI processing time varies by content complexity and word count
+    # Gemini 2.5 Flash typically processes text fairly quickly, but generation is slower
+    if word_count < 500:
+        # Very short documents - minimal content, few questions
+        ai_processing_time = 15  # seconds
+        total_time = base_overhead + ai_processing_time
+        return f"{total_time}-{total_time + 10} seconds"
+    
+    elif word_count < 1500:
+        # Short documents - 1-3 sections, moderate questions
+        ai_processing_time = 20  # seconds
+        total_time = base_overhead + ai_processing_time
+        return f"{total_time}-{total_time + 15} seconds"
+    
     elif word_count < 3000:
-        return "45-75 seconds"
-    elif word_count < 7000:
-        return "75-120 seconds"
+        # Medium documents - 3-5 sections, good question variety
+        ai_processing_time = 35  # seconds
+        total_time = base_overhead + ai_processing_time
+        return f"{total_time}-{total_time + 20} seconds"
+    
+    elif word_count < 5000:
+        # Larger documents - 5-7 sections, complex structure
+        ai_processing_time = 50  # seconds
+        total_time = base_overhead + ai_processing_time
+        minutes = total_time // 60
+        remaining_seconds = total_time % 60
+        upper_minutes = (total_time + 25) // 60
+        upper_seconds = (total_time + 25) % 60
+        
+        if minutes == 0:
+            return f"{total_time}-{total_time + 25} seconds"
+        elif upper_minutes == minutes:
+            return f"{minutes}:{remaining_seconds:02d}-{minutes}:{upper_seconds:02d} minutes"
+        else:
+            return f"{minutes}:{remaining_seconds:02d}-{upper_minutes}:{upper_seconds:02d} minutes"
+    
+    elif word_count < 8000:
+        # Large documents - 7-10 sections, comprehensive content
+        ai_processing_time = 75  # seconds
+        total_time = base_overhead + ai_processing_time
+        minutes = total_time // 60
+        remaining_seconds = total_time % 60
+        upper_time = total_time + 30
+        upper_minutes = upper_time // 60
+        upper_seconds = upper_time % 60
+        return f"{minutes}:{remaining_seconds:02d}-{upper_minutes}:{upper_seconds:02d} minutes"
+    
     elif word_count < 12000:
-        return "2-3 minutes"
+        # Very large documents - 10+ sections, extensive questions
+        ai_processing_time = 105  # seconds
+        total_time = base_overhead + ai_processing_time
+        minutes = total_time // 60
+        remaining_seconds = total_time % 60
+        upper_time = total_time + 45
+        upper_minutes = upper_time // 60
+        upper_seconds = upper_time % 60
+        return f"{minutes}:{remaining_seconds:02d}-{upper_minutes}:{upper_seconds:02d} minutes"
+    
     else:
-        return "3-5 minutes"
+        # Maximum size documents - comprehensive courses
+        ai_processing_time = 140  # seconds
+        total_time = base_overhead + ai_processing_time
+        minutes = total_time // 60
+        remaining_seconds = total_time % 60
+        upper_time = total_time + 60
+        upper_minutes = upper_time // 60
+        upper_seconds = upper_time % 60
+        return f"{minutes}:{remaining_seconds:02d}-{upper_minutes}:{upper_seconds:02d} minutes"
 
 def analyze_pdf_content(pdf_bytes):
     """Analyze PDF content and return word count and estimated time"""

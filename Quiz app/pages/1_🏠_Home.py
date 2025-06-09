@@ -323,17 +323,14 @@ def main():
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
             file_size_mb = file_size / (1024*1024)
-            
-            # Check file size limit (10MB)
+              # Check file size limit (10MB)
             if file_size > 10 * 1024 * 1024:
                 st.error(f"❌ File too large ({file_size_mb:.1f} MB). Maximum size is 10MB.")
                 uploaded_file = None
-            else:
-                # Analyze PDF content for word count
+            else:                # Analyze PDF content for word count
                 try:
                     pdf_analysis = local_backend.analyze_pdf_content(uploaded_file.getvalue())
                     word_count = pdf_analysis['word_count']
-                    estimated_time = pdf_analysis['estimated_time']
                     
                     if word_count > 15000:
                         st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
@@ -344,12 +341,6 @@ def main():
                         uploaded_file = None
                     else:
                         st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
-                          # Show word count and estimated time
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.info(f"📊 **Words:** {word_count:,}")
-                        with col2:
-                            st.info(f"⏱️ **Est. time:** {estimated_time}")
                         
                         if word_count > 12000:
                             st.warning("⚠️ Large document detected. Generation may take longer than usual.")
