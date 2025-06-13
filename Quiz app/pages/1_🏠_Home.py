@@ -6,7 +6,6 @@ import sys
 import os
 import yaml
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))

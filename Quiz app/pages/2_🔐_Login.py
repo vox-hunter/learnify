@@ -2,328 +2,213 @@
 Login/Signup Page
 """
 import streamlit as st
-import yaml
-from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
 import sys
 import os
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# Load config functions
-def load_config():
-    """Load authentication config with fallback paths for cloud deployment"""
-    potential_paths = [
-        'authenticate.yaml',
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
-    ]
-    
-    for config_path in potential_paths:
-        try:
-            with open(config_path, 'r', encoding='utf-8') as file:
-                config = yaml.load(file, Loader=SafeLoader)
-            return config
-        except (FileNotFoundError, PermissionError):
-            continue
-    
-    # Fallback to Streamlit secrets
-    try:
-        if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
-            return dict(st.secrets['authenticate'])
-    except Exception:
-        pass
-    
-    return None
+try:
+    from mongo_auth import MongoAuthManager
+    MONGO_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
+    MONGO_AVAILABLE = False
+    st.stop() # Stop if core auth module is missing
 
-def save_config(config):
-    """Save config with error handling for cloud deployment"""
-    potential_paths = [
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
-        'authenticate.yaml'
-    ]
-    
-    for config_path in potential_paths:
-        try:
-            with open(config_path, 'w') as file:
-                yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
-            return True
-        except Exception:
-            continue
-    return False
-
-# Set page config
+# Set page config FIRST - must be the very first Streamlit command
 st.set_page_config(
     page_title="Learnify - Login",
     page_icon="🔐",
-    layout="centered"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Apply modern CSS styling
-st.markdown("""
-<style>
-    /* Global styles */
-    .stApp {
-        background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
-    }
-    
-    /* Center container */
-    .login-container {
-        max-width: 500px;
-        margin: 0 auto;
-        padding: 2rem;
-        text-align: center;
-    }
-    
-    /* Title styling */
-    .login-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 2rem;
-    }
-    
-    /* Pill button styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 30px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
-        width: 100%;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #7a00cc, #5c0099);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.4);
-    }
-    
-    /* Input styling */
-    .stTextInput > div > div > input,
-    .stTextInput > div > div > input[type="password"] {
-        background: rgba(26, 0, 51, 0.8);
-        border: 2px solid #9d00ff;
-        border-radius: 25px;
-        color: #ededed;
-        padding: 12px 20px;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #ff6b6b;
-        box-shadow: 0 0 15px rgba(157, 0, 255, 0.3);
-    }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 24px;
-        justify-content: center;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: rgba(26, 0, 51, 0.8);
-        border-radius: 25px;
-        padding: 10px 25px;
-        border: 2px solid #9d00ff;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-    }
-      /* Back button */
-    .back-btn {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        z-index: 999;
-    }
-    
-    /* Back button specific styling */
-    .back-button-container .stButton > button {
-        background: rgba(26, 0, 51, 0.9);
-        color: white;
-        border: 2px solid #9d00ff;
-        border-radius: 25px;
-        padding: 8px 16px;
-        font-weight: 500;
-        font-size: 14px;
-        width: auto;
-        min-width: 140px;
-        white-space: nowrap;
-        text-align: center;
-    }
-    
-    .back-button-container .stButton > button:hover {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
-    }
-</style>
-""", unsafe_allow_html=True)
+# --- Authentication State Management ---
+def get_auth_manager():
+    if "auth_manager" not in st.session_state:
+        if MONGO_AVAILABLE:
+            st.session_state.auth_manager = MongoAuthManager()
+        else:
+            st.error("MongoAuthManager is not available. Cannot proceed with authentication.")
+            return None
+    return st.session_state.auth_manager
 
-def main():
-    # Back button with better styling
-    st.markdown('<div class="back-button-container">', unsafe_allow_html=True)
-    col1, col2 = st.columns([2, 6])
-    with col1:
-        if st.button("← Back to Home", key="back_btn"):
-            st.switch_page("pages/1_🏠_Home.py")
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Main content container
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    
-    # Title
-    st.markdown('<h1 class="login-title">Welcome to Learnify</h1>', unsafe_allow_html=True)
-    
-    # Load authenticator
-    authenticator, config = get_authenticator()
-    
-    if authenticator is None:
-        st.error("🚫 Authentication system is temporarily unavailable")
-        st.markdown('</div>', unsafe_allow_html=True)
-        return
-    
-    # Check if already authenticated
-    if st.session_state.get('authentication_status'):
-        st.success(f'✅ Welcome back, *{st.session_state.name}*!')
-        st.info("🎓 You now have unlimited access to course generation.")
+def login_user(username, user_data):
+    st.session_state['authentication_status'] = True
+    st.session_state['username'] = username
+    st.session_state['name'] = user_data.get('name')
+    st.session_state['email'] = user_data.get('email')
+    # Potentially add other user details you want in session state
+
+def logout_user():
+    st.session_state['authentication_status'] = False
+    st.session_state['username'] = None
+    st.session_state['name'] = None
+    st.session_state['email'] = None
+    # Clear other session state variables related to the user
+
+# Initialize session state variables if they don't exist
+if 'authentication_status' not in st.session_state:
+    st.session_state['authentication_status'] = False
+if 'username' not in st.session_state:
+    st.session_state['username'] = None
+if 'name' not in st.session_state:
+    st.session_state['name'] = None
+
+
+# --- UI Rendering ---
+manager = get_auth_manager()
+
+if not manager:
+    st.error("Authentication system could not be initialized. Please check the logs.")
+    st.stop()
+
+# Main container for login/registration
+container = st.container()
+
+if st.session_state.get('authentication_status'):
+    with container:
+        st.title(f"Welcome {st.session_state.get('name', st.session_state.get('username'))}!")
+        st.write("You are logged in.")
+        if st.button("Logout"):
+            logout_user()
+            st.rerun() # Rerun to reflect logout state
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🏠 Go to Home"):
-                st.switch_page("pages/1_🏠_Home.py")
-        with col2:
-            if st.button("🚪 Logout"):
-                try:
-                    authenticator.logout()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Logout error: {e}")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        return
-    
-    # Authentication tabs
-    login_tab, register_tab, forgot_tab = st.tabs(["🔐 Login", "📝 Register", "🔑 Reset Password"])
-    
-    with login_tab:
-        st.markdown("### Sign in to your account")
-        
-        try:
-            authenticator.login()
-            
-            if st.session_state.get('authentication_status'):
-                st.success("✅ Login successful!")
-                st.balloons()
-                st.rerun()
-            elif st.session_state.get('authentication_status') is False:
-                st.error("❌ Username/password is incorrect")
-        except Exception as e:
-            st.error(f"Login error: {e}")
-        
-        # OAuth login section
-        st.markdown("---")
-        st.markdown("### Or sign in with")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            try:
-                if config and 'oauth2' in config:
-                    authenticator.experimental_guest_login(
-                        'Login with Google',
-                        provider='google',
-                        oauth2=config['oauth2']
-                    )
+        st.subheader("Update Your Details")
+        with st.form("update_details_form", clear_on_submit=True):
+            new_name = st.text_input("New Name", value=st.session_state.get('name', ''))
+            new_email = st.text_input("New Email", value=st.session_state.get('email', ''))
+            submitted_update = st.form_submit_button("Update Details")
+
+            if submitted_update:
+                updates = {}
+                if new_name and new_name != st.session_state.get('name'):
+                    updates['name'] = new_name
+                if new_email and new_email != st.session_state.get('email'):
+                    updates['email'] = new_email
+                
+                if updates:
+                    success, error_msg = manager.update_user_details(st.session_state['username'], updates)
+                    if success:
+                        st.success(f"Details updated successfully! {error_msg if error_msg else ''}")
+                        # Update session state immediately
+                        if 'name' in updates: st.session_state['name'] = updates['name']
+                        if 'email' in updates: st.session_state['email'] = updates['email']
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to update details: {error_msg}")
                 else:
-                    st.info("OAuth not configured")
-            except Exception as e:
-                st.error(f"Google login error: {e}")
-        
-        with col2:
-            try:
-                if config and 'oauth2' in config:
-                    authenticator.experimental_guest_login(
-                        'Login with Microsoft',
-                        provider='microsoft',
-                        oauth2=config['oauth2']
-                    )
+                    st.info("No changes to update.")
+
+        st.subheader("Change Password")
+        with st.form("change_password_form", clear_on_submit=True):
+            current_password = st.text_input("Current Password", type="password")
+            new_password = st.text_input("New Password", type="password")
+            confirm_new_password = st.text_input("Confirm New Password", type="password")
+            submitted_change_password = st.form_submit_button("Change Password")
+
+            if submitted_change_password:
+                if not all([current_password, new_password, confirm_new_password]):
+                    st.warning("Please fill in all password fields.")
+                elif new_password != confirm_new_password:
+                    st.error("New passwords do not match.")
                 else:
-                    st.info("OAuth not configured")
-            except Exception as e:
-                st.error(f"Microsoft login error: {e}")
-    
-    with register_tab:
-        st.markdown("### Create a new account")
-        
-        try:
-            email_of_registered_user, username_of_registered_user, name_of_registered_user = authenticator.register_user(
-                fields={
-                    'Form name': '',
-                    'Email': 'Email',
-                    'Username': 'Username',
-                    'Password': 'Password',
-                    'Repeat password': 'Repeat password',
-                    'Password hint': 'Password hint',
-                    'Captcha': 'Captcha',
-                    'Register': 'Create Account'
-                },
-                two_factor_auth=True
-            )
-            
-            if email_of_registered_user:
-                st.success('🎉 Account created successfully!')
-                st.info("Please use your new credentials to login in the Login tab.")
-                # Save the updated config
-                config = load_config()
-                save_config(config)
-        except Exception as e:
-            st.error(f"Registration error: {e}")
-    
-    with forgot_tab:
-        st.markdown("### Reset your password")
-        
-        try:
-            username_of_forgotten_password, email_of_forgotten_password, new_random_password = authenticator.forgot_password(
-                send_email=True
-            )
-            
-            if username_of_forgotten_password:
-                st.success('📧 New password sent to your email!')
-                save_config(config)
-            elif username_of_forgotten_password is False:
-                st.error('❌ Username not found')
-        except Exception as e:
-            st.error(f"Password reset error: {e}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+                    user = manager.find_user_by_username(st.session_state['username'])
+                    if user and manager.verify_password(current_password, user.get('password')):
+                        success, error_msg = manager.update_user_password(st.session_state['username'], new_password)
+                        if success:
+                            st.success("Password changed successfully!")
+                        else:
+                            st.error(f"Failed to change password: {error_msg}")
+                    else:
+                        st.error("Incorrect current password.")
 
-def get_authenticator():
-    """Create authenticator with robust error handling"""
-    try:
-        config = load_config()
-        if not config:
-            return None, None
-            
-        authenticator = stauth.Authenticate(
-            config['credentials'],
-            config['cookie']['name'],
-            config['cookie']['key'],
-            config['cookie']['expiry_days'],
-            config.get('preauthorized', []),
-            api_key=config.get('api_key')
-        )
-        return authenticator, config
-    except Exception as e:
-        st.error(f"Authentication system initialization failed: {e}")
-        return None, None
 
-if __name__ == "__main__":
-    main()
+else: # Not authenticated, show login or registration
+    with container:
+        login_tab, register_tab, forgot_password_tab = st.tabs(["Login", "Register", "Forgot Password"])
+
+        with login_tab:
+            st.subheader("Login to Your Account")
+            with st.form("login_form", clear_on_submit=True):
+                login_username = st.text_input("Username", key="login_uname")
+                login_password = st.text_input("Password", type="password", key="login_pw")
+                submitted_login = st.form_submit_button("Login")
+
+                if submitted_login:
+                    if not login_username or not login_password:
+                        st.warning("Please enter username and password.")
+                    else:
+                        user = manager.find_user_by_username(login_username)
+                        if user and manager.verify_password(login_password, user.get("password")):
+                            login_user(login_username, user)
+                            st.success("Logged in successfully!")
+                            st.rerun() # Rerun to show logged-in view
+                        else:
+                            st.error("Invalid username or password.")
+        
+        with register_tab:
+            st.subheader("Create a New Account")
+            with st.form("registration_form", clear_on_submit=True):
+                reg_name = st.text_input("Full Name", key="reg_name")
+                reg_username = st.text_input("Username", key="reg_uname")
+                reg_email = st.text_input("Email", key="reg_email")
+                reg_password = st.text_input("Password", type="password", key="reg_pw")
+                reg_confirm_password = st.text_input("Confirm Password", type="password", key="reg_cpw")
+                submitted_register = st.form_submit_button("Register")
+
+                if submitted_register:
+                    if not all([reg_name, reg_username, reg_email, reg_password, reg_confirm_password]):
+                        st.warning("Please fill all fields.")
+                    elif reg_password != reg_confirm_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        user_id, error = manager.add_user(reg_username, reg_password, reg_email, reg_name)
+                        if error:
+                            st.error(f"Registration failed: {error}")
+                        else:
+                            st.success(f"Account created successfully for {reg_username}! You can now log in.")
+                            # Optionally, log the user in directly after registration
+                            # user_data = {"name": reg_name, "email": reg_email} # Create a basic user_data dict
+                            # login_user(reg_username, user_data)
+                            # st.rerun()
+
+        with forgot_password_tab:
+            st.subheader("Forgot Your Password?")
+            st.write("Enter your username. If an account exists, we'll guide you (currently, this is a placeholder for a password reset flow).")
+            with st.form("forgot_password_form", clear_on_submit=True):
+                fp_username = st.text_input("Username", key="fp_uname")
+                submitted_fp = st.form_submit_button("Request Password Reset")
+
+                if submitted_fp:
+                    if not fp_username:
+                        st.warning("Please enter your username.")
+                    else:
+                        user = manager.find_user_by_username(fp_username)
+                        if user:
+                            # Basic: In a real app, you'd email a reset link or a temporary password.
+                            # For now, we can simulate generating a new password and *telling* the user
+                            # to contact admin, or if we had an email service, send it.
+                            # This is a simplified version.
+                            # For demonstration, let's assume we can't directly reset and show it here.
+                            st.info(f"User '{fp_username}' found. Password reset functionality is not fully implemented in this demo. Imagine a new password was generated and would be sent to your registered email.")
+                            # Example:
+                            # temp_password = "newRandomPassword123" # Generate a random password
+                            # success, err = manager.update_user_password(fp_username, temp_password)
+                            # if success:
+                            #     st.success(f"A temporary password has been set for {fp_username}. Please check your email (simulated).")
+                            # else:
+                            #     st.error(f"Could not reset password: {err}")
+                        else:
+                            st.error("Username not found.")
+
+# --- Footer or other elements outside the main auth flow ---
+st.markdown("---")
+st.info("Learnify - Your AI Learning Companion")
+
+# It's important to remove or adapt any leftover code that relied on the old authenticator's
+# specific config structure (like YAML loading for credentials directly in this file).
+# The MongoAuthManager now handles the direct interaction with the database for user data.
+# If 'authenticate.yaml' was used for other settings, that logic would need to be preserved
+# or migrated to MongoDB via manager.load_config/save_config if appropriate.

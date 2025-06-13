@@ -1,0 +1,340 @@
+import streamlit as st
+import pymongo
+from bson.objectid import ObjectId
+import bcrypt # For password hashing
+
+# It's good practice to load secrets at the beginning and provide clear error messages if they are missing.
+try:
+    MONGODB_URI = st.secrets["MONGODB_URI"]
+    DB_NAME = "learnify_auth"  # Or get from secrets if it varies
+    USER_COLLECTION = "users"
+except KeyError as e:
+    st.error(f"Missing secret: {e}. Please ensure MONGODB_URI is set in your Streamlit secrets.")
+    st.stop() # Stop execution if critical secrets are missing
+except Exception as e:
+    st.error(f"An error occurred while loading secrets: {e}")
+    st.stop()
+
+class MongoAuthManager:
+    def __init__(self):
+        try:
+            self.client = pymongo.MongoClient(MONGODB_URI)
+            self.db = self.client[DB_NAME]
+            self.users_collection = self.db[USER_COLLECTION]
+            # Test connection
+            self.client.admin.command('ping')
+            st.write("Successfully connected to MongoDB.")
+        except pymongo.errors.ConfigurationError as e:
+            st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
+            self.client = None
+            self.db = None
+            self.users_collection = None
+            st.stop()
+        except pymongo.errors.ConnectionFailure as e:
+            st.error(f"Failed to connect to MongoDB: {e}")
+            self.client = None
+            self.db = None
+            self.users_collection = None
+            st.stop() # Stop if DB connection fails
+        except Exception as e:
+            st.error(f"An unexpected error occurred during MongoDB initialization: {e}")
+            self.client = None
+            self.db = None
+            self.users_collection = None
+            st.stop()
+
+
+    def _ensure_connection(self):
+        if self.client is None or self.db is None or self.users_collection is None:
+            st.error("MongoDB connection is not available.")
+            return False
+        try:
+            # Ping the database to ensure the connection is active
+            self.client.admin.command('ping')
+            return True
+        except pymongo.errors.ConnectionFailure:
+            st.error("MongoDB connection lost. Please try again later.")
+            # Optionally, try to reconnect here
+            return False
+
+    def hash_password(self, password):
+        # Hash a password for storing.
+        salt = bcrypt.gensalt()
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed_password.decode('utf-8') # Store as string
+
+    def verify_password(self, plain_password, hashed_password):
+        # Check hashed password. Using .encode('utf-8') for both.
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+    def add_user(self, username, password, email, name):
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        if self.users_collection.find_one({"username": username}):
+            return None, "Username already exists."
+        if self.users_collection.find_one({"email": email}):
+            return None, "Email already registered."
+        
+        hashed_pw = self.hash_password(password)
+        try:
+            user_data = {
+                "username": username,
+                "password": hashed_pw,
+                "email": email,
+                "name": name,
+                "email_verified": False # Optional: for email verification flow
+            }
+            result = self.users_collection.insert_one(user_data)
+            return result.inserted_id, None
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error adding user: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error adding user: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def find_user_by_username(self, username):
+        if not self._ensure_connection():
+            return None
+        try:
+            return self.users_collection.find_one({"username": username})
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error finding user by username: {e}")
+            return None
+        except Exception as e:
+            st.error(f"Unexpected error finding user: {e}")
+            return None
+            
+    def find_user_by_email(self, email):
+        if not self._ensure_connection():
+            return None
+        try:
+            return self.users_collection.find_one({"email": email})
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error finding user by email: {e}")
+            return None
+        except Exception as e:
+            st.error(f"Unexpected error finding user by email: {e}")
+            return None
+
+    def update_user_password(self, username, new_password):
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        hashed_pw = self.hash_password(new_password)
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {"$set": {"password": hashed_pw}}
+            )
+            if result.modified_count > 0:
+                return True, None
+            else:
+                return False, "User not found or password not updated."
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error updating password: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error updating password: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def update_user_details(self, username, updates):
+        # Updates should be a dict of fields to update, e.g., {"name": "New Name", "email": "new@example.com"}
+        # Be careful about allowing username changes, as it's often used as a primary identifier.
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        # Prevent password updates through this method; use update_user_password for that.
+        if "password" in updates:
+            return False, "Password updates should be done via update_user_password."
+        
+        # If email is being updated, check if the new email already exists for another user
+        if "email" in updates:
+            existing_user = self.users_collection.find_one({"email": updates["email"]})
+            if existing_user and existing_user["username"] != username:
+                return False, "Email already registered by another user."
+
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {"$set": updates}
+            )
+            if result.modified_count > 0:
+                return True, None
+            elif result.matched_count > 0: # Matched but no changes made
+                return True, "No changes detected." 
+            else:
+                return False, "User not found."
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error updating user details: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error updating user details: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    # --- Config loading/saving methods (adapted from original 2_🔐_Login.py) ---
+    # These methods were originally in 2_🔐_Login.py and are related to 'authenticate.yaml'
+    # If you intend to fully replace YAML config with MongoDB for auth, these might need rethinking.
+    # For now, I'm including them as they were, assuming they might still be used for other configs
+    # or if the 'credentials' part of the config is now managed directly via user documents.
+
+    def load_config(self):
+        """Load authentication config from MongoDB (e.g., for settings beyond user credentials).
+           This function might need to be adapted based on what 'config' means in your new system.
+           If it's purely user credentials, this might become simpler or be replaced by direct user lookups.
+        """
+        if not self._ensure_connection():
+            return None
+        try:
+            # Assuming you have a 'config' collection and a specific document for auth settings
+            # This is a placeholder; adjust to your actual config storage strategy in MongoDB
+            config_doc = self.db.config_collection.find_one({"name": "authenticator_config"})
+            if config_doc:
+                # Remove MongoDB's _id field if you don't want it in the config dict
+                config_doc.pop('_id', None)
+                return config_doc
+            return None # Or return a default config dict
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error loading config: {e}")
+            return None
+        except Exception as e:
+            st.error(f"Unexpected error loading config from MongoDB: {e}")
+            return None
+
+    def save_config(self, config_data):
+        """Save config to MongoDB.
+           Similar to load_config, adapt based on your needs.
+        """
+        if not self._ensure_connection():
+            return False
+        try:
+            # Upsert the config document
+            self.db.config_collection.update_one(
+                {"name": "authenticator_config"},
+                {"$set": config_data},
+                upsert=True
+            )
+            return True
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error saving config: {e}")
+            return False
+        except Exception as e:
+            st.error(f"Unexpected error saving config to MongoDB: {e}")
+            return False
+
+# Example usage (optional, for testing this file directly)
+if __name__ == '__main__':
+    # This part will only run when the script is executed directly
+    # It requires Streamlit secrets to be available in a context where st.secrets can access them.
+    # For direct script execution, you might need to mock st.secrets or load .env manually.
+    
+    # Mock st.secrets for direct script execution if not running via streamlit run
+    class MockSecrets(dict):
+        def __init__(self, *args, **kwargs):
+            super(MockSecrets, self).__init__(*args, **kwargs)
+            self.__dict__ = self
+
+    if not hasattr(st, 'secrets'):
+        st.secrets = MockSecrets(MONGODB_URI="mongodb+srv://vox:tZm0fZA2BQT5sDf9@learnifydb.h4kxpad.mongodb.net/learnify_auth?retryWrites=true&w=majority") # Replace with your actual URI for testing
+
+    st.title("MongoAuthManager Test")
+
+    manager = MongoAuthManager()
+
+    if manager.client: # Check if connection was successful
+        st.header("User Management")
+        
+        # Test Add User
+        with st.form("add_user_form"):
+            st.subheader("Add New User")
+            new_username = st.text_input("Username")
+            new_password = st.text_input("Password", type="password")
+            new_email = st.text_input("Email")
+            new_name = st.text_input("Name")
+            submitted_add = st.form_submit_button("Add User")
+
+            if submitted_add:
+                if not all([new_username, new_password, new_email, new_name]):
+                    st.error("All fields are required.")
+                else:
+                    user_id, error = manager.add_user(new_username, new_password, new_email, new_name)
+                    if error:
+                        st.error(f"Failed to add user: {error}")
+                    else:
+                        st.success(f"User added successfully with ID: {user_id}")
+
+        # Test Find User
+        st.subheader("Find User")
+        find_username = st.text_input("Enter username to find")
+        if st.button("Find User by Username"):
+            if find_username:
+                user = manager.find_user_by_username(find_username)
+                if user:
+                    st.json(user) # Display user data as JSON (excluding password for security)
+                else:
+                    st.warning("User not found.")
+            else:
+                st.warning("Please enter a username.")
+
+        # Test Verify Password
+        st.subheader("Verify Password")
+        verify_username = st.text_input("Username for password verification")
+        verify_password = st.text_input("Password to verify", type="password")
+        if st.button("Verify Password"):
+            if verify_username and verify_password:
+                user = manager.find_user_by_username(verify_username)
+                if user:
+                    if manager.verify_password(verify_password, user.get("password")):
+                        st.success("Password verified!")
+                    else:
+                        st.error("Incorrect password.")
+                else:
+                    st.warning("User not found.")
+            else:
+                st.warning("Please enter both username and password.")
+        
+        # Test Update Password
+        with st.form("update_password_form"):
+            st.subheader("Update Password")
+            update_pass_username = st.text_input("Username to update password for")
+            update_new_pass = st.text_input("New Password", type="password")
+            submitted_update_pass = st.form_submit_button("Update Password")
+
+            if submitted_update_pass:
+                if update_pass_username and update_new_pass:
+                    success, error = manager.update_user_password(update_pass_username, update_new_pass)
+                    if success:
+                        st.success("Password updated successfully.")
+                    else:
+                        st.error(f"Failed to update password: {error}")
+                else:
+                    st.error("Username and new password are required.")
+                    
+        # Test Update User Details
+        with st.form("update_details_form"):
+            st.subheader("Update User Details")
+            update_details_username = st.text_input("Username to update details for")
+            update_name = st.text_input("New Name (optional)")
+            update_email = st.text_input("New Email (optional)")
+            submitted_update_details = st.form_submit_button("Update Details")
+
+            if submitted_update_details:
+                if update_details_username:
+                    updates = {}
+                    if update_name:
+                        updates["name"] = update_name
+                    if update_email:
+                        updates["email"] = update_email
+                    
+                    if updates:
+                        success, error = manager.update_user_details(update_details_username, updates)
+                        if success:
+                            st.success(f"User details updated. {error if error else ''}")
+                        else:
+                            st.error(f"Failed to update details: {error}")
+                    else:
+                        st.info("No details provided to update.")
+                else:
+                    st.error("Username is required to update details.")
+    else:
+        st.error("Failed to initialize MongoAuthManager. Cannot run tests.")
+
