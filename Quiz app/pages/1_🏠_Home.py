@@ -83,7 +83,7 @@ def auto_login_from_cookie_home():
     if cookie_username:
         user_data = manager.find_user_by_username(cookie_username)
         if user_data:
-            st.write(f"Auto-logging in user on Home: {cookie_username} from cookie.") # Debug
+            logging.info(f"Auto-logging in user on Home: {cookie_username} from cookie.") # Debug
             login_user_session(cookie_username, user_data)
         else:
             st.warning("Invalid authentication cookie on Home. Clearing.") # Debug
