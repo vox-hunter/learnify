@@ -6,17 +6,6 @@ import sys
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# Add parent directory to path to import modules
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-try:
-    from mongo_auth import MongoAuthManager
-    MONGO_AVAILABLE = True
-except ImportError as e:
-    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
-    MONGO_AVAILABLE = False
-    st.stop() # Stop if core auth module is missing
-
 # Set page config FIRST - must be the very first Streamlit command
 st.set_page_config(
     page_title="Learnify - Login",
@@ -24,6 +13,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Add parent directory to path to import modules
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+try:
+    from mongo_auth import MongoAuthManager
+    MONGO_AVAILABLE = True
+except ImportError as e:
+    # It's okay to call st.error here after set_page_config
+    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
+    MONGO_AVAILABLE = False
+    st.stop() # Stop if core auth module is missing
 
 st.markdown("""
 <style>
