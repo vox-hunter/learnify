@@ -463,46 +463,59 @@ def display_question(question_item, section_key, question_idx):
     elif question_type in ["fill_in_the_blank", "fill in the blank"]:
         # For fill-in-the-blank, we need the full question text and the answer to blank out
         correct_answer_for_blank = str(answer) if answer is not None else ""
+        component_instance_key = f"fitb_{question_key}" # Key for the custom component's state
+
+        # Store question text in session state for AI validation (if applicable, though not used by FITB directly)
+        st.session_state[f"{question_key}_question"] = question_text_full
+        
+        # Display question number and type
+        st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**:")
 
         if not question_text_full or not correct_answer_for_blank:
-            st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer.")
-            # Fallback to standard text input if data is incomplete
+            st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer. Using standard input.")
+            # Fallback to standard text input, which uses question_key for its state
             st.text_input("Your answer:",
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None),
+                          args=(question_key, correct_answer_for_blank, question_type, None), # handle_answer_submission reads from question_key for this
                           disabled=is_answered
                           )
         # Check if the question_text_full contains underscores (e.g., '___')
         elif not re.search(r'_{3,}', question_text_full):
             st.warning(f"Question text for fill-in-the-blank (key: {question_key}) does not contain '___'. Using standard input. Question: '{question_text_full}'")
+            # Fallback to standard text input
             st.text_input("Your answer:",
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None),
+                          args=(question_key, correct_answer_for_blank, question_type, None), # handle_answer_submission reads from question_key for this
                           disabled=is_answered
                           )
         else:
             # Use the custom component
             # Initialize component's specific state if not present
-            if question_key not in st.session_state:
-                st.session_state[question_key] = ""
+            if component_instance_key not in st.session_state:
+                st.session_state[component_instance_key] = ""
 
-            # Get current value from session state to pass as default_value
-            current_blank_value = st.session_state[question_key]
+            # Get current value from component's session state to pass as default_value
+            current_input_value_for_component = st.session_state[component_instance_key]
             
-            user_input_for_blank = fill_in_the_blanks_input(
+            fill_in_the_blanks_input(
                 question_text_full=question_text_full,
-                correctAnswer=correct_answer_for_blank,
-                key=f"fitb_{question_key}",
-                default_value=current_blank_value,
+                correctAnswer=correct_answer_for_blank, # Prop for component's internal use
+                key=component_instance_key, # Streamlit uses this key for component's state
+                default_value=current_input_value_for_component,
                 disabled=is_answered
             )
             
-            # If the component's value changed, update session_state and trigger submission handler
-            if user_input_for_blank != current_blank_value:
-                st.session_state[question_key] = user_input_for_blank
-                handle_answer_submission(question_key, correct_answer_for_blank, question_type, None)
+            # Add a submit button for this fill-in-the-blank question
+            if not is_answered:
+                submit_button_key = f"submit_fitb_{question_key}"
+                if st.button("Submit Blank Answer", key=submit_button_key):
+                    # handle_answer_submission will be modified to read the answer 
+                    # from st.session_state[component_instance_key] for FITB questions.
+                    # We pass `answer` (the original correct answer) here.
+                    handle_answer_submission(question_key, answer, question_type, None)
+                    st.rerun() # Rerun to reflect submission status (feedback, disabled state)
     
     elif question_type == "match":
         # Get the matching items from the question's answer
@@ -837,10 +850,23 @@ def fix_json_format(data_str):
     return None
 
 def handle_answer_submission(question_key, correct_answer, question_type, placeholder_option_value=None):
-    user_answer = st.session_state.get(question_key)
+    user_answer = None # Initialize
+
+    if question_type in ["fill_in_the_blank", "fill in the blank"]:
+        # For fill-in-the-blank, the custom component's state is stored with a prefixed key
+        component_instance_key = f"fitb_{question_key}"
+        user_answer = st.session_state.get(component_instance_key)
+    else:
+        # For other standard Streamlit inputs, the state is directly st.session_state[question_key]
+        # This also covers the fallback text_input for fill_in_the_blank if the custom component isn't used.
+        user_answer = st.session_state.get(question_key)
     
     if user_answer is None: 
-        return
+        # If it's a new question, it might be None if not initialized by the input element yet.
+        # For fill-in-the-blank custom component, it's initialized to "".
+        # For standard inputs, if not touched, it might be None.
+        # Let's allow submission to proceed; empty/None answers will be marked by is_answer_correct.
+        pass # Allow None to be processed by is_answer_correct, which handles str(user_answer)
 
     # If a placeholder was used (only for MCQs) and it's selected, ignore this submission.
     if placeholder_option_value is not None and user_answer == placeholder_option_value:
@@ -861,6 +887,8 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
 
     # AI-powered validation for short answer questions
     elif question_type in ["short_answer", "short answer"]:
+        if user_answer is None: # Explicitly handle None for short answer if it makes sense
+            user_answer = "" # Or handle as an error/incomplete submission
         # First try AI validation
         try:
             # Get the original question text from session state
@@ -893,27 +921,28 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
 
     # For match questions, we have JSON strings representing dictionaries
     elif question_type == "match":
-        try:
-            # user_answer is st.session_state.get(question_key), a JSON string of user's matches.
-            # correct_answer is a JSON string of the correct matches, passed from display_question.
-            user_matches_dict = json.loads(user_answer)
-            correct_matches_dict = json.loads(correct_answer)
+        if isinstance(user_answer, str): # Ensure user_answer is a string before json.loads
+            try:
+                # user_answer is st.session_state.get(question_key), a JSON string of user's matches.
+                # correct_answer is a JSON string of the correct matches, passed from display_question.
+                user_matches_dict = json.loads(user_answer)
+                correct_matches_dict = json.loads(correct_answer) # Assuming correct_answer is always a valid JSON string here
 
-            # Validate that both parsed objects are dictionaries
-            if not isinstance(user_matches_dict, dict) or not isinstance(correct_matches_dict, dict):
-                is_correct_locally = False
-                feedback_message = "Error: Match data is not in the expected dictionary format after parsing."
-            else:
-                # Compare the dictionaries for logical equality
-                is_correct_locally = (user_matches_dict == correct_matches_dict)
-                
-                # Calculate partial score for feedback message
-                correct_count = 0
-                # Iterate through the keys in the user's submitted matches
-                for item_key in user_matches_dict:
-                    # Check if the item exists in correct answers and if the user's match for it is correct
-                    if item_key in correct_matches_dict and user_matches_dict[item_key] == correct_matches_dict[item_key]:
-                        correct_count += 1
+                # Validate that both parsed objects are dictionaries
+                if not isinstance(user_matches_dict, dict) or not isinstance(correct_matches_dict, dict):
+                    is_correct_locally = False
+                    feedback_message = "Error: Match data is not in the expected dictionary format after parsing."
+                else:
+                    # Compare the dictionaries for logical equality
+                    is_correct_locally = (user_matches_dict == correct_matches_dict)
+                    
+                    # Calculate partial score for feedback message
+                    correct_count = 0
+                    # Iterate through the keys in the user's submitted matches
+                    for item_key in user_matches_dict:
+                        # Check if the item exists in correct answers and if the user's match for it is correct
+                        if item_key in correct_matches_dict and user_matches_dict[item_key] == correct_matches_dict[item_key]:
+                            correct_count += 1
                 
                 total_items_to_match = len(correct_matches_dict) # Total number of items that should be matched
 
@@ -925,12 +954,16 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
                     else: # Should not happen with well-formed question data
                         feedback_message = "Could not determine the number of items to match, or there were no items to match."
             
-        except json.JSONDecodeError:
+            except json.JSONDecodeError:
+                is_correct_locally = False
+                feedback_message = "Error processing your selections: the answer format was unexpected. Please ensure your selections are valid."
+            except Exception as e: # Catch any other unexpected error during match processing
+                is_correct_locally = False
+                feedback_message = f"An unexpected error occurred while checking your match answer: {str(e)}"
+        else:
+            # Handle cases where user_answer is None or not a string (e.g. if not answered)
             is_correct_locally = False
-            feedback_message = "Error processing your selections: the answer format was unexpected. Please ensure your selections are valid."
-        except Exception as e: # Catch any other unexpected error during match processing
-            is_correct_locally = False
-            feedback_message = f"An unexpected error occurred while checking your match answer: {str(e)}"
+            feedback_message = "No answer submitted or answer is in an invalid format for matching."
 
     # For other text-based answers (multiple_choice, fill_in_the_blank)
     elif is_answer_correct(user_answer, correct_answer, question_type):
