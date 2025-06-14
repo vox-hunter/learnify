@@ -1,9 +1,12 @@
-\
+import streamlit as st # Import streamlit for the dummy component and example
 import streamlit.components.v1 as components
 import os
 
 # Set to True when deploying, False for local development of the component
 _RELEASE = True
+
+# Component function will be assigned based on _RELEASE value
+_component_func = None
 
 if not _RELEASE:
     _component_func = components.declare_component(
@@ -11,101 +14,109 @@ if not _RELEASE:
         url="http://localhost:3001",  # URL of the frontend development server
     )
 else:
-    parent_dir = os.path.dirname(os.path.abspath(__file__))
-    build_dir = os.path.join(parent_dir, "frontend/build")
-    if not os.path.exists(build_dir):
-        # Fallback for environments where build might not be present during generation
-        # In a real scenario, you'd build the frontend first.
-        print(f"WARNING: Build directory {build_dir} not found for st_fill_in_the_blanks component.")
-        # Provide a dummy function so the app doesn't crash, but the component won't work.
-        def _component_func(**kwargs):
-            components.html(f"<div>Custom component 'st_fill_in_the_blanks' not built. Args: {kwargs}</div>", height=50)
-            return kwargs.get("default_value", "") # Return default or empty string
-    else:
-        _component_func = components.declare_component(
-            "st_fill_in_the_blanks", path=build_dir  # Remove unsupported default_height
-        )
+    parent_dir = os.path.dirname(os.path.realpath(__file__))
+    build_dir = os.path.join(parent_dir, "frontend", "build")
 
-def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, default_value="", disabled=False): # Renamed answer_to_blank to correctAnswer
-    """
-    Custom Streamlit component for a fill-in-the-blanks input.
+    expected_manifest_path = os.path.join(build_dir, "asset-manifest.json")
+    
+    if not (os.path.exists(build_dir) and os.path.isdir(build_dir) and os.path.exists(expected_manifest_path)):
+        # This block will be entered if essential build artifacts are missing.
+        print(f"ERROR: Custom component 'st_fill_in_the_blanks' build artifacts missing or incomplete in {build_dir}")
+        print(f"Build directory exists: {os.path.exists(build_dir)}")
+        if os.path.exists(build_dir):
+            print(f"Is build directory a directory: {os.path.isdir(build_dir)}")
+            print(f"Asset manifest exists: {os.path.exists(expected_manifest_path)}")
+
+        def _dummy_component_func(*args, **kwargs):
+            st.error(f"Custom component 'st_fill_in_the_blanks' not loaded. Build artifacts are missing from the expected location: {build_dir}. Please rebuild the component and ensure the 'frontend/build' directory is correctly deployed.")
+            return None # Add return None
+        _component_func = _dummy_component_func
+    else:
+        # Use a path relative to this __init__.py file for Streamlit Cloud,
+        # assuming the 'frontend/build' directory is correctly placed relative to it.
+        # Streamlit handles resolving this path when the component is part of the deployed package.
+        _component_func = components.declare_component("st_fill_in_the_blanks", path="frontend/build")
+
+
+# The public function that Streamlit apps will call
+def fill_in_the_blanks_input(question_text_full: str, correctAnswer: str, key: str = None, default_value: str = "", disabled: bool = False):
+    """Create a new instance of the st_fill_in_the_blanks component.
 
     Parameters
     ----------
     question_text_full : str
-        The full question text that includes underscore placeholders (e.g., "___").
-        Example: "The capital of France is ___.")
-    correctAnswer : str # Changed from answer_to_blank
-        The correct answer for the blank.
-        Example: "Paris"
-    key : str, optional
-        An optional key that uniquely identifies this component.
-    default_value : str, optional
-        The initial value for the input field.
-    disabled : bool, optional
+        The full text of the question, including placeholders like '___'.
+    correctAnswer : str
+        The correct answer for the blank (used by the component, possibly for validation or display).
+    key : str or None
+        An optional key that uniquely identifies this component. If this is
+        None, and the component's arguments are changed, the component will
+        be re-mounted in the Streamlit frontend and lose its current state.
+    default_value : str
+        The initial value for the input blank.
+    disabled : bool
         Whether the input should be disabled.
 
     Returns
-    -------
-    str
-        The current text entered by the user in the blank.
-    """
+    ------ str or None
+        The current value of the input blank field, or None if the component failed to load.
+    """    
+    if _component_func is None:
+        # This should ideally not happen if the logic above is correct,
+        # but as a fallback to prevent calling None.
+        st.error("FATAL: _component_func for st_fill_in_the_blanks is None. Deployment is broken.")
+        return None
+
     component_value = _component_func(
         question_text_full=question_text_full,
-        correctAnswer=correctAnswer, # Changed from answer_to_blank
+        correctAnswer=correctAnswer,
         key=key,
-        default=default_value, # This 'default' is passed to the frontend if no value is sent back from JS
+        default=default_value, 
         disabled=disabled
     )
     return component_value
 
-# Example usage (for testing the component independently)
-if __name__ == "__main__":
-    import streamlit as st
-    st.set_page_config(layout="wide")
-    st.subheader("Custom Fill-in-the-Blanks Component Test")
+# Example usage for local testing (optional)
+# Ensure this block is correctly indented and uses `st` from `import streamlit as st`
+if not _RELEASE and _component_func is not None: # Also check if _component_func is callable
+    st.set_page_config(layout="wide") # Ensure st is available
+    st.subheader("Fill-in-the-Blanks Component Test")
 
-    question = "The quick brown ___ jumps over the lazy ___." # Example with underscores
-    answer_fox = "fox"
-    # answer_dog = "dog" # For a more complex example, but let's stick to one blank for now in this test
-    
-    # Initialize session state for the component's value
-    if 'blank_input_value' not in st.session_state:
-        st.session_state.blank_input_value = ""
-
-    # Simulate on_change behavior
-    # The component's return value is the latest from JS
-    # We store it in session_state to persist it and pass it back as `default_value`
-    # to allow Python to control/reset the component's displayed text.
-
-    user_input = fill_in_the_blanks_input(
-        question, 
-        answer_fox, # Pass the correct answer for the blank
-        key="fitb1", 
-        default_value=st.session_state.blank_input_value,
-        disabled=st.session_state.get("fitb1_disabled", False)
-    )
-
-    # If the component returned a new value, update session state
-    # This check helps avoid infinite loops if not careful with state updates
-    if user_input != st.session_state.blank_input_value:
-        st.session_state.blank_input_value = user_input
-        # Typically, you'd trigger a rerun if you want other parts of the app to react immediately
-        # For this example, we'll just show the value.
-        # st.rerun() 
-
-    st.write("You entered:", user_input)
-
-    if st.button("Check Answer (fox)"):
-        if user_input.lower() == answer_fox.lower(): # Compare with the correct answer
+    # Test case 1: Simple blank
+    q1_text = "The capital of France is ___." # Corrected: removed trailing parenthesis
+    q1_ans = "Paris"
+    user_input1 = fill_in_the_blanks_input(q1_text, q1_ans, key="fitb1", default_value="")
+    st.write("User input 1:", user_input1)
+    if user_input1 is not None: # Check if user_input1 is not None
+        if user_input1.lower() == q1_ans.lower():
             st.success("Correct!")
-            st.session_state.fitb1_disabled = True # Disable after checking
-            st.rerun()
         else:
-            st.error(f"Incorrect. The answer was '{answer_fox}'. You typed '{user_input}'.")
+            st.error(f"Incorrect. Correct answer: {q1_ans}")
+
+    st.markdown("---")
+
+    # Test case 2: Disabled component with a default value
+    q2_text = "Python is a ___ language."
+    q2_ans = "programming"
+    user_input2 = fill_in_the_blanks_input(q2_text, q2_ans, key="fitb2", default_value="scripting", disabled=True)
+    st.write("User input 2 (disabled with default):", user_input2)
     
-    if st.button("Reset"):
-        st.session_state.blank_input_value = ""
-        st.session_state.fitb1_disabled = False
-        st.rerun()
+    st.markdown("---")
+
+    # Test case 3: Question with multiple underscores but component handles one
+    q3_text = "The formula for water is H__O, and it has ___ atoms."
+    q3_ans = "2"
+    user_input3 = fill_in_the_blanks_input(q3_text, q3_ans, key="fitb3")
+    st.write("User input 3:", user_input3)
+
+    st.markdown("---")
+    st.write("Component Arguments Sent (Example):") # Added Example for clarity
+    st.json({
+        "q1_text": q1_text,
+        "q1_ans": q1_ans,
+        "q2_text": q2_text,
+        "q2_ans": q2_ans,
+        "q3_text": q3_text,
+        "q3_ans": q3_ans
+    })
 
