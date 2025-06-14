@@ -23,7 +23,6 @@ class MongoAuthManager:
             self.users_collection = self.db[USER_COLLECTION]
             # Test connection
             self.client.admin.command('ping')
-            st.write("Successfully connected to MongoDB.")
         except pymongo.errors.ConfigurationError as e:
             st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
             self.client = None

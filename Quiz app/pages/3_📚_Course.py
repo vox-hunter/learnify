@@ -608,59 +608,97 @@ def display_question(question_item, section_key, question_idx):
                 left_col, right_col = st.columns(2)
                 
                 with left_col:
-                    st.write("**Left Items:**")
-                    for left_item in left_items:
-                        st.write(f"• {left_item}")
+                    for i, item in enumerate(left_items):
+                        st.markdown(f"**{i+1}.** {item}")
                 
                 with right_col:
-                    st.write("**Right Items:**")
-                    for right_item in shuffled_right:
-                        st.write(f"• {right_item}")
+                    # Display shuffled right items as labels for the dropdowns
+                    # This part is mostly for visual reference if needed, actual matching is via dropdowns
+                    pass # Not strictly needed to list them again if dropdowns show options
                 
                 # Create dropdowns for matching
-                user_matches = {}
+                user_matches_for_ui = {} # To store selections from dropdowns in the current render
                 for i, left_item in enumerate(left_items):
-                    # Get the currently selected value for this left item
-                    current_selection = st.session_state[match_answers_key].get(left_item, "Select...")
+                    # Use a unique key for each dropdown based on left_item and question_key
+                    # to preserve its state across reruns if not submitted.
+                    dropdown_key = f"match_select_{question_key}_{i}"
                     
-                    # Create dropdown
-                    selected = st.selectbox(
-                        f"Match '{left_item}' with:",
-                        ["Select..."] + shuffled_right,
-                        index=0 if current_selection == "Select..." else shuffled_right.index(current_selection) + 1 if current_selection in shuffled_right else 0,
-                        key=f"{question_key}_match_{i}",
-                        disabled=is_answered
+                    # Get the current selection for this dropdown from session state (user's ongoing attempt)
+                    current_selection_for_left_item = st.session_state[match_answers_key].get(left_item)
+
+                    selected_right_item = st.selectbox(
+                        f"Match for '{left_item}'",
+                        options=[""] + shuffled_right,  # Add a blank option
+                        index=(shuffled_right.index(current_selection_for_left_item) + 1) if current_selection_for_left_item and current_selection_for_left_item in shuffled_right else 0,
+                        key=dropdown_key,
+                        label_visibility="collapsed",
+                        disabled=is_answered 
                     )
-                    
-                    if selected != "Select...":
-                        user_matches[left_item] = selected
+                    if selected_right_item: # Only add to matches if something is selected
+                        user_matches_for_ui[left_item] = selected_right_item
                 
-                # Update session state with current matches
-                st.session_state[match_answers_key] = user_matches
+                # Update session state with current selections from UI
+                # This happens on every rerun if a dropdown changes
+                st.session_state[match_answers_key] = user_matches_for_ui
                 
                 # Submit button for matching questions
-                if not is_answered and len(user_matches) == len(left_items):
-                    if st.button(f"Submit Matches", key=f"{question_key}_submit"):
-                        # Convert matches to JSON string for submission
-                        matches_json = json.dumps(user_matches)
-                        handle_answer_submission(question_key, json.dumps(match_data), question_type, None)
+                # The button is active if not answered and all left items have a selection.
+                # We check user_matches_for_ui which reflects the current state of dropdowns.
+                all_items_matched_in_ui = len(user_matches_for_ui) == len(left_items)
+
+                if not is_answered and all_items_matched_in_ui:
+                    if st.button("Submit Matches", key=f"submit_match_{question_key}"):
+                        # On button click, the user_matches_for_ui (from current dropdowns)
+                        # has already been stored in st.session_state[match_answers_key].
+                        # We use that value from session_state for submission.
+                        user_selections_to_submit = st.session_state.get(match_answers_key, {})
+                        st.session_state[question_key] = json.dumps(user_selections_to_submit)
+                        
+                        # Ensure match_data (correct answers) is a dict before dumping and handling submission
+                        if isinstance(match_data, dict):
+                            correct_answer_json = json.dumps(match_data)
+                            handle_answer_submission(question_key, correct_answer_json, "match", None)
+                        else:
+                            st.error("Internal error: Correct answer data for matching is not in the expected dictionary format.")
+                            st.session_state.checked_answers[question_key] = True
+                            st.session_state.user_answers[question_key] = json.dumps(user_selections_to_submit)
+                            st.session_state.feedback[question_key] = "Error: Could not process the correct answer data."
+                        
+                        st.rerun()
+                elif not is_answered:
+                    # If not all items are matched, show a disabled-like message or a disabled button
+                    # For simplicity, we can just not show the button or show it disabled.
+                    # Here, if all_items_matched_in_ui is false, the button above is not rendered.
+                    # We can add a placeholder or a disabled button if desired.
+                    st.button("Submit Matches", key=f"submit_match_{question_key}_disabled", disabled=True)
+                    if not all_items_matched_in_ui and len(left_items) > 0 : # only show if there are items to match
+                         st.caption("Please select a match for all items on the left.")
+
         else:
+            # This block handles cases where match_data was not a dictionary initially.
             # Try one more time to fix the JSON format before giving up
             if not isinstance(match_data, dict):
                 # Final attempt with more aggressive parsing
-                st.error("Unable to parse matching question data. Falling back to text input.")
-        
-        if isinstance(match_data, dict) and match_data:
-            # Match question processing will be handled by the existing logic above
-            pass
-        else:
-            # Fallback to text area for malformed match questions
-            st.text_area("Your answer:",
+                # st.warning("Matching question data is malformed. Attempting to fix...") # Optional warning
+                fixed_match_data = None
+                if isinstance(match_data, str):
+                    fixed_match_data = fix_json_format(match_data)
+                
+                if isinstance(fixed_match_data, dict) and fixed_match_data:
+                    # If fixed, we could try to re-render the match UI, but that's complex.
+                    # For now, just log that it was fixed and fall back.
+                    # st.info("Successfully parsed malformed match data, but UI fell back to text input for this attempt.")
+                    pass # Fall through to text area
+
+            # Fallback to text area for malformed match questions or if fixing failed
+            st.error("Unable to display matching question due to data format issues. Please answer as a JSON string or contact support.")
+            st.text_area("Your answer (as JSON, e.g., {\\\"premise1\\\": \\\"responseA\\\", ...}):",
                         key=question_key,
                         on_change=handle_answer_submission,
-                        args=(question_key, answer, question_type, None),
+                        args=(question_key, answer, question_type, None), # answer here is the original, possibly malformed, answer
                         disabled=is_answered
                         )
+    
     elif question_type in ["short_answer", "short answer"]:
         st.text_area("Your answer:",
                     key=question_key,
@@ -679,14 +717,29 @@ def display_question(question_item, section_key, question_idx):
                  )
     
     # Display feedback if answered
-    if is_answered:
-        feedback_message = st.session_state.feedback.get(question_key)
-        if feedback_message:
-            if feedback_message.startswith("Correct!"):
-                st.success(f"✅ {feedback_message}")
+    if is_answered: # This relies on checked_answers[question_key] being True
+        feedback_text = st.session_state.feedback.get(question_key)
+        if feedback_text: # Check if feedback text exists and is not empty
+            if "Correct!" in feedback_text:
+                st.success(f"✅ {feedback_text}")
+            elif feedback_text.startswith("Incorrect."):
+                # Extract the part after "Incorrect. " to check for errors vs. partial scores
+                detailed_feedback = feedback_text[len("Incorrect. "):]
+                if any(err_keyword in detailed_feedback.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
+                    st.error(f"❌ {feedback_text}") # e.g., "Incorrect. Error: Malformed data."
+                else:
+                    # For partial scores or simple incorrect messages without specific error keywords
+                    st.info(f"ℹ️ {feedback_text}") # e.g., "Incorrect. You matched 2 out of 3." or "Incorrect. Your answer: X, Correct answer: Y"
+            elif any(err_keyword in feedback_text.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
+                # For direct error messages not prepended with "Incorrect."
+                st.error(f"❌ {feedback_text}")
             else:
-                st.error(f"❌ {feedback_message}")
-
+                # Fallback for any other non-empty feedback, treat as informational
+                # This could catch custom feedback messages that don't fit the patterns above
+                st.info(f"ℹ️ {feedback_text}")
+        # else: No feedback message was found in session state for this question_key.
+        # If is_answered is True but feedback_text is None or empty, nothing will be shown here.
+        # This would be a state inconsistency if it occurs.
 
 def fix_json_format(data_str):
     """
@@ -818,44 +871,66 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
                 question_text, user_answer, correct_answer
             )
             
-            if ai_result is not None:  # AI validation succeeded
+            if ai_result is not None: # AI validation was successful               
                 is_correct_locally = ai_result
-                if is_correct_locally:
-                    feedback_message = f"Correct! {ai_explanation}"
-                else:
-                    feedback_message = f"Incorrect. {ai_explanation}"
-            else:  # AI validation failed, fallback to simple comparison
-                if is_answer_correct(user_answer, correct_answer, question_type):
-                    is_correct_locally = True
+                feedback_message = ai_explanation # AI explanation is the full feedback
+            else: # AI validation failed or returned None, fallback to simple check               
+                is_correct_locally = is_answer_correct(user_answer, correct_answer, question_type)
                 display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
-                feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable: {ai_explanation})"
+                if is_correct_locally:
+                    feedback_message = f"Correct! Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
+                else:
+                    feedback_message = f"Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
                 
         except Exception as e:
             # Fallback to simple string comparison if AI validation fails
-            if is_answer_correct(user_answer, correct_answer, question_type):
-                is_correct_locally = True
+            is_correct_locally = is_answer_correct(user_answer, correct_answer, question_type)
             display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
-            feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation error)"
+            if is_correct_locally:
+                feedback_message = f"Correct! Your answer: {user_answer}, Expected: {display_answer} (AI validation error: {str(e)})"
+            else:
+                feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation error: {str(e)})"
 
     # For match questions, we have JSON strings representing dictionaries
     elif question_type == "match":
         try:
-            user_matches = json.loads(user_answer)
-            correct_matches = json.loads(correct_answer)
-            
-            # Calculate the number of correct matches
-            correct_count = sum(1 for key in user_matches if user_matches.get(key) == correct_matches.get(key))
-            total_count = len(correct_matches)
-            
-            # Determine if the answer is completely correct
-            is_correct_locally = user_answer == correct_answer
-            
-            if is_correct_locally:
-                feedback_message = f"Correct! You matched all {total_count} items correctly."
+            # user_answer is st.session_state.get(question_key), a JSON string of user's matches.
+            # correct_answer is a JSON string of the correct matches, passed from display_question.
+            user_matches_dict = json.loads(user_answer)
+            correct_matches_dict = json.loads(correct_answer)
+
+            # Validate that both parsed objects are dictionaries
+            if not isinstance(user_matches_dict, dict) or not isinstance(correct_matches_dict, dict):
+                is_correct_locally = False
+                feedback_message = "Error: Match data is not in the expected dictionary format after parsing."
             else:
-                feedback_message = f"You matched {correct_count} out of {total_count} items correctly."
+                # Compare the dictionaries for logical equality
+                is_correct_locally = (user_matches_dict == correct_matches_dict)
+                
+                # Calculate partial score for feedback message
+                correct_count = 0
+                # Iterate through the keys in the user's submitted matches
+                for item_key in user_matches_dict:
+                    # Check if the item exists in correct answers and if the user's match for it is correct
+                    if item_key in correct_matches_dict and user_matches_dict[item_key] == correct_matches_dict[item_key]:
+                        correct_count += 1
+                
+                total_items_to_match = len(correct_matches_dict) # Total number of items that should be matched
+
+                if is_correct_locally:
+                    feedback_message = f"Correct! You matched all {total_items_to_match} items."
+                else:
+                    if total_items_to_match > 0:
+                        feedback_message = f"You matched {correct_count} out of {total_items_to_match} items correctly."
+                    else: # Should not happen with well-formed question data
+                        feedback_message = "Could not determine the number of items to match, or there were no items to match."
+            
         except json.JSONDecodeError:
-            feedback_message = "Error processing match answers."
+            is_correct_locally = False
+            feedback_message = "Error processing your selections: the answer format was unexpected. Please ensure your selections are valid."
+        except Exception as e: # Catch any other unexpected error during match processing
+            is_correct_locally = False
+            feedback_message = f"An unexpected error occurred while checking your match answer: {str(e)}"
 
     # For other text-based answers (multiple_choice, fill_in_the_blank)
     elif is_answer_correct(user_answer, correct_answer, question_type):
@@ -864,16 +939,31 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
         feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
     else: # Default case for incorrect non-boolean, non-short-answer
+        is_correct_locally = False # Ensure this is set if not already by other branches
         # Display first acceptable answer if multiple exist
         display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
         feedback_message = f"Your answer: {user_answer}, Correct answer: {display_answer}"
 
     if is_correct_locally:
-        st.session_state.feedback[question_key] = "Correct!" 
+        # For "match" and "short_answer" (with AI), feedback_message is already the complete success message.
+        # For "true_false", and other types like MC/FITB, we might want to prepend "Correct!" if not already there.
+        if question_type == "match":
+            st.session_state.feedback[question_key] = feedback_message # e.g., "Correct! You matched all X items."
+        elif question_type in ["short_answer", "short answer"] and feedback_message:
+            # Assuming ai_explanation (feedback_message) is a full sentence like "Correct, because..." or "That's right..."
+            st.session_state.feedback[question_key] = feedback_message
+        elif question_type in ["true_false", "true false", "true or false"] and feedback_message:
+            # feedback_message for TF correct is "Your answer: X, Correct answer: X"
+            st.session_state.feedback[question_key] = f"Correct! {feedback_message}"
+        else: # Default for MC, FITB if correct (feedback_message is "Your answer: X, Correct: X")
+            st.session_state.feedback[question_key] = f"Correct! {feedback_message}"
+        
         if question_key not in st.session_state.scored_correctly_keys:
             st.session_state.current_score += 1
             st.session_state.scored_correctly_keys.add(question_key)
     else:
+        # For incorrect answers, feedback_message should contain the reason/details.
+        # Prepend "Incorrect." to this detailed message.
         st.session_state.feedback[question_key] = f"Incorrect. {feedback_message}"
 
 def is_answer_correct(user_answer, correct_answer, question_type):
