@@ -25,6 +25,157 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+st.markdown("""
+<style>
+    /* Global styles */
+    .stApp {
+        background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
+    }
+    
+    /* Hide default sidebar */
+    .css-1d391kg {
+        padding-top: 1rem;
+    }
+    
+    /* Center container */
+    .main-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    /* Title styling */
+    .main-title {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 2rem;
+    }
+      /* Pill button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #9d00ff, #7a00cc);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 30px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
+        width: 100%;
+        font-size: 1rem;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #7a00cc, #5c0099);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.4);
+    }
+    
+    /* Input styling */
+    .stTextInput > div > div > input {
+        background: rgba(26, 0, 51, 0.8);
+        border: 2px solid #9d00ff;
+        border-radius: 25px;
+        color: #ededed;
+        padding: 12px 20px;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #ff6b6b;
+        box-shadow: 0 0 15px rgba(157, 0, 255, 0.3);
+    }
+    
+    /* File uploader enhanced styling */
+    .stFileUploader {
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px dashed #9d00ff;
+        border-radius: 20px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        margin: 1rem 0;
+    }
+    
+    .stFileUploader:hover {
+        border-color: #ff6b6b;
+        background: rgba(255, 255, 255, 0.06);
+        transform: translateY(-2px);
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 25px;
+        padding: 5px;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
+        border-radius: 20px;
+        color: rgba(255, 255, 255, 0.7);
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #9d00ff, #7a00cc);
+        color: white;
+        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
+    }
+    
+    /* Progress bar styling */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
+        border-radius: 10px;
+    }
+    
+    /* Success/Error/Warning message styling */
+    .stSuccess, .stInfo, .stWarning, .stError {
+        border-radius: 15px;
+        border: none;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .stSuccess {
+        background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.1));
+        border-left: 4px solid #00ff00;
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(0, 100, 255, 0.1));
+        border-left: 4px solid #0096ff;
+    }
+    
+    .stWarning {
+        background: linear-gradient(135deg, rgba(255, 165, 0, 0.1), rgba(255, 140, 0, 0.1));
+        border-left: 4px solid #ffa500;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, rgba(255, 0, 0, 0.1), rgba(200, 0, 0, 0.1));
+        border-left: 4px solid #ff0000;
+    }
+    
+    /* Top navigation */
+    .top-nav {
+        position: fixed;
+        top: 0;
+        right: 0;
+        padding: 1rem;
+        z-index: 1000;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- Cookie Manager Initialization ---
 # TODO: Replace "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES" with a value from st.secrets
 # For example: st.secrets.get("COOKIE_ENCRYPTION_KEY", "default_fallback_key")
