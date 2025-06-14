@@ -4,6 +4,7 @@ Login/Signup Page
 import streamlit as st
 import sys
 import os
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -24,6 +25,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# --- Cookie Manager Initialization ---
+# TODO: Replace "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES" with a value from st.secrets
+# For example: st.secrets.get("COOKIE_ENCRYPTION_KEY", "default_fallback_key")
+# Ensure this key is strong and kept secret.
+COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
+if COOKIE_ENCRYPTION_KEY == "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES":
+    st.warning("Using default cookie encryption key. Please set COOKIE_ENCRYPTION_KEY in st.secrets for production.")
+
+cookies = EncryptedCookieManager(
+    password=COOKIE_ENCRYPTION_KEY,
+    prefix="learnify/auth", # Optional: prefix for cookie names
+    # key="session_cookie" # Optional: if you want to name the cookie instance
+)
+# Initialize cookies if they haven't been, e.g. on first run
+if not cookies.ready():
+    st.stop() # Cookies are not ready, something is wrong.
+
+AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
+
 # --- Authentication State Management ---
 def get_auth_manager():
     if "auth_manager" not in st.session_state:
@@ -39,14 +59,20 @@ def login_user(username, user_data):
     st.session_state['username'] = username
     st.session_state['name'] = user_data.get('name')
     st.session_state['email'] = user_data.get('email')
-    # Potentially add other user details you want in session state
+    # Set cookie for persistent login (e.g., expires in 7 days)
+    cookies[AUTH_COOKIE_NAME] = username 
+    cookies.save() # Save cookies to the browser
 
 def logout_user():
     st.session_state['authentication_status'] = False
     st.session_state['username'] = None
     st.session_state['name'] = None
     st.session_state['email'] = None
-    # Clear other session state variables related to the user
+    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login
+    # Clear cookie
+    if AUTH_COOKIE_NAME in cookies:
+        del cookies[AUTH_COOKIE_NAME]
+        cookies.save()
 
 # Initialize session state variables if they don't exist
 if 'authentication_status' not in st.session_state:
@@ -56,10 +82,44 @@ if 'username' not in st.session_state:
 if 'name' not in st.session_state:
     st.session_state['name'] = None
 
-
-# --- UI Rendering ---
 manager = get_auth_manager()
 
+def auto_login_from_cookie():
+    if not manager:
+        return # Auth manager not available
+
+    # Check if already authenticated or if a logout just happened
+    if st.session_state.get('authentication_status') or st.session_state.get('logout_just_occurred_processed_auto_login', False):
+        return
+
+    cookie_username = cookies.get(AUTH_COOKIE_NAME)
+    if cookie_username:
+        user_data = manager.find_user_by_username(cookie_username)
+        if user_data:
+            # Verify critical fields, e.g., password hash if storing a session token
+            # For username-only cookie, direct lookup is the main check
+            st.write(f"Auto-logging in user: {cookie_username} from cookie.") # Debug
+            login_user(cookie_username, user_data)
+            # Do not rerun here, let the main script flow continue
+        else:
+            # User in cookie not found in DB, clear invalid cookie
+            st.warning("Invalid authentication cookie detected. Clearing.") # Debug
+            del cookies[AUTH_COOKIE_NAME]
+            cookies.save()
+
+# --- Process logout flag and attempt auto-login ---
+just_logged_out = st.session_state.pop('logout_just_occurred', False)
+if just_logged_out:
+    st.session_state['logout_just_occurred_processed_auto_login'] = True # Mark that this specific reload after logout has been processed for auto-login
+else:
+    # If not just logged out, clear the processed flag
+    st.session_state.pop('logout_just_occurred_processed_auto_login', None) 
+    # Attempt auto-login only if not authenticated and not immediately after a logout action
+    if not st.session_state.get('authentication_status'):
+        auto_login_from_cookie()
+
+
+# --- UI Rendering ---
 if not manager:
     st.error("Authentication system could not be initialized. Please check the logs.")
     st.stop()
@@ -142,7 +202,7 @@ else: # Not authenticated, show login or registration
                     else:
                         user = manager.find_user_by_username(login_username)
                         if user and manager.verify_password(login_password, user.get("password")):
-                            login_user(login_username, user)
+                            login_user(login_username, user) # This will now also set the cookie
                             st.success("Logged in successfully!")
                             st.rerun() # Rerun to show logged-in view
                         else:

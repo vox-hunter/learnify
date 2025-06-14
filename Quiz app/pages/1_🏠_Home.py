@@ -4,73 +4,94 @@ Home Page - Main course generation interface
 import streamlit as st
 import sys
 import os
-import yaml
-from yaml.loader import SafeLoader
+from streamlit_cookies_manager import EncryptedCookieManager
+
+# Set page config FIRST - must be the very first Streamlit command
+st.set_page_config(
+    page_title="Learnify - Home",
+    page_icon="🏠",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import local_backend
 
-# Load authentication functions
-def load_config():
-    """Load authentication config with fallback paths for cloud deployment"""
-    potential_paths = [
-        'authenticate.yaml',
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
-    ]
-    
-    for config_path in potential_paths:
-        try:
-            with open(config_path, 'r', encoding='utf-8') as file:
-                config = yaml.load(file, Loader=SafeLoader)
-            return config
-        except (FileNotFoundError, PermissionError):
-            continue
-    
-    # Fallback to Streamlit secrets
-    try:
-        if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
-            return dict(st.secrets['authenticate'])
-    except Exception:
-        pass
-    
-    return None
+try:
+    from mongo_auth import MongoAuthManager
+    MONGO_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
+    MONGO_AVAILABLE = False
+    # Allow guest access even if Mongo is down, but authenticated features will be limited.
 
-def get_authenticator():
-    """Create authenticator with robust error handling"""
-    try:
-        config = load_config()
-        if not config:
-            return None, None
-            
-        authenticator = stauth.Authenticate(
-            config['credentials'],
-            config['cookie']['name'],
-            config['cookie']['key'],
-            config['cookie']['expiry_days'],
-            config.get('preauthorized', []),
-            api_key=config.get('api_key')
-        )
-        return authenticator, config
-    except Exception as e:
-        return None, None
+# --- Cookie Manager Initialization (Consistent with Login Page) ---
+COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
+if COOKIE_ENCRYPTION_KEY == "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES" and MONGO_AVAILABLE:
+    # Only warn if Mongo is available, as cookies are for auth primarily
+    st.warning("Using default cookie encryption key. Please set COOKIE_ENCRYPTION_KEY in st.secrets for production.")
 
-def check_authentication():
-    """Check if user is authenticated via cookies on page load"""
-    try:
-        authenticator, config = get_authenticator()
-        if authenticator:
-            # Check cookies without rendering login form
-            try:
-                authenticator.login(location='unrendered')
-            except:
-                pass  # If login widget fails, that's okay - we just want cookie check
-            return authenticator, config
-    except Exception as e:
-        pass
-    return None, None
+cookies = EncryptedCookieManager(
+    password=COOKIE_ENCRYPTION_KEY,
+    prefix="learnify/auth",
+)
+
+# Initialize cookies if they haven't been, e.g. on first run
+# This needs to be called early, but after st.set_page_config
+# We'll handle the st.stop() or alternative flow after page config.
+
+AUTH_COOKIE_NAME = "username" # Consistent cookie name
+
+# --- Authentication State Management (Consistent with Login Page) ---
+def get_auth_manager():
+    if not MONGO_AVAILABLE:
+        return None
+    if "auth_manager" not in st.session_state:
+        st.session_state.auth_manager = MongoAuthManager()
+    return st.session_state.auth_manager
+
+def login_user_session(username, user_data):
+    st.session_state['authentication_status'] = True
+    st.session_state['username'] = username
+    st.session_state['name'] = user_data.get('name')
+    st.session_state['email'] = user_data.get('email')
+    # Cookie is assumed to be set by the login page or already present
+
+def logout_user_session():
+    st.session_state['authentication_status'] = False
+    st.session_state['username'] = None
+    st.session_state['name'] = None
+    st.session_state['email'] = None
+    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login
+    # Clear cookie (important for logout to persist across pages)
+    if AUTH_COOKIE_NAME in cookies:
+        del cookies[AUTH_COOKIE_NAME]
+        cookies.save()
+
+manager = get_auth_manager() # Initialize manager early
+
+def auto_login_from_cookie_home():
+    if not manager: # If MongoAuthManager isn't available, can't auto-login
+        return
+
+    if st.session_state.get('authentication_status') or st.session_state.get('logout_just_occurred_processed_auto_login_home', False):
+        return
+
+    cookie_username = cookies.get(AUTH_COOKIE_NAME)
+    if cookie_username:
+        user_data = manager.find_user_by_username(cookie_username)
+        if user_data:
+            st.write(f"Auto-logging in user on Home: {cookie_username} from cookie.") # Debug
+            login_user_session(cookie_username, user_data)
+        else:
+            st.warning("Invalid authentication cookie on Home. Clearing.") # Debug
+            del cookies[AUTH_COOKIE_NAME]
+            cookies.save()
+            # Ensure session state reflects this invalid cookie state
+            if st.session_state.get('username') == cookie_username:
+                 logout_user_session() # Clear session if it was based on this bad cookie
 
 # Initialize session state function
 def initialize_session_state():
@@ -110,14 +131,6 @@ def initialize_session_state():
 
 # Initialize session state
 initialize_session_state()
-
-# Set page config
-st.set_page_config(
-    page_title="Learnify - Home",
-    page_icon="🏠",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # Apply modern CSS styling
 st.markdown("""
@@ -273,21 +286,27 @@ st.markdown("""
 
 def main():
     # Top navigation
-    col1, col2, col3 = st.columns([6, 1, 1])
-    with col2:
-        if st.session_state.get('authentication_status'):
-            st.success(f"👤 {st.session_state.get('name', 'User')}")
-        else:
-            if st.button("🔐 Login", key="login_btn"):
-                st.switch_page("pages/2_🔐_Login.py")
-    with col3:
-        if st.session_state.get('authentication_status'):
-            if st.button("🚪 Logout", key="logout_btn"):
-                st.session_state.authentication_status = None
-                st.session_state.name = None
-                st.session_state.username = None
-                st.rerun()
+    col1, col2, col3 = st.columns([6, 1, 1]) # Adjusted column ratio for better spacing
     
+    with col2: # Login/User status
+        if st.session_state.get('authentication_status'):
+            # Display user name, truncate if too long for the button-like display
+            display_name = st.session_state.get('name', st.session_state.get('username', 'User'))
+            if len(display_name) > 15:
+                display_name = display_name[:12] + "..."
+            st.markdown(f"<div style='text-align: center; padding: 5px 0px; border: 1px solid #9d00ff; border-radius: 25px; background: rgba(157,0,255,0.1); color: #ededed;'>👤 {display_name}</div>", unsafe_allow_html=True)
+        elif MONGO_AVAILABLE and cookies.ready():
+            if st.button("🔐 Login", key="top_nav_login_btn", use_container_width=True):
+                st.switch_page("pages/2_🔐_Login.py")
+        # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
+
+    with col3: # Logout button
+        if st.session_state.get('authentication_status'):
+            if st.button("🚪 Logout", key="top_nav_logout_btn", use_container_width=True):
+                logout_user_session() # Use the centralized logout function
+                st.rerun()
+        # If not authenticated, this column remains empty or could show a register link if col2 is for login
+
     # Main content container
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
       # Main title
@@ -550,21 +569,11 @@ def show_course_history():
                 st.info(f"🎯 Guest: {remaining}/3 courses remaining")
 
 # Cookie authentication check on page load (without showing login form)
-try:
-    authenticator, config = check_authentication()
-    if authenticator and config:
-        # Use 'unrendered' location to check cookies without showing login form
-        authenticator.login(location='unrendered')
-        
-        # The authentication status is automatically updated in session state
-        # No need to manually update it - streamlit-authenticator handles this
-        
-except Exception as e:
-    # If authentication fails, continue as guest
-    st.session_state.authentication_status = None
-    st.session_state.name = None
-    st.session_state.username = None
+# authenticator, config = check_authentication() # This line was causing the error and is removed as stauth is no longer used here.
+# if authenticator and st.session_state.authentication_status is None:
+#     st.session_state.name = st.session_state.get('name')
+#     st.session_state.username = st.session_state.get('username')
+#     # No automatic st.rerun() here, let the page load and then elements can react to auth status
 
-# Call main function to render the page
 if __name__ == "__main__":
     main()
