@@ -298,7 +298,7 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
         update_status("🤖 Connecting to Gemini AI...", 35)
         logger.info("Sending request to Gemini AI...")
         
-        update_status("📤 Uploading PDF to AI for analysis...", 45)
+        update_status(f"📤 Uploading PDF to AI for analysis... (Est. time: {estimated_time})", 45)
         # Generate content using Gemini API
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
@@ -311,8 +311,8 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
                 prompt,
             ],
         )
-        
-        update_status("🧠 AI is analyzing content...", 65)
+
+        update_status(f"🧠 AI is analyzing content... (Est. time: {estimated_time})", 65)
         if not response.text:
             logger.error("Received empty response from Gemini AI")
             return None, "Empty response from AI model. Please try again."

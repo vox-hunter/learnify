@@ -49,10 +49,12 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
   // Handle key presses, particularly the Enter key
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      // Submit the current input value
-      Streamlit.setComponentValue(inputValue)
       // Prevent default behavior (like form submission)
-      event.preventDefault()
+      event.preventDefault();
+      // Explicitly blur the input field, which will trigger handleBlur to submit the value
+      if (inputRef.current) {
+        inputRef.current.blur();
+      }
     }
   }
 

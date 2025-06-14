@@ -6,7 +6,6 @@ from st_fill_in_the_blanks import fill_in_the_blanks_input
 import local_backend
 import yaml
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
 import os
 
 
