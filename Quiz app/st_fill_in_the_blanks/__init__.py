@@ -14,16 +14,13 @@ else:
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     build_dir = os.path.join(parent_dir, "frontend/build")
     if not os.path.exists(build_dir):
-        # Fallback for environments where build might not be present during generation
-        # In a real scenario, you'd build the frontend first.
+        # Fallback for environments where build might not be present (like Streamlit Cloud)
         print(f"WARNING: Build directory {build_dir} not found for st_fill_in_the_blanks component.")
-        # Provide a dummy function so the app doesn't crash, but the component won't work.
-        def _component_func(**kwargs):
-            components.html(f"<div>Custom component 'st_fill_in_the_blanks' not built. Args: {kwargs}</div>", height=50)
-            return kwargs.get("default_value", "") # Return default or empty string
+        print("Falling back to standard text input for fill-in-the-blanks questions.")
+        _component_func = None  # Will be handled in the wrapper function
     else:
         _component_func = components.declare_component(
-            "st_fill_in_the_blanks", path=build_dir  # Remove unsupported default_height
+            "st_fill_in_the_blanks", path=build_dir
         )
 
 def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, default_value="", disabled=False): # Renamed answer_to_blank to correctAnswer
@@ -50,14 +47,25 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
     str
         The current text entered by the user in the blank.
     """
-    component_value = _component_func(
-        question_text_full=question_text_full,
-        correctAnswer=correctAnswer, # Changed from answer_to_blank
-        key=key,
-        default=default_value, # This 'default' is passed to the frontend if no value is sent back from JS
-        disabled=disabled
-    )
-    return component_value
+    if _component_func is None:
+        # Fallback to standard Streamlit text input when component build is not available
+        import streamlit as st
+        return st.text_input(
+            f"Fill in the blank: {question_text_full.replace('___', '_____')}",
+            value=default_value,
+            key=key,
+            disabled=disabled,
+            help=f"Correct answer: {correctAnswer}" if disabled else None
+        )
+    else:
+        component_value = _component_func(
+            question_text_full=question_text_full,
+            correctAnswer=correctAnswer,
+            key=key,
+            default=default_value,
+            disabled=disabled
+        )
+        return component_value
 
 # Example usage (for testing the component independently)
 if __name__ == "__main__":
