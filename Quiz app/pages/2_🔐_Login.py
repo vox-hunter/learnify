@@ -6,14 +6,6 @@ import sys
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# Set page config FIRST - must be the very first Streamlit command
-st.set_page_config(
-    page_title="Learnify - Login",
-    page_icon="🔐",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 

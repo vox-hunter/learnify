@@ -44,13 +44,6 @@ def initialize_session_state():
 # Initialize session state
 initialize_session_state()
 
-# Set page config
-st.set_page_config(
-    page_title="Learnify - Course",
-    page_icon="📚",
-    layout="wide"
-)
-
 # Apply modern CSS styling
 st.markdown("""
 <style>
