@@ -3,13 +3,14 @@ Dynamic Course Display Page
 """
 import streamlit as st
 import json
-import sys
-import os
-import re
+import sys # Add sys import
+import os # Add os import
 import random
+import re
 
-# Add parent directory to path to import modules
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add the parent directory (Quiz app) to sys.path to allow imports from it
+# __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
@@ -467,17 +468,16 @@ def display_question(question_item, section_key, question_idx):
 
         # Store question text in session state for AI validation (if applicable, though not used by FITB directly)
         st.session_state[f"{question_key}_question"] = question_text_full
-        
-        # Display question number and type
+          # Display question number and type
         st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**:")
-
+        
         if not question_text_full or not correct_answer_for_blank:
             st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer. Using standard input.")
             # Fallback to standard text input, which uses question_key for its state
             st.text_input("Your answer:",
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None), # handle_answer_submission reads from question_key for this
+                          args=(question_key, correct_answer_for_blank, question_type, None),
                           disabled=is_answered
                           )
         # Check if the question_text_full contains underscores (e.g., '___')
@@ -487,7 +487,7 @@ def display_question(question_item, section_key, question_idx):
             st.text_input("Your answer:",
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None), # handle_answer_submission reads from question_key for this
+                          args=(question_key, correct_answer_for_blank, question_type, None),
                           disabled=is_answered
                           )
         else:
@@ -496,26 +496,78 @@ def display_question(question_item, section_key, question_idx):
             if component_instance_key not in st.session_state:
                 st.session_state[component_instance_key] = ""
 
-            # Get current value from component's session state to pass as default_value
-            current_input_value_for_component = st.session_state[component_instance_key]
+            # Initialize session state variables if not present
+            if "answers" not in st.session_state:
+                st.session_state.answers = {}
+            if "feedback" not in st.session_state:
+                st.session_state.feedback = {}
+
+            # Check if this question has been answered correctly
+            answer_data = st.session_state.answers.get(question_key, {})
+            is_correct = answer_data.get("is_correct", False)
             
-            fill_in_the_blanks_input(
-                question_text_full=question_text_full,
-                correctAnswer=correct_answer_for_blank, # Prop for component's internal use
-                key=component_instance_key, # Streamlit uses this key for component's state
-                default_value=current_input_value_for_component,
-                disabled=is_answered
+            user_input = fill_in_the_blanks_input(
+                question_text_full=question_text_full, 
+                correctAnswer=answer, 
+                key=component_instance_key,
+                disabled=is_correct  # Disable input if answer is correct
             )
             
-            # Add a submit button for this fill-in-the-blank question
-            if not is_answered:
-                submit_button_key = f"submit_fitb_{question_key}"
-                if st.button("Submit Blank Answer", key=submit_button_key):
-                    # handle_answer_submission will be modified to read the answer 
-                    # from st.session_state[component_instance_key] for FITB questions.
-                    # We pass `answer` (the original correct answer) here.
-                    handle_answer_submission(question_key, answer, question_type, None)
-                    st.rerun() # Rerun to reflect submission status (feedback, disabled state)
+            # Handle both string input and object input (for give up action)
+            current_answer = ""
+            is_give_up_action = False
+            
+            if isinstance(user_input, dict):
+                # Handle give up action via Enter key
+                current_answer = user_input.get("value", "")
+                is_give_up_action = user_input.get("action") == "give_up"
+            elif isinstance(user_input, str):
+                # Regular typing
+                current_answer = user_input
+            
+            # Real-time checking as user types or on give up
+            if current_answer is not None:
+                current_answer = current_answer.strip()
+                is_answer_correct = current_answer.lower() == str(answer).lower()
+                
+                # If answer is correct and not already processed
+                if is_answer_correct and not is_correct:
+                    # Mark as correct
+                    if "answers" not in st.session_state:
+                        st.session_state.answers = {}
+                    if "feedback" not in st.session_state:
+                        st.session_state.feedback = {}
+                    
+                    st.session_state.answers[question_key] = {
+                        "user_answer": current_answer,
+                        "is_correct": True,
+                        "question_type": question_type
+                    }
+                    st.session_state.feedback[question_key] = "Correct!"
+                    st.rerun()  # Refresh to show feedback and disable input
+                  # Handle give up action
+                elif is_give_up_action and not is_correct:
+                    if "answers" not in st.session_state:
+                        st.session_state.answers = {}
+                    if "feedback" not in st.session_state:
+                        st.session_state.feedback = {}
+                    
+                    st.session_state.answers[question_key] = {
+                        "user_answer": current_answer,
+                        "is_correct": False,
+                        "question_type": question_type
+                    }
+                    st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
+                    st.rerun()
+              # Display feedback for fill-in-the-blank questions
+            answer_data = st.session_state.answers.get(question_key, {})
+            if answer_data:  # If there's any answer data (correct or incorrect)
+                feedback_text = st.session_state.feedback.get(question_key)
+                if feedback_text:
+                    if "Correct!" in feedback_text:
+                        st.success(f"✅ {feedback_text}")
+                    else:
+                        st.error(f"❌ {feedback_text}")
     
     elif question_type == "match":
         # Get the matching items from the question's answer
@@ -849,17 +901,36 @@ def fix_json_format(data_str):
                 pass    
     return None
 
-def handle_answer_submission(question_key, correct_answer, question_type, placeholder_option_value=None):
-    user_answer = None # Initialize
-
-    if question_type in ["fill_in_the_blank", "fill in the blank"]:
-        # For fill-in-the-blank, the custom component's state is stored with a prefixed key
-        component_instance_key = f"fitb_{question_key}"
-        user_answer = st.session_state.get(component_instance_key)
-    else:
-        # For other standard Streamlit inputs, the state is directly st.session_state[question_key]
-        # This also covers the fallback text_input for fill_in_the_blank if the custom component isn't used.
-        user_answer = st.session_state.get(question_key)
+def handle_answer_submission(question_key, correct_answer, question_type, selected_match_key, submitted_answer=None):
+    # Initialize session state for answer tracking if not already present
+    if "answers" not in st.session_state:
+        st.session_state.answers = {}
+    
+    # For fill-in-the-blank, the submitted answer comes from the component or text_input
+    if question_type == "fill_in_the_blank":
+        if submitted_answer is None: # If not passed directly, get from component state
+            component_instance_key = f"fitb_input_{question_key}"
+            user_answer = st.session_state.get(component_instance_key, "").strip()
+        else:
+            user_answer = submitted_answer.strip()
+        
+        is_correct = user_answer.lower() == str(correct_answer).lower()
+        
+        # Provide immediate feedback for fill-in-the-blank
+        if is_correct:
+            st.session_state.feedback[question_key] = "Correct!"
+        else:
+            st.session_state.feedback[question_key] = f"Incorrect. The correct answer is: {correct_answer}"
+        
+        # Update answer tracking
+        st.session_state.answers[question_key] = {
+            "user_answer": user_answer,
+            "is_correct": is_correct,
+            "question_type": question_type
+        }
+        
+        return # Early return for fill-in-the-blank handling    # For other question types, proceed with existing logic
+    user_answer = st.session_state.get(question_key)
     
     if user_answer is None: 
         # If it's a new question, it might be None if not initialized by the input element yet.
@@ -868,12 +939,22 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         # Let's allow submission to proceed; empty/None answers will be marked by is_answer_correct.
         pass # Allow None to be processed by is_answer_correct, which handles str(user_answer)
 
-    # If a placeholder was used (only for MCQs) and it's selected, ignore this submission.
-    if placeholder_option_value is not None and user_answer == placeholder_option_value:
-        return
+    # For match questions, check if a blank/placeholder option was selected
+    # Match questions use "" as placeholder in dropdowns
+    if question_type == "match" and user_answer and isinstance(user_answer, str):
+        try:
+            # Parse the user answer JSON to check for empty selections
+            user_selections = json.loads(user_answer)
+            if isinstance(user_selections, dict):
+                # Check if any selection is empty (placeholder)
+                for left_item, right_selection in user_selections.items():
+                    if not right_selection or right_selection == "":
+                        return  # Don't process submission if placeholder is selected
+        except (json.JSONDecodeError, TypeError):
+            pass  # Continue with normal processing if JSON parsing fails
 
     st.session_state.checked_answers[question_key] = True 
-    st.session_state.user_answers[question_key] = user_answer 
+    st.session_state.user_answers[question_key] = user_answer
 
     is_correct_locally = False
     feedback_message = ""

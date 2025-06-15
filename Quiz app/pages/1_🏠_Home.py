@@ -17,6 +17,11 @@ st.set_page_config(
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+# Add the parent directory (Quiz app) to sys.path to allow imports from it
+# __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 import local_backend
 
 try:
@@ -83,7 +88,7 @@ def auto_login_from_cookie_home():
     if cookie_username:
         user_data = manager.find_user_by_username(cookie_username)
         if user_data:
-            logging.info(f"Auto-logging in user on Home: {cookie_username} from cookie.") # Debug
+            # Auto-login user from valid cookie
             login_user_session(cookie_username, user_data)
         else:
             st.warning("Invalid authentication cookie on Home. Clearing.") # Debug
@@ -285,6 +290,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
+    # Call auto-login from cookie first
+    if cookies.ready():
+        auto_login_from_cookie_home()
+    
     # Top navigation
     col1, col2, col3 = st.columns([6, 1, 1]) # Adjusted column ratio for better spacing
     
@@ -311,15 +320,14 @@ def main():
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
       # Main title
     st.markdown('<h1 class="main-title">What will you learn today?</h1>', unsafe_allow_html=True)
-    
-    # Show status message
+      # Show status message
     if st.session_state.get('authentication_status'):
         st.success(f"🎉 Welcome back, {st.session_state.get('name', 'User')}! You have unlimited course generation.")
     else:
         courses_used = st.session_state.get('courses_generated', 0)
         remaining = 3 - courses_used
         if remaining > 0:
-            st.info(f"🎯 Welcome! You have {remaining} free course{'s' if remaining != 1 else ''} remaining as a guest.")
+            st.info(f"🎯 Guest mode: {remaining} out of 3 free courses remaining")
         else:
             st.warning("🔒 You've used all 3 guest courses. Please login for unlimited access!")
     

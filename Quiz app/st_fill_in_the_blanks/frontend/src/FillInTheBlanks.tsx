@@ -40,21 +40,24 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value
     setInputValue(newValue)
+    // Send value to Streamlit on every keystroke for real-time checking
+    Streamlit.setComponentValue(newValue)
   }
 
   const handleBlur = () => {
     Streamlit.setComponentValue(inputValue)
   }
 
-  // Handle key presses, particularly the Enter key
+  // Handle key presses, particularly the Enter key for "give up" functionality
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
+      // Send a special signal to indicate "give up" via Enter
+      Streamlit.setComponentValue({
+        value: inputValue,
+        action: 'give_up'
+      })
       // Prevent default behavior (like form submission)
-      event.preventDefault();
-      // Explicitly blur the input field, which will trigger handleBlur to submit the value
-      if (inputRef.current) {
-        inputRef.current.blur();
-      }
+      event.preventDefault()
     }
   }
 
