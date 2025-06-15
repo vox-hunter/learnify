@@ -290,3 +290,21 @@ yarn.lock
 .env
 .devcontainer
 .github/instructions/sys_ins.instructions.md
+
+# Custom Streamlit Component specific ignores
+# st_fill_in_the_blanks component build artifacts
+Quiz app/st_fill_in_the_blanks/frontend/node_modules/
+Quiz app/st_fill_in_the_blanks/frontend/.env
+Quiz app/st_fill_in_the_blanks/frontend/.env.local
+Quiz app/st_fill_in_the_blanks/frontend/.env.development.local
+Quiz app/st_fill_in_the_blanks/frontend/.env.test.local
+Quiz app/st_fill_in_the_blanks/frontend/.env.production.local
+Quiz app/st_fill_in_the_blanks/frontend/npm-debug.log*
+Quiz app/st_fill_in_the_blanks/frontend/yarn-debug.log*
+Quiz app/st_fill_in_the_blanks/frontend/yarn-error.log*
+
+# Any other custom component build directories
+**/st_*/frontend/node_modules/
+**/st_*/frontend/.env*
+**/st_*/frontend/*-debug.log*
+**/st_*/frontend/*-error.log*
