@@ -8,9 +8,17 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+# build/  # Commented out - too broad, affects React component builds
+# Python-specific build directories
+build/lib/
+build/bdist.*
+build/temp.*
 develop-eggs/
-dist/
+# dist/   # Commented out - too broad, affects React component builds
+# Python-specific dist directories  
+dist/*.egg
+dist/*.whl
+dist/*.tar.gz
 downloads/
 eggs/
 .eggs/
@@ -231,9 +239,9 @@ dist
 # TernJS port file
 .tern-port
 
-# React build output
-*/build/
-*/dist/
+# React build output - commented out as too broad
+# */build/  # This was preventing React component builds from being committed
+# */dist/   # This was preventing React component builds from being committed
 
 # IDE and Editor files
 .vscode/
