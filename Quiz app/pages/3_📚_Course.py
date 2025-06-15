@@ -457,12 +457,11 @@ def display_question(question_item, section_key, question_idx):
     elif question_type in ["fill_in_the_blank", "fill in the blank"]:
         # For fill-in-the-blank, we need the full question text and the answer to blank out
         correct_answer_for_blank = str(answer) if answer is not None else ""
-        component_instance_key = f"fitb_{question_key}" # Key for the custom component's state
-
-        # Store question text in session state for AI validation (if applicable, though not used by FITB directly)
+        component_instance_key = f"fitb_{question_key}" # Key for the custom component's state        # Store question text in session state for AI validation (if applicable, though not used by FITB directly)
         st.session_state[f"{question_key}_question"] = question_text_full
-          # Display question number and type
-        st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**:")
+        
+        # Display question number only (not type for fill-in-the-blank to avoid duplication)
+        st.markdown(f"**{question_idx+1}.**")
         
         if not question_text_full or not correct_answer_for_blank:
             st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer. Using standard input.")
