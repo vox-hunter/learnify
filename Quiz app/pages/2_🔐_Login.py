@@ -203,6 +203,10 @@ def login_user(username, user_data):
     st.session_state['username'] = username
     st.session_state['name'] = user_data.get('name')
     st.session_state['email'] = user_data.get('email')
+    # Reset guest course count when user logs in
+    if cookies.ready():
+        cookies["guest_courses_count"] = "0"
+        cookies.save()
     # Set cookie for persistent login (e.g., expires in 7 days)
     cookies[AUTH_COOKIE_NAME] = username 
     cookies.save() # Save cookies to the browser
