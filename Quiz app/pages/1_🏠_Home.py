@@ -61,10 +61,10 @@ def logout_user_session():
     st.session_state['username'] = None
     st.session_state['name'] = None
     st.session_state['email'] = None
-    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login
-    # Clear cookie (important for logout to persist across pages)
-    if AUTH_COOKIE_NAME in cookies:
-        del cookies[AUTH_COOKIE_NAME]
+    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login    # Enhanced cookie invalidation (more reliable than deletion)
+    if cookies.ready():
+        # Set cookie to "logged_out" instead of deleting (more reliable)
+        cookies[AUTH_COOKIE_NAME] = "logged_out"
         cookies.save()
 
 manager = get_auth_manager() # Initialize manager early
@@ -77,18 +77,18 @@ def auto_login_from_cookie_home():
         return
 
     cookie_username = cookies.get(AUTH_COOKIE_NAME)
-    if cookie_username:
+    
+    # Check if cookie exists and is not "logged_out"
+    if cookie_username and cookie_username != "logged_out":
         user_data = manager.find_user_by_username(cookie_username)
         if user_data:
             # Auto-login user from valid cookie
             login_user_session(cookie_username, user_data)
         else:
-            st.warning("Invalid authentication cookie on Home. Clearing.") # Debug
-            del cookies[AUTH_COOKIE_NAME]
-            cookies.save()
-            # Ensure session state reflects this invalid cookie state
+            cookies[AUTH_COOKIE_NAME] = "logged_out"  # Invalidate instead of delete
+            cookies.save()            # Ensure session state reflects this invalid cookie state
             if st.session_state.get('username') == cookie_username:
-                 logout_user_session() # Clear session if it was based on this bad cookie
+                logout_user_session() # Clear session if it was based on this bad cookie
 
 # Initialize session state function
 def initialize_session_state():
@@ -282,9 +282,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    # Call auto-login from cookie first
-    if cookies.ready():
-        auto_login_from_cookie_home()
+    # Process logout flag and attempt auto-login
+    just_logged_out = st.session_state.pop('logout_just_occurred', False)
+    
+    if just_logged_out:
+        st.session_state['logout_just_occurred_processed_auto_login_home'] = True # Mark that this specific reload after logout has been processed for auto-login
+    else:
+        # If not just logged out, clear the processed flag
+        st.session_state.pop('logout_just_occurred_processed_auto_login_home', None) 
+        # Attempt auto-login only if cookies are ready and not immediately after a logout action
+        if cookies.ready():
+            auto_login_from_cookie_home()
     
     # Top navigation
     col1, col2, col3 = st.columns([6, 1, 1]) # Adjusted column ratio for better spacing
@@ -435,16 +443,15 @@ def generate_and_redirect(uploaded_file, pdf_url):
     """Generate course and redirect to course page with real-time progress"""
     # Set generation state
     st.session_state.is_generating_course = True
-    
-    # Create progress containers
+      # Create progress containers
     progress_container = st.container()
     with progress_container:
         progress_bar = st.progress(0)
         status_text = st.empty()
-          # Status callback function for real-time updates
+        
+        # Status callback function for real-time updates
         def status_callback(status_message, progress_percent):
             """Update progress and status in real-time"""
-            print(f"DEBUG: Status callback called with: {status_message}, {progress_percent}%")
             progress_bar.progress(progress_percent / 100)
             status_text.text(status_message)
             # Use Streamlit's time delay instead of sleep

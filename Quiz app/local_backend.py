@@ -174,7 +174,7 @@ Be fair but accurate in your evaluation.
 """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
+            model="gemini-2.0-flash",
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.3  # Lower temperature for more consistent evaluation

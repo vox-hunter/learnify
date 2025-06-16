@@ -212,10 +212,10 @@ def logout_user():
     st.session_state['username'] = None
     st.session_state['name'] = None
     st.session_state['email'] = None
-    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login
-    # Clear cookie
-    if AUTH_COOKIE_NAME in cookies:
-        del cookies[AUTH_COOKIE_NAME]
+    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login    # Enhanced cookie invalidation (more reliable than deletion)
+    if cookies.ready():
+        # Set cookie to "logged_out" instead of deleting (more reliable)
+        cookies[AUTH_COOKIE_NAME] = "logged_out"
         cookies.save()
 
 # Initialize session state variables if they don't exist
@@ -230,26 +230,25 @@ manager = get_auth_manager()
 
 def auto_login_from_cookie():
     if not manager:
-        return # Auth manager not available
-
-    # Check if already authenticated or if a logout just happened
+        return # Auth manager not available    # Check if already authenticated or if a logout just happened
     if st.session_state.get('authentication_status') or st.session_state.get('logout_just_occurred_processed_auto_login', False):
         return
 
     cookie_username = cookies.get(AUTH_COOKIE_NAME)
-    if cookie_username:
+    # Check if cookie exists and is not "logged_out"
+    if cookie_username and cookie_username != "logged_out":
         user_data = manager.find_user_by_username(cookie_username)
         if user_data:
             # Verify critical fields, e.g., password hash if storing a session token
             # For username-only cookie, direct lookup is the main check
-            st.write(f"Auto-logging in user: {cookie_username} from cookie.") # Debug
             login_user(cookie_username, user_data)
             # Do not rerun here, let the main script flow continue
         else:
-            # User in cookie not found in DB, clear invalid cookie
-            st.warning("Invalid authentication cookie detected. Clearing.") # Debug
-            del cookies[AUTH_COOKIE_NAME]
+            # User in cookie not found in DB, invalidate cookie
+            cookies[AUTH_COOKIE_NAME] = "logged_out"
             cookies.save()
+    elif cookie_username == "logged_out":
+        pass  # Skip auto-login when logged out
 
 # --- Process logout flag and attempt auto-login ---
 just_logged_out = st.session_state.pop('logout_just_occurred', False)

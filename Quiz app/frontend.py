@@ -1,12 +1,18 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import json
 import re
 import random
 from st_fill_in_the_blanks import fill_in_the_blanks_input
 import local_backend
-import yaml
-from yaml.loader import SafeLoader
 import os
+from streamlit_cookies_manager import EncryptedCookieManager
+
+try:
+    from mongo_auth import MongoAuthManager
+    MONGO_AVAILABLE = True
+except ImportError:
+    MONGO_AVAILABLE = False
 
 
 
@@ -15,7 +21,8 @@ MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 st.set_page_config(
     layout="wide", 
     page_title="Learnique",
-    page_icon="🧠"
+    page_icon="🧠",
+    initial_sidebar_state="collapsed"
 )
 
 # Apply custom CSS for consistent theming (fallback for cloud deployment)
@@ -42,6 +49,59 @@ st.markdown("""
     }}
 </style>
 """, unsafe_allow_html=True)
+
+# Cookie Manager Initialization
+COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
+if COOKIE_ENCRYPTION_KEY == "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES" and MONGO_AVAILABLE:
+    st.warning("Using default cookie encryption key. Please set COOKIE_ENCRYPTION_KEY in st.secrets for production.")
+
+cookies = EncryptedCookieManager(
+    password=COOKIE_ENCRYPTION_KEY,
+    prefix="learnify/auth",
+)
+
+# Check if cookies are ready before proceeding
+if not cookies.ready():
+    st.info("Loading authentication system...")
+    st.stop()
+
+AUTH_COOKIE_NAME = "username"
+
+# Authentication Manager
+def get_auth_manager():
+    if not MONGO_AVAILABLE:
+        return None
+    if "auth_manager" not in st.session_state:
+        st.session_state.auth_manager = MongoAuthManager()
+    return st.session_state.auth_manager
+
+# Modern logout function that clears cookies properly
+def logout_user_frontend():
+    """Logout function for frontend.py that properly clears cookies and session state"""
+    st.session_state['authentication_status'] = False  # Set to False instead of None to match other pages
+    st.session_state['username'] = None
+    st.session_state['name'] = None
+    st.session_state['email'] = None
+    st.session_state['logout_just_occurred'] = True    # Invalidate cookie by setting it to "logged_out" (more reliable than deletion)
+    if cookies.ready():
+        # Set cookie to "logged_out" instead of deleting (more reliable)
+        cookies[AUTH_COOKIE_NAME] = "logged_out"
+        cookies.save()
+          # Also try to clear browser cookies using JavaScript (additional safety)
+        components.html(
+            """
+            <script>
+            // Clear all cookies with learnify prefix
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            // Specifically target the auth cookie
+            document.cookie = "learnify/auth_username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            </script>
+            """, 
+            height=0
+        )
 
 # Function to initialize all session state variables
 def initialize_session_state():
@@ -87,82 +147,16 @@ def initialize_session_state():
 # Initialize session state at module level
 initialize_session_state()
 
-# Load authentication config with multiple fallback paths
-def load_config():
-    """Load authentication config with fallback paths for cloud deployment"""
-    potential_paths = [
-        # Current directory (cloud deployment)
-        'authenticate.yaml',
-        # Parent directory (local development)
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
-        # Same directory as script
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
-        # Streamlit secrets fallback
-        None  # Will use Streamlit secrets
-    ]
-    
-    for config_path in potential_paths:
-        if config_path is None:
-            # Try to load from Streamlit secrets as fallback
-            try:
-                if hasattr(st, 'secrets') and 'authenticate' in st.secrets:
-                    return dict(st.secrets['authenticate'])
-            except Exception:
-                continue
-        else:
-            try:
-                if os.path.exists(config_path):
-                    with open(config_path, 'r') as file:
-                        config = yaml.load(file, Loader=SafeLoader)
-                    return config
-            except Exception as e:
-                st.warning(f"Failed to load config from {config_path}: {e}")
-                continue
-    
-    # Return minimal config if all methods fail
-    return {
-        'credentials': {'usernames': {}},
-        'cookie': {'name': 'auth_cookie', 'key': 'default_key', 'expiry_days': 30},
-        'api_key': 'default_key',
-        'preauthorized': []
-    }
-
-# Save config function with error handling
-def save_config(config):
-    """Save config with error handling for cloud deployment"""
-    potential_paths = [
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'authenticate.yaml'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'authenticate.yaml'),
-        'authenticate.yaml'
-    ]
-    
-    for config_path in potential_paths:
-        try:
-            with open(config_path, 'w') as file:
-                yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
-            return True
-        except Exception:
-            continue
-    return False
-
-# Create authenticator with error handling
+# Authentication manager for MongoDB system
 def get_authenticator():
-    """Create authenticator with robust error handling"""
-    try:
-        config = load_config()
-        authenticator = stauth.Authenticate(
-            config['credentials'],
-            config['cookie']['name'],
-            config['cookie']['key'],
-            config['cookie']['expiry_days'],
-            config.get('preauthorized', []),
-            api_key=config.get('api_key')
-        )
-        return authenticator, config
-    except Exception as e:
-        st.error(f"Authentication system initialization failed: {e}")
-        # Return None to indicate authentication is not available
-        return None, None
+    """Get MongoDB authentication manager (compatibility function)"""
+    if MONGO_AVAILABLE:
+        manager = get_auth_manager()
+        if manager:
+            return "mongodb", None  # Return indicator that MongoDB auth is active
+    
+    # No authentication available
+    return None, None
 
 def check_course_limit():
     """Check if user has reached the course generation limit"""
@@ -297,30 +291,29 @@ def handle_answer_submission(question_key, correct_answer, question_type, placeh
         st.session_state.feedback[question_key] = f"Incorrect. {feedback_message}"
 
 # --- Display Course Content ---
-def display_question(question_item, section_key, question_idx):
-    # Check if question_item is a Pydantic model
+def display_question(question_item, section_key, question_idx):    # Check if question_item is a Pydantic model
     is_pydantic_model = hasattr(question_item, '__dict__') and not hasattr(question_item, 'get')
     
     if is_pydantic_model:
         # For Pydantic models, access attributes directly
         question_type = getattr(question_item, "type", "unknown").lower()
         question_text_full = getattr(question_item, "question", "No question text provided.")
-        choices = getattr(question_item, "options", None)
+        # Try both 'choices' and 'options' for flexibility
+        choices = getattr(question_item, "choices", None) or getattr(question_item, "options", None)
         answer = getattr(question_item, "answer", None)
     else:
         # For dictionaries, use get method
         question_type = question_item.get("type", "unknown").lower()
         question_text_full = question_item.get("question", "No question text provided.")
-        choices = question_item.get('choices', None)
+        # Try both 'choices' and 'options' for flexibility
+        choices = question_item.get('choices', None) or question_item.get('options', None)
         answer = question_item.get('answer', None)
     
     question_key = f"{section_key}_q_{question_idx}"
     is_answered = st.session_state.checked_answers.get(question_key, False)
 
     # Store question text in session state for AI validation
-    st.session_state[f"{question_key}_question"] = question_text_full
-
-    # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
+    st.session_state[f"{question_key}_question"] = question_text_full    # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
     if question_type not in ["fill_in_the_blank", "fill in the blank"]:
         st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**: {question_text_full}")
     elif question_type in ["fill_in_the_blank", "fill in the blank"]:
@@ -337,7 +330,7 @@ def display_question(question_item, section_key, question_idx):
                 key=question_key, 
                 label_visibility="collapsed",
                 on_change=handle_answer_submission,
-                args=(question_key, answer, question_type),
+                args=(question_key, answer, question_type, None),
                 disabled=is_answered,
                 index=None  # Ensures no option is selected by default
             )
@@ -384,7 +377,7 @@ def display_question(question_item, section_key, question_idx):
             )            # If the component's value changed, update session_state and trigger submission handler
             if user_input_for_blank != current_blank_value:
                 st.session_state[question_key] = user_input_for_blank
-                handle_answer_submission(question_key, correct_answer_for_blank, question_type)
+                handle_answer_submission(question_key, correct_answer_for_blank, question_type, None)
                 # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
     
     elif question_type == "match":
@@ -530,11 +523,10 @@ def display_question(question_item, section_key, question_idx):
                         # Convert to string format for answer checking
                         user_match_str = json.dumps(user_match_dict, sort_keys=True)
                         correct_match_str = json.dumps(match_data, sort_keys=True)
-                          # Store the formatted answer in session state for the question key
-                        st.session_state[question_key] = user_match_str
+                          # Store the formatted answer in session state for the question key                        st.session_state[question_key] = user_match_str
                         
                         # Call the answer submission handler
-                        handle_answer_submission(question_key, correct_match_str, "match")
+                        handle_answer_submission(question_key, correct_match_str, "match", None)
                         # Note: Removed st.rerun() - Streamlit automatically reruns when session state changes
                         
                 # Display a visual summary of matches if answered
@@ -659,15 +651,14 @@ def display_question(question_item, section_key, question_idx):
                  args=(question_key, answer, question_type, None),
                  disabled=is_answered
                  )
-    
-    # Display feedback if answered
+      # Display feedback if answered
     if is_answered:
         feedback_message = st.session_state.feedback.get(question_key)
         if feedback_message:
             if feedback_message.startswith("Correct!"):
-                 st.success(feedback_message)
+                st.success(feedback_message)
             else:
-                 st.error(feedback_message)
+                st.error(feedback_message)
 
 def display_section_content(section_data, section_key_prefix):
     """
@@ -709,11 +700,10 @@ def display_section_content(section_data, section_key_prefix):
 
 def main():
     # Initialize authenticator with error handling
-    authenticator, config = get_authenticator()
+    authenticator, _ = get_authenticator()  # config not used anymore
     
     # Simple title bar with login functionality
-    col1, col2 = st.columns([4, 1])
-    
+    col1, col2 = st.columns([4, 1])      
     with col1:
         st.title("AI Quiz and Course Generator")
     
@@ -724,128 +714,31 @@ def main():
             st.warning("🔐 Login temporarily unavailable")
         elif st.session_state.authentication_status:
             # Show logout button for authenticated users
-            try:
-                authenticator.logout(location='main')
-            except Exception as e:
-                st.error(f"Logout error: {e}")
+            if st.button("🚪 Logout", type="secondary"):
+                # Use the MongoDB-based logout for consistent behavior
+                logout_user_frontend()
+                st.rerun()
         else:
             # Show login/hide button for non-authenticated users
             button_text = "❌ Hide" if st.session_state.show_login else "🔐 Login"
             if st.button(button_text, type="secondary"):
                 st.session_state.show_login = not st.session_state.show_login
                 # Removed st.rerun() - Streamlit automatically reruns when session state changes
-    # Show authentication status messages and functionality
-    if authenticator is not None:
-        # Authentication system is available
-        if st.session_state.authentication_status:
-            st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
-            # Add password reset widget for authenticated users
-            if 'show_password_reset' not in st.session_state:
-                st.session_state.show_password_reset = False
-                
-            if st.button("🔑 Change Password", type="secondary"):
-                st.session_state.show_password_reset = not st.session_state.show_password_reset
-                # Removed st.rerun() - Streamlit automatically reruns when session state changes
-            
-            if st.session_state.show_password_reset:
-                st.markdown("---")
-                st.subheader("🔑 Change Password")
-                try:
-                    if authenticator.reset_password(st.session_state.username):
-                        st.success('Password modified successfully')
-                        # Save the updated config to YAML file
-                        save_config(config)
-                        st.session_state.show_password_reset = False
-                        # Removed st.rerun() - Streamlit automatically reruns when session state changes
-                except Exception as e:
-                    st.error(f"Password reset error: {e}")
-            
-        elif st.session_state.authentication_status is False:
-            st.error('Username/password is incorrect')
-        elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
-            st.warning('⚠️ You have reached the limit of 3 guest courses. Please login to continue generating courses.')
-        elif st.session_state.courses_generated < 3:
-            courses_remaining = 3 - st.session_state.courses_generated
-            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
-    else:
-        # Authentication system not available - guest mode only
-        if st.session_state.courses_generated >= 3:
-            st.warning('⚠️ You have reached the limit of 3 guest courses. Authentication system is temporarily unavailable.')
-        else:
-            courses_remaining = 3 - st.session_state.courses_generated
-            st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. (Authentication temporarily unavailable)")      # Conditionally show authentication section
-    if authenticator is not None and not st.session_state.authentication_status and st.session_state.show_login:
-        # Show login options
-        st.markdown("---")
-        st.subheader("🔐 Authentication")
-        
-        # Create tabs for different login methods
-        login_tab, register_tab, forgot_tab = st.tabs(["Login", "Register", "Forgot Password"])
-        
-        with login_tab:
-            st.markdown("### Login with Username/Password")
-            try:
-                authenticator.login()
-            except Exception as e:
-                st.error(f"Login error: {e}")
-            
-            st.markdown("### Or Login with OAuth")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                try:
-                    if config and 'oauth2' in config:
-                        authenticator.experimental_guest_login('Login with Google',
-                                                             provider='google',
-                                                             oauth2=config['oauth2'])
-                    else:
-                        st.info("OAuth login not configured")
-                except Exception as e:
-                    st.error(f"Google login error: {e}")
-            
-            with col2:
-                try:
-                    if config and 'oauth2' in config:
-                        authenticator.experimental_guest_login('Login with Microsoft',
-                                                             provider='microsoft',
-                                                             oauth2=config['oauth2'])
-                    else:
-                        st.info("OAuth login not configured")
-                except Exception as e:
-                    st.error(f"Microsoft login error: {e}")
-        
-        with register_tab:
-            st.markdown("### Create New Account")
-            try:
-                email_of_registered_user, \
-                username_of_registered_user, \
-                name_of_registered_user = authenticator.register_user(
-                    fields={'Form name':'', 'Email':'Email', 'Username':'Username', 'Password':'Password', 'Repeat password':'Repeat password', 'Password hint':'Password hint', 'Captcha':'Captcha', 'Register':'Sign Up'},
-                    two_factor_auth=True
-                )
-                if email_of_registered_user:
-                    st.success('User registered successfully')
-                    # Important: Reload the config to get the updated credentials
-                    config = load_config()
-                    save_config(config)
-                    st.info("Please use your new credentials to login in the Login tab.")
-            except Exception as e:
-                st.error(f"Registration error: {e}")
-        
-        with forgot_tab:
-            st.markdown("### Reset Password")
-            try:
-                username_of_forgotten_password, \
-                email_of_forgotten_password, \
-                new_random_password = authenticator.forgot_password(send_email=True)
-                if username_of_forgotten_password:
-                    st.success('New password generated. Please check your email.')
-                    save_config(config)
-                elif username_of_forgotten_password == False:
-                    st.error('Username not found')
-            except Exception as e:
-                st.error(f"Password reset error: {e}")
     
+    # Show authentication status messages and functionality
+    if MONGO_AVAILABLE and st.session_state.authentication_status:
+        st.success(f'Welcome *{st.session_state.name}*! You have unlimited access to course generation.')
+    elif st.session_state.authentication_status is False:
+        st.error('Login failed')
+    elif st.session_state.authentication_status is None and st.session_state.courses_generated >= 3:
+        st.warning('⚠️ You have reached the limit of 3 guest courses. Please login to continue generating courses.')
+        if st.button("🔐 Go to Login Page"):
+            st.switch_page("pages/2_🔐_Login.py")
+    elif st.session_state.courses_generated < 3:
+        courses_remaining = 3 - st.session_state.courses_generated
+        st.info(f"🆓 Guest access: {courses_remaining} course{'s' if courses_remaining != 1 else ''} remaining. Login for unlimited access!")
+        if st.button("🔐 Login for Unlimited Access"):            st.switch_page("pages/2_🔐_Login.py")
+
     st.markdown("---")
     
     # ADD the description here

@@ -414,19 +414,19 @@ def display_question(question_item, section_key, question_idx):
         # For Pydantic models, access attributes directly
         question_type = getattr(question_item, "type", "unknown").lower()
         question_text_full = getattr(question_item, "question", "No question text provided.")
-        choices = getattr(question_item, "options", None)
+        # Try both 'choices' and 'options' for flexibility
+        choices = getattr(question_item, "choices", None) or getattr(question_item, "options", None)
         answer = getattr(question_item, "answer", None)
     else:
         # For dictionaries, use get method
         question_type = question_item.get("type", "unknown").lower()
         question_text_full = question_item.get("question", "No question text provided.")
-        choices = question_item.get('choices', None)
+        # Try both 'choices' and 'options' for flexibility
+        choices = question_item.get('choices', None) or question_item.get('options', None)
         answer = question_item.get('answer', None)
     
     question_key = f"{section_key}_q_{question_idx}"
-    is_answered = st.session_state.checked_answers.get(question_key, False)
-
-    # Store question text in session state for AI validation
+    is_answered = st.session_state.checked_answers.get(question_key, False)    # Store question text in session state for AI validation
     st.session_state[f"{question_key}_question"] = question_text_full
 
     # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
@@ -438,6 +438,11 @@ def display_question(question_item, section_key, question_idx):
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices
+        
+        # Debug information (can be removed in production)
+        if options is None:
+            st.warning(f"Debug: Multiple choice question has options=None. Question data: {dict(question_item) if hasattr(question_item, 'items') else 'Pydantic model'}")
+        
         if options is not None:
             if not options:
                 st.error("Multiple choice question has no options provided.")
@@ -447,7 +452,7 @@ def display_question(question_item, section_key, question_idx):
                 key=question_key, 
                 label_visibility="collapsed",
                 on_change=handle_answer_submission,
-                args=(question_key, answer, question_type),
+                args=(question_key, answer, question_type, None),
                 disabled=is_answered,
                 index=None
             )
@@ -726,10 +731,9 @@ def display_question(question_item, section_key, question_idx):
                     # If not all items are matched, show a disabled-like message or a disabled button
                     # For simplicity, we can just not show the button or show it disabled.
                     # Here, if all_items_matched_in_ui is false, the button above is not rendered.
-                    # We can add a placeholder or a disabled button if desired.
-                    st.button("Submit Matches", key=f"submit_match_{question_key}_disabled", disabled=True)
+                    # We can add a placeholder or a disabled button if desired.                    st.button("Submit Matches", key=f"submit_match_{question_key}_disabled", disabled=True)
                     if not all_items_matched_in_ui and len(left_items) > 0 : # only show if there are items to match
-                         st.caption("Please select a match for all items on the left.")
+                        st.caption("Please select a match for all items on the left.")
 
         else:
             # This block handles cases where match_data was not a dictionary initially.
