@@ -56,18 +56,6 @@ class MongoCourseManager:
             self.user_courses_collection = None
             st.stop()
 
-    def _ensure_connection(self):
-        """Ensure MongoDB connection is active"""
-        if self.client is None or self.db is None:
-            st.error("MongoDB connection is not available.")
-            return False
-        try:
-            self.client.admin.command('ping')
-            return True
-        except pymongo.errors.ConnectionFailure:
-            st.error("MongoDB connection lost. Please try again later.")
-            return False
-
     def _create_indexes(self):
         """Create database indexes for better performance"""
         try:
@@ -85,10 +73,10 @@ class MongoCourseManager:
         """Generate a unique course ID"""
         return str(ObjectId())
 
-    def save_course(self, course_data: List[Dict], course_title: str, creator: str, 
+    def save_course(self, course_data: List[Any], course_title: str, creator: str, 
                    is_guest: bool = False, session_id: Optional[str] = None, is_public: bool = True) -> Tuple[Optional[str], Optional[str]]:
         """Save a course to MongoDB"""
-        if not self._ensure_connection():
+        if self.db is None:
             return None, "Database connection error."
         
         if course_data is None: # Add this check
@@ -154,7 +142,7 @@ class MongoCourseManager:
 
     def get_course(self, course_id: str) -> Tuple[Optional[Dict], Optional[str]]:
         """Retrieve a course by ID"""
-        if not self._ensure_connection():
+        if self.db is None:
             return None, "Database connection error."
         
         try:
@@ -178,7 +166,7 @@ class MongoCourseManager:
     def get_user_courses(self, user_identifier: str, is_guest: bool = False, 
                         session_id: Optional[str] = None) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """Get all courses for a user"""
-        if not self._ensure_connection():
+        if self.db is None:
             return None, "Database connection error."
         
         try:
@@ -206,7 +194,7 @@ class MongoCourseManager:
 
     def get_course_stats(self, user_identifier: str, is_guest: bool = False, session_id: Optional[str] = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Get course statistics for a user"""
-        if not self._ensure_connection():
+        if self.db is None:
             return None, "Database connection error."
 
         try:
@@ -244,7 +232,7 @@ class MongoCourseManager:
 
     def transfer_guest_courses(self, session_id: str, new_user_identifier: str) -> Tuple[int, Optional[str]]:
         """Transfer guest courses to authenticated user when they log in"""
-        if not self._ensure_connection():
+        if self.db is None:
             return 0, "Database connection error."
         
         try:
@@ -283,7 +271,7 @@ class MongoCourseManager:
 
     def delete_course(self, course_id: str, user_identifier: str, is_guest: bool = False) -> Tuple[bool, Optional[str]]:
         """Delete a course (only by its creator)"""
-        if not self._ensure_connection():
+        if self.db is None:
             return False, "Database connection error."
         
         try:
@@ -316,7 +304,7 @@ class MongoCourseManager:
 
     def update_course_privacy(self, course_id: str, user_identifier: str, is_public: bool) -> Tuple[bool, Optional[str]]:
         """Update course privacy setting"""
-        if not self._ensure_connection():
+        if self.db is None:
             return False, "Database connection error."
         
         try:
@@ -348,7 +336,7 @@ class MongoCourseManager:
     def can_access_course(self, course_id: str, user_identifier: Optional[str] = None, 
                          session_id: Optional[str] = None) -> Tuple[bool, Optional[str]]:
         """Check if a user can access a course"""
-        if not self._ensure_connection():
+        if self.db is None:
             return False, "Database connection error."
         
         try:
@@ -415,15 +403,10 @@ class MongoCourseManager:
                     total_questions_count += self._count_questions(subsections_list) # Recursive call
         return total_questions_count
 
-# Global instance
-_course_manager = None
-
+@st.cache_resource
 def get_course_manager() -> MongoCourseManager:
     """Get singleton course manager instance"""
-    global _course_manager
-    if _course_manager is None:
-        _course_manager = MongoCourseManager()
-    return _course_manager
+    return MongoCourseManager()
 
 def get_session_id() -> str:
     """Get or create session ID for guest users"""
