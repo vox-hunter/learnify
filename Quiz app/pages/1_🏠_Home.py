@@ -18,9 +18,10 @@ import local_backend
 
 try:
     from mongo_auth import MongoAuthManager
+    from mongo_course_manager import get_course_manager, get_session_id
     MONGO_AVAILABLE = True
 except ImportError as e:
-    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
+    st.error(f"Failed to import MongoAuthManager or MongoCourseManager. Ensure mongo_auth.py and mongo_course_manager.py are in the correct path: {e}")
     MONGO_AVAILABLE = False
     # Allow guest access even if Mongo is down, but authenticated features will be limited.
 
@@ -55,6 +56,20 @@ def login_user_session(username, user_data):
     st.session_state['username'] = username
     st.session_state['name'] = user_data.get('name')
     st.session_state['email'] = user_data.get('email')
+    
+    # Transfer guest courses to logged-in user if MongoDB is available
+    if MONGO_AVAILABLE:
+        try:
+            session_id = get_session_id()
+            course_manager = get_course_manager()
+            transferred_count, transfer_error = course_manager.transfer_guest_courses(session_id, username)
+            if transferred_count > 0:
+                st.success(f"✅ {transferred_count} guest course{'s' if transferred_count != 1 else ''} transferred to your account!")
+            elif transfer_error:
+                st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
+        except Exception as e:
+            st.warning(f"⚠️ Error transferring guest courses: {e}")
+    
     # Reset guest course count when user logs in
     reset_guest_course_count()
     st.session_state.courses_generated = 0  # Reset session state too
@@ -339,6 +354,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
+    # Check if a course_id is provided in the URL for sharing
+    shared_course_id = st.query_params.get("course_id")
+    if shared_course_id:
+        # Store in session state to ensure it survives any redirects
+        st.session_state.shared_course_id = shared_course_id
+        
+        # Redirect immediately without any other processing
+        st.query_params["course_id"] = shared_course_id
+        st.switch_page("pages/3_Course.py")
+        return
+    
     # Process logout flag and attempt auto-login
     just_logged_out = st.session_state.pop('logout_just_occurred', False)
     
@@ -382,8 +408,7 @@ def main():
     else:
         # Force login if limit reached
         if force_login_if_limit_reached():
-            return  # Stop execution if forcing login
-            
+            return  # Stop execution if forcing login            
         # Show remaining courses for guest users
         guest_count = get_guest_course_count()
         remaining = 3 - guest_count
@@ -391,6 +416,11 @@ def main():
             st.info(f"🎯 Guest mode: {remaining} out of 3 free courses remaining")
         else:
             st.warning("🔒 You've used all 3 guest courses. Please login for unlimited access!")
+    
+    st.markdown("---")
+    
+    # Course Dashboard
+    show_course_dashboard()
     
     st.markdown("---")
 
@@ -502,7 +532,8 @@ def generate_and_redirect(uploaded_file, pdf_url):
     """Generate course and redirect to course page with real-time progress"""
     # Set generation state
     st.session_state.is_generating_course = True
-      # Create progress containers
+    
+    # Create progress containers
     progress_container = st.container()
     with progress_container:
         progress_bar = st.progress(0)
@@ -513,9 +544,8 @@ def generate_and_redirect(uploaded_file, pdf_url):
             """Update progress and status in real-time"""
             progress_bar.progress(progress_percent / 100)
             status_text.text(status_message)
-            # Use Streamlit's time delay instead of sleep
             import time
-            time.sleep(2.2)  # Allow users to read the status
+            time.sleep(1.5)  # Allow users to read the status
         
         try:
             # Generate course with real-time status updates
@@ -532,51 +562,81 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 )
             
             if course_data and not error_message:
-                # Store course data
-                course_id = len(st.session_state.course_history)
-                
-                # Generate a more descriptive title based on content
+                # Process successful generation
+                progress_bar.progress(100)
+                status_text.text("✅ Course created successfully! Processing save...")
+
                 if uploaded_file:
                     course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
                 else:
                     course_title = f"🔗 Course from URL"
-                
-                # Count total questions
-                total_questions = count_total_questions(course_data)
-                
-                # Store course
-                st.session_state.course_history.append({
-                    'id': course_id,
-                    'title': course_title,
-                    'data': course_data,
-                    'created_at': 'Just now'
-                })
-                
-                # Reset course state for new course
-                st.session_state.current_section_index = 0
-                st.session_state.user_answers = {}
-                st.session_state.checked_answers = {}
-                st.session_state.current_score = 0
-                st.session_state.total_questions_in_course = total_questions
-                st.session_state.scored_correctly_keys = set()
-                st.session_state.feedback = {}
-                  # Update counters
-                if not st.session_state.get('authentication_status'):
-                    # For guest users, increment cookie counter and update session state
-                    new_count = increment_guest_course_count()
-                    st.session_state.courses_generated = new_count# Final status update
-                progress_bar.progress(100)
-                status_text.text("✅ Course created successfully!")
-                
-                # Reset generation state and clear stored file data
-                st.session_state.is_generating_course = False
-                st.session_state.current_uploaded_file = None
-                st.session_state.current_pdf_url = None
-                
-                # Set current course and redirect
-                st.session_state.current_course_id = course_id
-                st.switch_page("pages/3_📚_Course.py")
-            else:
+
+                generated_course_id = None  # Will store the ID if successfully saved
+                save_error_occurred = False
+
+                if MONGO_AVAILABLE:
+                    try:
+                        course_manager = get_course_manager()
+                        is_guest = not st.session_state.get('authentication_status', False)
+                        
+                        if is_guest:
+                            session_id = get_session_id()
+                            creator = session_id
+                        else:
+                            session_id = None
+                            creator = st.session_state.get('username', 'unknown_user')
+                        
+                        temp_mongo_id, save_db_error = course_manager.save_course(
+                            course_data=course_data,
+                            course_title=course_title,
+                            creator=creator,
+                            is_guest=is_guest,
+                            session_id=session_id,
+                            is_public=True 
+                        )
+                        
+                        if save_db_error:
+                            st.error(f"❌ Failed to save course to database: {save_db_error}")
+                            save_error_occurred = True
+                        else:
+                            generated_course_id = temp_mongo_id
+                            if generated_course_id: # Ensure generated_course_id is not None
+                                st.query_params["course_id"] = str(generated_course_id)
+                                status_text.text("✅ Course saved! Redirecting...")
+                            else:
+                                st.error("❌ Failed to get a valid course ID after saving.")
+                                save_error_occurred = True
+                                
+                    except Exception as e_mongo_save:
+                        st.error(f"❌ Critical error during course saving: {e_mongo_save}")
+                        save_error_occurred = True
+                else:
+                    st.warning("⚠️ MongoDB not available. Course generated but not saved persistently.")
+                    # For non-MongoDB (session-based) flow, we might need a different ID mechanism
+                    # For now, if Mongo is the target, this is effectively a save failure for persistence.
+                    save_error_occurred = True 
+
+                if not save_error_occurred and generated_course_id:
+                    st.session_state.current_course_id = generated_course_id
+                    
+                    if not st.session_state.get('authentication_status'):
+                        increment_guest_course_count()
+                    st.session_state.is_generating_course = False
+                    st.session_state.current_uploaded_file = None
+                    st.session_state.current_pdf_url = None
+                    
+                    import time
+                    time.sleep(1.5) # Allow messages to be seen
+                    st.switch_page("pages/3_Course.py")
+                else:
+                    # Save failed or MONGO_AVAILABLE was false and no alternative ID was generated
+                    status_text.error("Course generation finished, but could not be saved for persistent access.")
+                    st.session_state.is_generating_course = False
+                    st.session_state.current_uploaded_file = None
+                    st.session_state.current_pdf_url = None
+                    # Do not redirect, allow user to see the error and try again.
+                    
+            else: # error_message from local_backend.generate_course
                 st.error(f"❌ {error_message}")
                 st.session_state.is_generating_course = False
                 st.session_state.current_uploaded_file = None
@@ -616,15 +676,13 @@ def show_course_history():
                 st.rerun()
             
             st.markdown("### 📚 Your Courses")
-            for course in st.session_state.course_history:
-                # Truncate long titles
+            for course in st.session_state.course_history:                # Truncate long titles
                 display_title = course['title']
                 if len(display_title) > 25:
                     display_title = display_title[:22] + "..."
-                
                 if st.button(f"{display_title}", key=f"course_{course['id']}", use_container_width=True):
                     st.session_state.current_course_id = course['id']
-                    st.switch_page("pages/3_📚_Course.py")
+                    st.switch_page("pages/3_Course.py")
               # Show user status
             st.markdown("---")
             if st.session_state.get('authentication_status'):
@@ -633,6 +691,116 @@ def show_course_history():
                 guest_count = get_guest_course_count()
                 remaining = 3 - guest_count
                 st.info(f"🎯 Guest: {remaining}/3 courses remaining")
+
+def show_course_dashboard():
+    """Show user's course dashboard"""
+    if MONGO_AVAILABLE:
+        try:
+            course_manager = get_course_manager()
+            user_identifier = st.session_state.get('username')
+            session_id_val = get_session_id()
+
+            if st.session_state.get('authentication_status') and user_identifier:
+                # Authenticated user
+                courses, error = course_manager.get_user_courses(user_identifier, is_guest=False)
+                stats, stats_error = course_manager.get_course_stats(user_identifier, is_guest=False)
+            else:
+                # Guest user - ensure session_id_val is used as user_identifier for guests
+                courses, error = course_manager.get_user_courses(user_identifier=session_id_val, is_guest=True, session_id=session_id_val)
+                stats, stats_error = course_manager.get_course_stats(user_identifier=session_id_val, is_guest=True, session_id=session_id_val)
+            
+            if courses and not error:
+                st.markdown("### 📚 Your Recent Courses")
+                
+                # Show stats if available
+                if stats and not stats_error:
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("📖 Total Courses", stats.get('total_courses', 0))
+                    with col2:
+                        st.metric("❓ Total Questions", stats.get('total_questions', 0))
+                    with col3:
+                        st.metric("📄 Total Sections", stats.get('total_sections', 0))
+                    with col4:
+                        public_count = stats.get('public_courses', 0)
+                        private_count = stats.get('private_courses', 0)
+                        st.metric("🌍 Public / 🔒 Private", f"{public_count} / {private_count}")
+                
+                # Show recent courses
+                st.markdown("#### Recent Courses")
+                
+                # Display courses in a grid
+                cols = st.columns(3)
+                for i, course in enumerate(courses[:6]):  # Show up to 6 recent courses
+                    with cols[i % 3]:
+                        course_title = course.get('title', 'Untitled Course')
+                        course_id = course.get('course_id')
+                        created_at = course.get('created_at', 'Unknown')
+                        total_questions = course.get('total_questions', 0)
+                        is_public = course.get('is_public', True)
+                        
+                        # Create course card
+                        privacy_icon = "🌍" if is_public else "🔒"
+                        
+                        with st.container():
+                            st.markdown(f"""
+                            <div style="
+                                border: 1px solid #9d00ff; 
+                                border-radius: 15px; 
+                                padding: 1rem; 
+                                margin-bottom: 1rem;
+                                background: rgba(157, 0, 255, 0.05);
+                                transition: all 0.3s ease;
+                            ">
+                                <h4>{privacy_icon} {course_title[:30]}{'...' if len(course_title) > 30 else ''}</h4>
+                                <p style="color: #888;">📊 {total_questions} questions</p>
+                                <p style="color: #666; font-size: 0.8em;">📅 {created_at}</p>                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            if st.button(f"▶️ Continue Learning", key=f"course_btn_{course_id}", use_container_width=True):
+                                if course_id: # Ensure course_id is not None
+                                    st.query_params["course_id"] = str(course_id)
+                                    st.session_state.current_course_id = str(course_id)
+                                    st.switch_page("pages/3_Course.py")
+                                else:
+                                    st.error("Course ID is missing, cannot navigate.")
+                
+                # Show "View All" button if there are more courses
+                if len(courses) > 6:
+                    st.info(f"... and {len(courses) - 6} more courses. Login to view your complete course library!")
+            
+            elif error:
+                st.warning(f"⚠️ Could not load courses: {error}")
+            else:
+                # No courses found
+                st.markdown("### 🚀 Ready to Get Started?")
+                st.info("No courses yet. Upload a PDF or enter a URL below to generate your first interactive course!")
+                
+        except Exception as e:
+            st.error(f"❌ Error loading course dashboard: {e}")
+            # Fall back to session state
+            show_session_course_dashboard()
+    else:
+        # Fall back to session state if MongoDB is not available
+        show_session_course_dashboard()
+
+def show_session_course_dashboard():
+    """Show course dashboard from session state"""
+    if 'course_history' in st.session_state and st.session_state.course_history:
+        st.markdown("### 📚 Your Courses (Session)")
+        
+        # Simple metrics
+        total_courses = len(st.session_state.course_history)
+        st.metric("📖 Courses This Session", total_courses)
+          # Show recent courses
+        for i, course in enumerate(st.session_state.course_history[-3:]):  # Show last 3
+            course_title = course.get('title', 'Untitled Course')
+            if st.button(f"📄 {course_title}", key=f"session_course_btn_{i}", use_container_width=True):
+                st.session_state.current_course_id = course['id']
+                st.switch_page("pages/3_Course.py")
+    else:
+        st.markdown("### 🚀 Ready to Get Started?")
+        st.info("No courses yet. Upload a PDF or enter a URL below to generate your first interactive course!")
 
 # Cookie authentication check on page load (without showing login form)
 # authenticator, config = check_authentication() # This line was causing the error and is removed as stauth is no longer used here.

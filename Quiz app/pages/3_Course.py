@@ -19,6 +19,12 @@ except ImportError:
     
 import local_backend
 
+try:
+    from mongo_course_manager import get_course_manager, get_session_id
+    MONGO_AVAILABLE = True
+except ImportError:
+    MONGO_AVAILABLE = False
+
 # Initialize session state function
 def initialize_session_state():
     """Initialize all session state variables"""
@@ -208,11 +214,31 @@ def main():
         if st.button("🏠 Go to Home"):
             st.switch_page("pages/1_🏠_Home.py")
         return
-    
-    # Main course container
+      # Main course container
     st.markdown('<div class="course-container">', unsafe_allow_html=True)
-      # Course title and info
-    course_title = st.session_state.course_history[course_id]['title']
+    
+    # Course title and info - handle both MongoDB and session data
+    course_title = "📚 Course"  # Default title
+    
+    # Try to get title from MongoDB first
+    if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
+        try:
+            course_manager = get_course_manager()
+            course_doc, _ = course_manager.get_course(course_id)
+            if course_doc:
+                course_title = course_doc.get('title', '📚 Course')
+        except Exception:
+            pass
+    
+    # Fall back to session state
+    if course_title == "📚 Course" and 'course_history' in st.session_state:
+        try:
+            course_id_int = int(course_id)
+            if course_id_int < len(st.session_state.course_history):
+                course_title = st.session_state.course_history[course_id_int]['title']
+        except (ValueError, TypeError):
+            pass
+    
     st.markdown(f'<h1 class="course-title">{course_title}</h1>', unsafe_allow_html=True)
     
     # Course metadata
@@ -232,7 +258,7 @@ def main():
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_sidebar_navigation():
-    """Show navigation sidebar like ChatGPT"""
+    """Show navigation sidebar with course management"""
     with st.sidebar:
         st.markdown("### 🏠 Navigation")
         if st.button("🏠 Home", use_container_width=True):
@@ -242,6 +268,108 @@ def show_sidebar_navigation():
             st.switch_page("pages/2_🔐_Login.py")
         
         st.markdown("---")
+        
+        # Course management section
+        current_course_id = get_current_course_id()
+        if current_course_id and MONGO_AVAILABLE:
+            st.markdown("### ⚙️ Course Settings")
+            
+            # Privacy toggle for authenticated users only
+            if st.session_state.get('authentication_status'):
+                try:
+                    course_manager = get_course_manager()
+                    course_doc, _ = course_manager.get_course(current_course_id)
+                    
+                    if course_doc and course_doc.get('creator') == st.session_state.get('username'):
+                        current_privacy = course_doc.get('is_public', True)
+                        privacy_label = "🌍 Public" if current_privacy else "🔒 Private"
+                        
+                        st.markdown(f"**Current: {privacy_label}**")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🌍 Make Public", use_container_width=True, disabled=current_privacy):
+                                success, error = course_manager.update_course_privacy(current_course_id, st.session_state['username'], True)
+                                if success:
+                                    st.success("✅ Course is now public!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {error}")
+                        
+                        with col2:
+                            if st.button("🔒 Make Private", use_container_width=True, disabled=not current_privacy):
+                                success, error = course_manager.update_course_privacy(current_course_id, st.session_state['username'], False)
+                                if success:
+                                    st.success("✅ Course is now private!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {error}")
+                        
+                        st.markdown("---")
+                        
+                        # Delete course button
+                        if st.button("🗑️ Delete Course", use_container_width=True, type="secondary"):
+                            st.session_state.show_delete_confirmation = True
+                        
+                        # Delete confirmation
+                        if st.session_state.get('show_delete_confirmation', False):
+                            st.warning("⚠️ Are you sure you want to delete this course?")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                                    success, error = course_manager.delete_course(
+                                        current_course_id, 
+                                        st.session_state['username'], 
+                                        is_guest=False
+                                    )
+                                    if success:
+                                        st.success("✅ Course deleted!")
+                                        st.session_state.show_delete_confirmation = False
+                                        st.switch_page("pages/1_🏠_Home.py")
+                                    else:                                        st.error(f"❌ {error}")
+                            
+                            with col2:
+                                if st.button("❌ Cancel", use_container_width=True):
+                                    st.session_state.show_delete_confirmation = False
+                                    st.rerun()
+                
+                except Exception as e:
+                    st.error(f"❌ Error loading course settings: {e}")
+            
+            # Share course link (only show for public courses)
+            try:
+                course_manager = get_course_manager()
+                course_doc, _ = course_manager.get_course(current_course_id)
+                is_public = course_doc.get('is_public', True) if course_doc else False
+                
+                if is_public:
+                    st.markdown("### 🔗 Share Course")                    # Get the current URL and construct proper share URL
+                    if hasattr(st, 'context') and hasattr(st.context, 'headers'):
+                        host = st.context.headers.get('host', 'localhost:8501')
+                        protocol = 'https' if 'herokuapp' in host or 'streamlit' in host else 'http'
+                        base_url = f"{protocol}://{host}"
+                    else:
+                        base_url = "http://localhost:8501"                    # Try pointing directly to the Course page with the actual filename
+                    share_url = f"{base_url}/3_Course?course_id={current_course_id}"
+                    
+                    st.code(share_url, language="text")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("📋 Copy Link", use_container_width=True):
+                            st.success("✅ Link copied! (Use your browser's copy function)")
+                    with col2:
+                        if st.button("🔗 Open Link", use_container_width=True):
+                            st.markdown(f'<a href="{share_url}" target="_blank">Open in new tab</a>', unsafe_allow_html=True)
+                else:
+                    st.markdown("### 🔒 Private Course")
+                    st.info("Make this course public to enable sharing")
+            except Exception as e:
+                st.error(f"❌ Error checking course privacy: {e}")
+
+# Function to display course history in the sidebar
+def show_course_history_sidebar():
+    with st.sidebar:
         st.markdown("### 📚 Your Courses")
         
         # Show course history
@@ -249,18 +377,33 @@ def show_sidebar_navigation():
             for i, course in enumerate(st.session_state.course_history):
                 # Highlight current course
                 current_course_id = get_current_course_id()
-                button_type = "primary" if i == current_course_id else "secondary"
+                # Ensure course_id from history and current_course_id are comparable (both strings)
+                course_id_in_history = str(course.get('course_id', course.get('id'))) # Handle both possible keys
                 
-                if st.button(f"📖 {course['title']}", key=f"nav_course_{i}", use_container_width=True, type=button_type):
-                    st.session_state.current_course_id = i
+                button_type = "primary" if course_id_in_history == str(current_course_id) else "secondary"
+                
+                if st.button(f"📖 {course['title']}", key=f"nav_course_{course_id_in_history}", use_container_width=True, type=button_type):
+                    # When a course is selected from history, update query_params to navigate
+                    st.query_params.course_id = course_id_in_history
                     st.session_state.current_section_index = 0  # Reset to first section
-                    st.rerun()
+                    st.rerun() # Rerun to reflect the new course_id in URL and load it
         else:
             st.info("No courses yet. Generate your first course!")
 
 def get_current_course_id():
-    """Get the current course ID"""
-    # Try to get from session state first
+    """Get the current course ID from URL params or session state"""
+    # First check URL parameters for course_id
+    if "course_id" in st.query_params:
+        return st.query_params["course_id"]
+    
+    # Check if we have a shared course ID in session state (from redirect)
+    if 'shared_course_id' in st.session_state:
+        shared_id = st.session_state.shared_course_id
+        # Clear it after use to avoid confusion
+        del st.session_state.shared_course_id
+        return shared_id
+    
+    # Try to get from session state (for backward compatibility)
     if 'current_course_id' in st.session_state:
         return st.session_state.current_course_id
     
@@ -268,14 +411,50 @@ def get_current_course_id():
     return None
 
 def load_course_data(course_id):
-    """Load course data by ID"""
+    """Load course data by ID from MongoDB or session state"""
+    # First try to load from MongoDB if available
+    if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:  # MongoDB ObjectId is 24 chars
+        try:
+            course_manager = get_course_manager()
+            
+            # Check if user can access this course
+            user_identifier = st.session_state.get('username')
+            session_id = get_session_id() if not user_identifier else None
+            
+            can_access, access_error = course_manager.can_access_course(
+                course_id=course_id,
+                user_identifier=user_identifier,
+                session_id=session_id
+            )
+            
+            if not can_access:
+                st.error(f"❌ Access denied: {access_error}")
+                return None
+            
+            # Load course from MongoDB
+            course_doc, load_error = course_manager.get_course(course_id)
+            
+            if course_doc and not load_error:
+                return course_doc['content']  # Return the course content
+            elif load_error:
+                st.error(f"❌ Error loading course: {load_error}")
+                return None
+        except Exception as e:
+            st.error(f"❌ Error accessing course database: {e}")
+            return None
+    
+    # Fall back to session state for backward compatibility
     if 'course_history' not in st.session_state:
         return None
     
-    if course_id >= len(st.session_state.course_history):
+    try:
+        course_id_int = int(course_id)
+        if course_id_int >= len(st.session_state.course_history):
+            return None
+        
+        return st.session_state.course_history[course_id_int]['data']
+    except (ValueError, TypeError):
         return None
-    
-    return st.session_state.course_history[course_id]['data']
 
 def show_score_display(course_data):
     """Display current score"""
