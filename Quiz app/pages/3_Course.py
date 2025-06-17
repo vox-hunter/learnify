@@ -227,8 +227,8 @@ def main():
             course_doc, _ = course_manager.get_course(course_id)
             if course_doc:
                 course_title = course_doc.get('title', '📚 Course')
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"An error occurred while fetching the course title from MongoDB: {e}")
     
     # Fall back to session state
     if course_title == "📚 Course" and 'course_history' in st.session_state:
