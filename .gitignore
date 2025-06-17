@@ -290,9 +290,6 @@ yarn.lock
 # data/
 # checkpoints/
 
-# Streamlit secrets (contains API keys) - keep config.toml but ignore secrets
-.streamlit/secrets.toml
-**/secrets.toml
 
 # Environment files
 .env
