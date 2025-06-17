@@ -343,7 +343,7 @@ def show_sidebar_navigation():
                 is_public = course_doc.get('is_public', True) if course_doc else False
                 
                 if is_public:
-                    st.markdown("### 🔗 Share Course")                    # Get the current URL and construct proper share URL
+                    st.markdown("### 🔗 Share Course (NOT WORKING, IN PROGRESS)")                    # Get the current URL and construct proper share URL
                     if hasattr(st, 'context') and hasattr(st.context, 'headers'):
                         host = st.context.headers.get('host', 'localhost:8501')
                         protocol = 'https' if 'herokuapp' in host or 'streamlit' in host else 'http'
