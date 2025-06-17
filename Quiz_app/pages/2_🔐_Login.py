@@ -11,10 +11,11 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from mongo_auth import MongoAuthManager
+    from mongo_course_manager import get_course_manager, get_session_id
     MONGO_AVAILABLE = True
 except ImportError as e:
     # It's okay to call st.error here after set_page_config
-    st.error(f"Failed to import MongoAuthManager. Ensure mongo_auth.py is in the correct path: {e}")
+    st.error(f"Failed to import MongoAuthManager or MongoCourseManager. Ensure mongo_auth.py and mongo_course_manager.py are in the correct path: {e}")
     MONGO_AVAILABLE = False
     st.stop() # Stop if core auth module is missing
 
@@ -203,13 +204,25 @@ def login_user(username, user_data):
     st.session_state['username'] = username
     st.session_state['name'] = user_data.get('name')
     st.session_state['email'] = user_data.get('email')
-    # Reset guest course count when user logs in
+    
+    # Transfer guest courses to logged-in user if MongoDB is available
+    if MONGO_AVAILABLE:
+        try:
+            session_id = get_session_id()
+            course_manager = get_course_manager()
+            transferred_count, transfer_error = course_manager.transfer_guest_courses(session_id, username)
+            if transferred_count > 0:
+                st.success(f"✅ {transferred_count} guest course{'s' if transferred_count != 1 else ''} transferred to your account!")
+            elif transfer_error:
+                st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
+        except Exception as e:
+            st.warning(f"⚠️ Error transferring guest courses: {e}")
+    
+    # Update cookies in a single operation
     if cookies.ready():
-        cookies["guest_courses_count"] = "0"
-        cookies.save()
-    # Set cookie for persistent login (e.g., expires in 7 days)
-    cookies[AUTH_COOKIE_NAME] = username 
-    cookies.save() # Save cookies to the browser
+        cookies["guest_courses_count"] = "0"  # Reset guest course count
+        cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
+        cookies.save() # Save all cookie changes at once
 
 def logout_user():
     st.session_state['authentication_status'] = False
