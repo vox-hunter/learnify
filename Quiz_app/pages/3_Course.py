@@ -1,5 +1,5 @@
 """
-Course Display and Quiz Interface - Optimized Version
+Course Display and Quiz Interface - Optimized Version with Custom Component
 """
 import streamlit as st
 import sys
@@ -14,10 +14,13 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 try:
     from mongo_course_manager import get_course_manager, get_session_id
     from local_backend import validate_short_answer_with_ai
+    from st_fill_in_the_blanks import fill_in_the_blanks_input
     MONGO_AVAILABLE = True
+    CUSTOM_COMPONENT_AVAILABLE = True
 except ImportError as e:
     st.error(f"Failed to import required modules: {e}")
     MONGO_AVAILABLE = False
+    CUSTOM_COMPONENT_AVAILABLE = False
     st.stop()
 
 # Optimized CSS - Reduced and simplified
@@ -228,25 +231,46 @@ def handle_multiple_choice(question, q_id, q_state):
     return selected, q_state.get('correct', False)
 
 def handle_fill_in_blank(question, q_id, q_state):
-    """Handle fill in the blank questions"""
+    """Handle fill in the blank questions using custom component"""
     correct_answer = question.get('answer', '')
+    question_text = question.get('question', '')
     
-    # Use simple text input instead of custom component for better performance
-    user_input = st.text_input(
-        "Fill in the blank:",
-        key=f"fitb_{q_id}",
-        disabled=q_state['answered'],
-        placeholder="Type your answer here..."
-    )
+    # Handle multiple correct answers
+    if isinstance(correct_answer, list):
+        display_answer = correct_answer[0]  # Use first answer for component
+        all_answers = correct_answer
+    else:
+        display_answer = correct_answer
+        all_answers = [correct_answer]
+    
+    # Use custom component if available, fallback to text input
+    if CUSTOM_COMPONENT_AVAILABLE:
+        # Get current value from session state
+        current_value = st.session_state.get(f"fitb_value_{q_id}", "")
+        
+        user_input = fill_in_the_blanks_input(
+            question_text_full=question_text,
+            correctAnswer=display_answer,
+            key=f"fitb_{q_id}",
+            default_value=current_value,
+            disabled=q_state['answered']
+        )
+        
+        # Store the value in session state
+        if user_input != current_value:
+            st.session_state[f"fitb_value_{q_id}"] = user_input
+    else:
+        # Fallback to standard text input
+        user_input = st.text_input(
+            "Fill in the blank:",
+            key=f"fitb_{q_id}",
+            disabled=q_state['answered'],
+            placeholder="Type your answer here..."
+        )
     
     if st.button("Submit Answer", key=f"submit_fitb_{q_id}", disabled=q_state['answered']):
-        # Handle multiple correct answers
-        if isinstance(correct_answer, list):
-            is_correct = any(user_input.lower().strip() == ans.lower().strip() for ans in correct_answer)
-            display_answer = " or ".join(correct_answer)
-        else:
-            is_correct = user_input.lower().strip() == correct_answer.lower().strip()
-            display_answer = correct_answer
+        # Check against all possible answers
+        is_correct = any(user_input.lower().strip() == ans.lower().strip() for ans in all_answers)
         
         q_state['answered'] = True
         q_state['correct'] = is_correct
@@ -255,7 +279,11 @@ def handle_fill_in_blank(question, q_id, q_state):
         if is_correct:
             st.success("✅ Correct!")
         else:
-            st.error(f"❌ Incorrect. The correct answer is: {display_answer}")
+            if len(all_answers) > 1:
+                display_correct = " or ".join(all_answers)
+            else:
+                display_correct = display_answer
+            st.error(f"❌ Incorrect. The correct answer is: {display_correct}")
         
         st.rerun()
     
