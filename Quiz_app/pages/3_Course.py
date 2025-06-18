@@ -2,6 +2,15 @@
 Course Display and Quiz Interface - Optimized Version with Custom Component
 """
 import streamlit as st
+
+# IMPORTANT: st.set_page_config() must be the very first Streamlit command
+st.set_page_config(
+    page_title="Course - Learnify",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
 import sys
 import os
 from typing import Dict, List, Any, Union
@@ -442,13 +451,6 @@ def render_section(section_data, section_index):
 
 def main():
     """Main function with optimized flow"""
-    st.set_page_config(
-        page_title="Course - Learnify",
-        page_icon="📚",
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
-    
     initialize_session_state()
     
     # Load course data
