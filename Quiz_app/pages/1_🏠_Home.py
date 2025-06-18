@@ -1,5 +1,5 @@
 """
-Home Page - Main course generation interface
+Home Page - Optimized Main course generation interface
 """
 import streamlit as st
 import sys
@@ -8,11 +8,7 @@ from streamlit_cookies_manager import EncryptedCookieManager
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-# Add the parent directory (Quiz app) to sys.path to allow imports from it
-# __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 
 import local_backend
 
@@ -21,29 +17,76 @@ try:
     from mongo_course_manager import get_course_manager, get_session_id
     MONGO_AVAILABLE = True
 except ImportError as e:
-    st.error(f"Failed to import MongoAuthManager or MongoCourseManager. Ensure mongo_auth.py and mongo_course_manager.py are in the correct path: {e}")
+    st.error(f"Failed to import MongoAuthManager or MongoCourseManager: {e}")
     MONGO_AVAILABLE = False
-    # Allow guest access even if Mongo is down, but authenticated features will be limited.
 
-# --- Cookie Manager Initialization (Consistent with Login Page) ---
+# Optimized CSS - Reduced complexity
+st.markdown("""
+<style>
+    .stApp { background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%); }
+    .main-container { max-width: 800px; margin: 0 auto; padding: 2rem; text-align: center; }
+    .main-title {
+        font-size: 3rem; font-weight: 700;
+        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 2rem;
+    }
+    .stButton > button {
+        background: linear-gradient(135deg, #9d00ff, #7a00cc);
+        color: white; border: none; border-radius: 50px;
+        padding: 12px 30px; font-weight: 600;
+        transition: all 0.3s ease; width: 100%; font-size: 1rem;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #7a00cc, #5c0099);
+        transform: translateY(-2px);
+    }
+    .course-card {
+        border: 1px solid #9d00ff; border-radius: 15px;
+        padding: 1rem; margin-bottom: 1rem;
+        background: rgba(157, 0, 255, 0.05);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Cookie Manager Initialization
 COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
-if COOKIE_ENCRYPTION_KEY == "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES" and MONGO_AVAILABLE:
-    # Only warn if Mongo is available, as cookies are for auth primarily
-    st.warning("Using default cookie encryption key. Please set COOKIE_ENCRYPTION_KEY in st.secrets for production.")
+cookies = EncryptedCookieManager(password=COOKIE_ENCRYPTION_KEY, prefix="learnify/auth")
 
-cookies = EncryptedCookieManager(
-    password=COOKIE_ENCRYPTION_KEY,
-    prefix="learnify/auth",
-)
+AUTH_COOKIE_NAME = "username"
+GUEST_COURSES_COOKIE_NAME = "guest_courses_count"
 
-# Initialize cookies if they haven't been, e.g. on first run
-# This needs to be called early, but after st.set_page_config
-# We'll handle the st.stop() or alternative flow after page config.
+# Optimized session state initialization
+@st.cache_data
+def get_default_session_state():
+    """Get default session state values"""
+    return {
+        "current_section_index": 0,
+        "user_answers": {},
+        "checked_answers": {},
+        "current_score": 0,
+        "total_questions_in_course": 0,
+        "scored_correctly_keys": set(),
+        "feedback": {},
+        "course_data": None,
+        "error_message": None,
+        "is_generating_course": False,
+        "courses_generated": 0,
+        "authentication_status": None,
+        "name": None,
+        "username": None,
+        "course_history": [],
+        "current_course_id": None
+    }
 
-AUTH_COOKIE_NAME = "username" # Consistent cookie name
-GUEST_COURSES_COOKIE_NAME = "guest_courses_count" # Cookie to track guest course generation
+def initialize_session_state():
+    """Initialize session state efficiently"""
+    defaults = get_default_session_state()
+    for key, default_value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = default_value
 
-# --- Authentication State Management (Consistent with Login Page) ---
+# Authentication functions (simplified)
 def get_auth_manager():
     if not MONGO_AVAILABLE:
         return None
@@ -57,71 +100,42 @@ def login_user_session(username, user_data):
     st.session_state['name'] = user_data.get('name')
     st.session_state['email'] = user_data.get('email')
     
-    # Transfer guest courses to logged-in user if MongoDB is available
+    # Transfer guest courses
     if MONGO_AVAILABLE:
         try:
             session_id = get_session_id()
             course_manager = get_course_manager()
-            transferred_count, transfer_error = course_manager.transfer_guest_courses(session_id, username)
+            transferred_count, _ = course_manager.transfer_guest_courses(session_id, username)
             if transferred_count > 0:
-                st.success(f"✅ {transferred_count} guest course{'s' if transferred_count != 1 else ''} transferred to your account!")
-            elif transfer_error:
-                st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
-        except Exception as e:
-            st.warning(f"⚠️ Error transferring guest courses: {e}")
+                st.success(f"✅ {transferred_count} guest course{'s' if transferred_count != 1 else ''} transferred!")
+        except Exception:
+            pass
     
-    # Reset guest course count when user logs in
     reset_guest_course_count()
-    st.session_state.courses_generated = 0  # Reset session state too
-    # Cookie is assumed to be set by the login page or already present
+    st.session_state.courses_generated = 0
 
 def logout_user_session():
     st.session_state['authentication_status'] = False
     st.session_state['username'] = None
     st.session_state['name'] = None
     st.session_state['email'] = None
-    st.session_state['logout_just_occurred'] = True # Flag to prevent immediate re-login    # Enhanced cookie invalidation (more reliable than deletion)
+    st.session_state['logout_just_occurred'] = True
+    
     if cookies.ready():
-        # Set cookie to "logged_out" instead of deleting (more reliable)
         cookies[AUTH_COOKIE_NAME] = "logged_out"
         cookies.save()
 
-manager = get_auth_manager() # Initialize manager early
-
-def auto_login_from_cookie_home():
-    if not manager: # If MongoAuthManager isn't available, can't auto-login
-        return
-
-    if st.session_state.get('authentication_status') or st.session_state.get('logout_just_occurred_processed_auto_login_home', False):
-        return
-
-    cookie_username = cookies.get(AUTH_COOKIE_NAME)
-    
-    # Check if cookie exists and is not "logged_out"
-    if cookie_username and cookie_username != "logged_out":
-        user_data = manager.find_user_by_username(cookie_username)
-        if user_data:
-            # Auto-login user from valid cookie
-            login_user_session(cookie_username, user_data)
-        else:
-            cookies[AUTH_COOKIE_NAME] = "logged_out"  # Invalidate instead of delete
-            cookies.save()            # Ensure session state reflects this invalid cookie state
-            if st.session_state.get('username') == cookie_username:
-                logout_user_session() # Clear session if it was based on this bad cookie
-
-# --- Guest Course Tracking Functions ---
+# Guest course tracking (simplified)
 def get_guest_course_count():
-    """Get the number of courses generated by guest users from cookies"""
     if not cookies.ready():
         return 0
     try:
         count = cookies.get(GUEST_COURSES_COOKIE_NAME, 0)
         return int(count) if count else 0
-    except (ValueError, TypeError):
+    except:
         return 0
 
 def increment_guest_course_count():
-    """Increment the guest course count in cookies"""
     if not cookies.ready():
         return
     current_count = get_guest_course_count()
@@ -131,297 +145,252 @@ def increment_guest_course_count():
     return new_count
 
 def reset_guest_course_count():
-    """Reset guest course count (called when user logs in)"""
     if cookies.ready():
         cookies[GUEST_COURSES_COOKIE_NAME] = "0"
         cookies.save()
 
 def check_course_limit():
-    """Check if user has reached the course generation limit"""
     if st.session_state.get('authentication_status'):
-        return True  # Authenticated users have unlimited access
-    
-    # For guest users, check cookie-based count
-    guest_count = get_guest_course_count()
-    return guest_count < 3
+        return True
+    return get_guest_course_count() < 3
 
 def force_login_if_limit_reached():
-    """Force login if guest user has reached the 3-course limit"""
     if st.session_state.get('authentication_status'):
-        return False  # Already logged in
+        return False
     
-    guest_count = get_guest_course_count()
-    if guest_count >= 3:
-        st.error("🔐 You have generated 3 courses as a guest. Please login to continue generating unlimited courses.")
+    if get_guest_course_count() >= 3:
+        st.error("🔐 You have generated 3 courses as a guest. Please login to continue.")
         if st.button("🔐 Go to Login", type="primary", key="force_login_btn"):
             st.switch_page("pages/2_🔐_Login.py")
         return True
     return False
 
-# Initialize session state function
-def initialize_session_state():
-    """Initialize all session state variables"""
-    if "current_section_index" not in st.session_state:  
-        st.session_state.current_section_index = 0
-    if "user_answers" not in st.session_state:
-        st.session_state.user_answers = {}
-    if "checked_answers" not in st.session_state:
-        st.session_state.checked_answers = {}
-    if "current_score" not in st.session_state:
-        st.session_state.current_score = 0
-    if "total_questions_in_course" not in st.session_state:
-        st.session_state.total_questions_in_course = 0
-    if "scored_correctly_keys" not in st.session_state:
-        st.session_state.scored_correctly_keys = set()
-    if "feedback" not in st.session_state:
-        st.session_state.feedback = {}
-    if "course_data" not in st.session_state:
-        st.session_state.course_data = None
-    if "error_message" not in st.session_state:
-        st.session_state.error_message = None
-    if "is_generating_course" not in st.session_state:
-        st.session_state.is_generating_course = False
-    if "courses_generated" not in st.session_state:
-        # For guest users, load count from cookies; for logged-in users, always 0
-        if st.session_state.get('authentication_status'):
-            st.session_state.courses_generated = 0
+# Auto-login function
+def auto_login_from_cookie_home():
+    manager = get_auth_manager()
+    if not manager or st.session_state.get('authentication_status'):
+        return
+
+    cookie_username = cookies.get(AUTH_COOKIE_NAME)
+    if cookie_username and cookie_username != "logged_out":
+        user_data = manager.find_user_by_username(cookie_username)
+        if user_data:
+            login_user_session(cookie_username, user_data)
+
+# Optimized course generation with better progress tracking
+def generate_and_redirect(uploaded_file, pdf_url):
+    """Generate course with optimized progress tracking"""
+    st.session_state.is_generating_course = True
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    def status_callback(status_message, progress_percent):
+        progress_bar.progress(min(progress_percent / 100, 0.95))  # Cap at 95% until complete
+        status_text.text(status_message)
+    
+    try:
+        # Generate course
+        if uploaded_file:
+            uploaded_file.seek(0)
+            course_data, error_message = local_backend.generate_course(
+                file_content=uploaded_file.read(), 
+                status_callback=status_callback
+            )
         else:
-            st.session_state.courses_generated = get_guest_course_count()
-    if "authentication_status" not in st.session_state:
-        st.session_state.authentication_status = None
-    if "name" not in st.session_state:
-        st.session_state.name = None
-    if "username" not in st.session_state:
-        st.session_state.username = None
-    if "course_history" not in st.session_state:
-        st.session_state.course_history = []
-    if "current_course_id" not in st.session_state:
-        st.session_state.current_course_id = None
+            course_data, error_message = local_backend.generate_course(
+                file_url=pdf_url, 
+                status_callback=status_callback
+            )
+        
+        if course_data and not error_message:
+            progress_bar.progress(100)
+            status_text.text("✅ Course created successfully!")
 
-# Initialize session state
-initialize_session_state()
+            # Determine course title
+            if uploaded_file:
+                course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
+            else:
+                course_title = f"🔗 Course from URL"
 
-# Apply modern CSS styling
-st.markdown("""
-<style>
-    /* Global styles */
-    .stApp {
-        background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
-    }
+            # Save course
+            if MONGO_AVAILABLE:
+                try:
+                    course_manager = get_course_manager()
+                    is_guest = not st.session_state.get('authentication_status', False)
+                    
+                    if is_guest:
+                        session_id = get_session_id()
+                        creator = session_id
+                    else:
+                        session_id = None
+                        creator = st.session_state.get('username', 'unknown_user')
+                    
+                    course_id, save_error = course_manager.save_course(
+                        course_data=course_data,
+                        course_title=course_title,
+                        creator=creator,
+                        is_guest=is_guest,
+                        session_id=session_id,
+                        is_public=True 
+                    )
+                    
+                    if course_id and not save_error:
+                        st.session_state.current_course_id = course_id
+                        
+                        if not st.session_state.get('authentication_status'):
+                            increment_guest_course_count()
+                        
+                        # Clear generation state
+                        st.session_state.is_generating_course = False
+                        st.session_state.current_uploaded_file = None
+                        st.session_state.current_pdf_url = None
+                        
+                        # Redirect to course
+                        st.query_params["course_id"] = str(course_id)
+                        time.sleep(1)  # Brief pause to show completion
+                        st.switch_page("pages/3_Course.py")
+                    else:
+                        st.error(f"❌ Failed to save course: {save_error}")
+                        st.session_state.is_generating_course = False
+                        
+                except Exception as e:
+                    st.error(f"❌ Error saving course: {e}")
+                    st.session_state.is_generating_course = False
+            else:
+                st.warning("⚠️ MongoDB not available. Course generated but not saved.")
+                st.session_state.is_generating_course = False
+                
+        else:
+            st.error(f"❌ {error_message}")
+            st.session_state.is_generating_course = False
+            
+    except Exception as e:
+        st.error(f"❌ Error generating course: {str(e)}")
+        st.session_state.is_generating_course = False
+
+# Optimized course dashboard
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def get_user_courses_cached(user_identifier, is_guest, session_id=None):
+    """Get user courses with caching"""
+    if not MONGO_AVAILABLE:
+        return [], None
     
-    /* Hide default sidebar */
-    .css-1d391kg {
-        padding-top: 1rem;
-    }
+    try:
+        course_manager = get_course_manager()
+        if is_guest:
+            return course_manager.get_user_courses(user_identifier=session_id, is_guest=True, session_id=session_id)
+        else:
+            return course_manager.get_user_courses(user_identifier, is_guest=False)
+    except Exception as e:
+        return [], str(e)
+
+def show_course_dashboard():
+    """Show optimized course dashboard"""
+    if not MONGO_AVAILABLE:
+        st.markdown("### 🚀 Ready to Get Started?")
+        st.info("Upload a PDF or enter a URL below to generate your first course!")
+        return
     
-    /* Center container */
-    .main-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 2rem;
-        text-align: center;
-    }
-    
-    /* Title styling */
-    .main-title {
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 2rem;
-    }
-      /* Pill button styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 30px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
-        width: 100%;
-        font-size: 1rem;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #7a00cc, #5c0099);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.4);
-    }
-    
-    /* Input styling */
-    .stTextInput > div > div > input {
-        background: rgba(26, 0, 51, 0.8);
-        border: 2px solid #9d00ff;
-        border-radius: 25px;
-        color: #ededed;
-        padding: 12px 20px;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #ff6b6b;
-        box-shadow: 0 0 15px rgba(157, 0, 255, 0.3);
-    }
-    
-    /* File uploader enhanced styling */
-    .stFileUploader {
-        background: rgba(255, 255, 255, 0.03);
-        border: 2px dashed #9d00ff;
-        border-radius: 20px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 1rem 0;
-    }
-    
-    .stFileUploader:hover {
-        border-color: #ff6b6b;
-        background: rgba(255, 255, 255, 0.06);
-        transform: translateY(-2px);
-    }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 25px;
-        padding: 5px;
-        gap: 10px;
-        justify-content: center;
-        margin-bottom: 2rem;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 20px;
-        color: rgba(255, 255, 255, 0.7);
-        padding: 12px 24px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        border: none;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-        color: white;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
-    }
-    
-    /* Progress bar styling */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        border-radius: 10px;
-    }
-    
-    /* Success/Error/Warning message styling */
-    .stSuccess, .stInfo, .stWarning, .stError {
-        border-radius: 15px;
-        border: none;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .stSuccess {
-        background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.1));
-        border-left: 4px solid #00ff00;
-    }
-    
-    .stInfo {
-        background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(0, 100, 255, 0.1));
-        border-left: 4px solid #0096ff;
-    }
-    
-    .stWarning {
-        background: linear-gradient(135deg, rgba(255, 165, 0, 0.1), rgba(255, 140, 0, 0.1));
-        border-left: 4px solid #ffa500;
-    }
-    
-    .stError {
-        background: linear-gradient(135deg, rgba(255, 0, 0, 0.1), rgba(200, 0, 0, 0.1));
-        border-left: 4px solid #ff0000;
-    }
-    
-    /* Top navigation */
-    .top-nav {
-        position: fixed;
-        top: 0;
-        right: 0;
-        padding: 1rem;
-        z-index: 1000;
-    }
-</style>
-""", unsafe_allow_html=True)
+    try:
+        user_identifier = st.session_state.get('username')
+        session_id_val = get_session_id()
+        is_guest = not st.session_state.get('authentication_status', False)
+        
+        # Use cached function
+        courses, error = get_user_courses_cached(
+            user_identifier if not is_guest else session_id_val,
+            is_guest,
+            session_id_val if is_guest else None
+        )
+        
+        if courses and not error:
+            st.markdown("### 📚 Your Recent Courses")
+            
+            # Show recent courses in a simple grid
+            if len(courses) > 0:
+                cols = st.columns(min(3, len(courses)))
+                for i, course in enumerate(courses[:6]):
+                    with cols[i % 3]:
+                        course_title = course.get('title', 'Untitled Course')
+                        course_id = course.get('course_id')
+                        total_questions = course.get('total_questions', 0)
+                        
+                        st.markdown(f'''
+                        <div class="course-card">
+                            <h4>{course_title[:30]}{'...' if len(course_title) > 30 else ''}</h4>
+                            <p>📊 {total_questions} questions</p>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        
+                        if st.button(f"▶️ Continue", key=f"course_btn_{course_id}", use_container_width=True):
+                            if course_id:
+                                st.query_params["course_id"] = str(course_id)
+                                st.session_state.current_course_id = str(course_id)
+                                st.switch_page("pages/3_Course.py")
+        else:
+            st.markdown("### 🚀 Ready to Get Started?")
+            st.info("Upload a PDF or enter a URL below to generate your first course!")
+            
+    except Exception as e:
+        st.markdown("### 🚀 Ready to Get Started?")
+        st.info("Upload a PDF or enter a URL below to generate your first course!")
 
 def main():
-    # Check if a course_id is provided in the URL for sharing
+    """Optimized main function"""
+    # Handle shared course
     shared_course_id = st.query_params.get("course_id")
     if shared_course_id:
-        # Store in session state to ensure it survives any redirects
         st.session_state.shared_course_id = shared_course_id
-        
-        # Redirect immediately without any other processing
         st.query_params["course_id"] = shared_course_id
         st.switch_page("pages/3_Course.py")
         return
     
-    # Process logout flag and attempt auto-login
-    just_logged_out = st.session_state.pop('logout_just_occurred', False)
+    initialize_session_state()
     
-    if just_logged_out:
-        st.session_state['logout_just_occurred_processed_auto_login_home'] = True # Mark that this specific reload after logout has been processed for auto-login
-    else:
-        # If not just logged out, clear the processed flag
-        st.session_state.pop('logout_just_occurred_processed_auto_login_home', None) 
-        # Attempt auto-login only if cookies are ready and not immediately after a logout action
-        if cookies.ready():
-            auto_login_from_cookie_home()
+    # Process logout and auto-login
+    just_logged_out = st.session_state.pop('logout_just_occurred', False)
+    if not just_logged_out and cookies.ready():
+        auto_login_from_cookie_home()
     
     # Top navigation
-    col1, col2, col3 = st.columns([6, 1, 1]) # Adjusted column ratio for better spacing
+    col1, col2, col3 = st.columns([6, 1, 1])
     
-    with col2: # Login/User status
+    with col2:
         if st.session_state.get('authentication_status'):
-            # Display user name, truncate if too long for the button-like display
             display_name = st.session_state.get('name', st.session_state.get('username', 'User'))
             if len(display_name) > 15:
                 display_name = display_name[:12] + "..."
-            st.markdown(f"<div style='text-align: center; padding: 5px 0px; border: 1px solid #9d00ff; border-radius: 25px; background: rgba(157,0,255,0.1); color: #ededed;'>👤 {display_name}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align: center; padding: 5px; border: 1px solid #9d00ff; border-radius: 25px; background: rgba(157,0,255,0.1);'>👤 {display_name}</div>", unsafe_allow_html=True)
         elif MONGO_AVAILABLE and cookies.ready():
             if st.button("🔐 Login", key="top_nav_login_btn", use_container_width=True):
                 st.switch_page("pages/2_🔐_Login.py")
-        # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
 
-    with col3: # Logout button
+    with col3:
         if st.session_state.get('authentication_status'):
             if st.button("🚪 Logout", key="top_nav_logout_btn", use_container_width=True):
-                logout_user_session() # Use the centralized logout function
+                logout_user_session()
                 st.rerun()
-        # If not authenticated, this column remains empty or could show a register link if col2 is for login
 
-    # Main content container
+    # Main content
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
-      # Main title
-    st.markdown('<h1 class="main-title">What will you learn today?</h1>', unsafe_allow_html=True)    # Show status message
+    st.markdown('<h1 class="main-title">What will you learn today?</h1>', unsafe_allow_html=True)
+    
+    # Status message
     if st.session_state.get('authentication_status'):
-        st.success(f"🎉 Welcome back, {st.session_state.get('name', 'User')}! You have unlimited course generation.")
+        st.success(f"🎉 Welcome back, {st.session_state.get('name', 'User')}!")
     else:
-        # Force login if limit reached
         if force_login_if_limit_reached():
-            return  # Stop execution if forcing login            
-        # Show remaining courses for guest users
+            return
         guest_count = get_guest_course_count()
         remaining = 3 - guest_count
         if remaining > 0:
             st.info(f"🎯 Guest mode: {remaining} out of 3 free courses remaining")
-        else:
-            st.warning("🔒 You've used all 3 guest courses. Please login for unlimited access!")
     
     st.markdown("---")
     
     # Course Dashboard
     show_course_dashboard()
-    
     st.markdown("---")
 
     # Input tabs
@@ -440,28 +409,23 @@ def main():
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
             file_size_mb = file_size / (1024*1024)
-              # Check file size limit (10MB)
+            
             if file_size > 10 * 1024 * 1024:
                 st.error(f"❌ File too large ({file_size_mb:.1f} MB). Maximum size is 10MB.")
                 uploaded_file = None
-            else:                # Analyze PDF content for word count
+            else:
                 try:
                     pdf_analysis = local_backend.analyze_pdf_content(uploaded_file.getvalue())
                     word_count = pdf_analysis['word_count']
                     
                     if word_count > 15000:
-                        st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                        st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                        st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum: 15,000 words.")
                         uploaded_file = None
                     elif word_count == 0:
-                        st.error("❌ Could not extract text from this PDF. Please try a different file.")
+                        st.error("❌ Could not extract text from this PDF.")
                         uploaded_file = None
                     else:
                         st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
-                        
-                        if word_count > 12000:
-                            st.warning("⚠️ Large document detected. Generation may take longer than usual.")
-                            
                 except Exception as e:
                     st.error(f"❌ Error analyzing PDF: {str(e)}")
                     uploaded_file = None
@@ -477,337 +441,38 @@ def main():
         if pdf_url and not pdf_url.startswith(('http://', 'https://')):
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
-        elif pdf_url:
-            st.info("📝 **Note:** Word count and time estimation will be shown during generation for URL uploads.")
-            st.warning("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
     
     # Generate button
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Check if user can generate courses
     can_generate = check_course_limit()
     
     if st.session_state.get('is_generating_course', False):
-        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")        # Show progress
-        show_generation_progress()
+        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")
+        # Get file data from session state
+        uploaded_file = st.session_state.get('current_uploaded_file')
+        pdf_url = st.session_state.get('current_pdf_url')
+        if uploaded_file or pdf_url:
+            generate_and_redirect(uploaded_file, pdf_url)
     elif can_generate:
         if st.button("✨ Generate Course", type="primary", key="generate_btn"):
             if uploaded_file or pdf_url:
-                # Double-check course limit before generating
                 if not check_course_limit():
                     st.error("🔐 Course limit reached. Please login to continue.")
                     return
-                    
-                # Store file data in session state for progress function
+                
+                # Store file data and set generating state
                 st.session_state.current_uploaded_file = uploaded_file
                 st.session_state.current_pdf_url = pdf_url
-                
-                # Set generating state immediately and rerun to update UI
                 st.session_state.is_generating_course = True
                 st.rerun()
             else:
                 st.error("⚠️ Please upload a file or enter a URL first")
     else:
-        st.warning("⚠️ You've reached the limit of 3 guest courses. Please login for unlimited access.")
+        st.warning("⚠️ You've reached the limit of 3 guest courses.")
         if st.button("🔐 Go to Login", type="primary"):
             st.switch_page("pages/2_🔐_Login.py")
     
-    # Show course history in sidebar if available
-    show_course_history()
-    
     st.markdown('</div>', unsafe_allow_html=True)
-
-def show_generation_progress():
-    """Show course generation progress and start generation"""
-    # Get the file data from session state (set when button was clicked)
-    uploaded_file = st.session_state.get('current_uploaded_file')
-    pdf_url = st.session_state.get('current_pdf_url')
-    
-    if uploaded_file or pdf_url:
-        generate_and_redirect(uploaded_file, pdf_url)
-    else:
-        st.error("❌ No file or URL found for generation")
-
-def generate_and_redirect(uploaded_file, pdf_url):
-    """Generate course and redirect to course page with real-time progress"""
-    # Set generation state
-    st.session_state.is_generating_course = True
-    
-    # Create progress containers
-    progress_container = st.container()
-    with progress_container:
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # Status callback function for real-time updates
-        def status_callback(status_message, progress_percent):
-            """Update progress and status in real-time"""
-            progress_bar.progress(progress_percent / 100)
-            status_text.text(status_message)
-            import time
-            time.sleep(1.5)  # Allow users to read the status
-        
-        try:
-            # Generate course with real-time status updates
-            if uploaded_file:
-                uploaded_file.seek(0)  # Reset file pointer
-                course_data, error_message = local_backend.generate_course(
-                    file_content=uploaded_file.read(), 
-                    status_callback=status_callback
-                )
-            else:
-                course_data, error_message = local_backend.generate_course(
-                    file_url=pdf_url, 
-                    status_callback=status_callback
-                )
-            
-            if course_data and not error_message:
-                # Process successful generation
-                progress_bar.progress(100)
-                status_text.text("✅ Course created successfully! Processing save...")
-
-                if uploaded_file:
-                    course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
-                else:
-                    course_title = f"🔗 Course from URL"
-
-                generated_course_id = None  # Will store the ID if successfully saved
-                save_error_occurred = False
-
-                if MONGO_AVAILABLE:
-                    try:
-                        course_manager = get_course_manager()
-                        is_guest = not st.session_state.get('authentication_status', False)
-                        
-                        if is_guest:
-                            session_id = get_session_id()
-                            creator = session_id
-                        else:
-                            session_id = None
-                            creator = st.session_state.get('username', 'unknown_user')
-                        
-                        temp_mongo_id, save_db_error = course_manager.save_course(
-                            course_data=course_data,
-                            course_title=course_title,
-                            creator=creator,
-                            is_guest=is_guest,
-                            session_id=session_id,
-                            is_public=True 
-                        )
-                        
-                        if save_db_error:
-                            st.error(f"❌ Failed to save course to database: {save_db_error}")
-                            save_error_occurred = True
-                        else:
-                            generated_course_id = temp_mongo_id
-                            if generated_course_id: # Ensure generated_course_id is not None
-                                st.query_params["course_id"] = str(generated_course_id)
-                                status_text.text("✅ Course saved! Redirecting...")
-                            else:
-                                st.error("❌ Failed to get a valid course ID after saving.")
-                                save_error_occurred = True
-                                
-                    except Exception as e_mongo_save:
-                        st.error(f"❌ Critical error during course saving: {e_mongo_save}")
-                        save_error_occurred = True
-                else:
-                    st.warning("⚠️ MongoDB not available. Course generated but not saved persistently.")
-                    # For non-MongoDB (session-based) flow, we might need a different ID mechanism
-                    # For now, if Mongo is the target, this is effectively a save failure for persistence.
-                    save_error_occurred = True 
-
-                if not save_error_occurred and generated_course_id:
-                    st.session_state.current_course_id = generated_course_id
-                    
-                    if not st.session_state.get('authentication_status'):
-                        increment_guest_course_count()
-                    st.session_state.is_generating_course = False
-                    st.session_state.current_uploaded_file = None
-                    st.session_state.current_pdf_url = None
-                    
-                    import time
-                    time.sleep(1.5) # Allow messages to be seen
-                    st.switch_page("pages/3_Course.py")
-                else:
-                    # Save failed or MONGO_AVAILABLE was false and no alternative ID was generated
-                    status_text.error("Course generation finished, but could not be saved for persistent access.")
-                    st.session_state.is_generating_course = False
-                    st.session_state.current_uploaded_file = None
-                    st.session_state.current_pdf_url = None
-                    # Do not redirect, allow user to see the error and try again.
-                    
-            else: # error_message from local_backend.generate_course
-                st.error(f"❌ {error_message}")
-                st.session_state.is_generating_course = False
-                st.session_state.current_uploaded_file = None
-                st.session_state.current_pdf_url = None
-                
-        except Exception as e:
-            st.error(f"❌ Error generating course: {str(e)}")
-            st.session_state.is_generating_course = False
-            st.session_state.current_uploaded_file = None
-            st.session_state.current_pdf_url = None
-
-def count_total_questions(course_data):
-    """Count total questions in course recursively"""
-    total = 0
-    for section in course_data:
-        # Count questions in main section
-        if 'quiz' in section:
-            total += len(section['quiz'])
-        elif 'questions' in section:
-            total += len(section['questions'])
-        
-        # Count questions in subsections
-        if 'subsections' in section and section['subsections']:
-            for subsection in section['subsections']:
-                if 'quiz' in subsection:
-                    total += len(subsection['quiz'])
-                elif 'questions' in subsection:
-                    total += len(subsection['questions'])
-    return total
-
-def show_course_history():
-    """Show course history in sidebar"""
-    if st.session_state.course_history:
-        with st.sidebar:
-            st.markdown("### 🏠 Navigation")
-            if st.button("🏠 Home", use_container_width=True):
-                st.rerun()
-            
-            st.markdown("### 📚 Your Courses")
-            for course in st.session_state.course_history:                # Truncate long titles
-                display_title = course['title']
-                if len(display_title) > 25:
-                    display_title = display_title[:22] + "..."
-                if st.button(f"{display_title}", key=f"course_{course['id']}", use_container_width=True):
-                    st.session_state.current_course_id = course['id']
-                    st.switch_page("pages/3_Course.py")
-              # Show user status
-            st.markdown("---")
-            if st.session_state.get('authentication_status'):
-                st.success(f"👤 Logged in as {st.session_state.get('name', 'User')}")
-            else:
-                guest_count = get_guest_course_count()
-                remaining = 3 - guest_count
-                st.info(f"🎯 Guest: {remaining}/3 courses remaining")
-
-def show_course_dashboard():
-    """Show user's course dashboard"""
-    if MONGO_AVAILABLE:
-        try:
-            course_manager = get_course_manager()
-            user_identifier = st.session_state.get('username')
-            session_id_val = get_session_id()
-
-            if st.session_state.get('authentication_status') and user_identifier:
-                # Authenticated user
-                courses, error = course_manager.get_user_courses(user_identifier, is_guest=False)
-                stats, stats_error = course_manager.get_course_stats(user_identifier, is_guest=False)
-            else:
-                # Guest user - ensure session_id_val is used as user_identifier for guests
-                courses, error = course_manager.get_user_courses(user_identifier=session_id_val, is_guest=True, session_id=session_id_val)
-                stats, stats_error = course_manager.get_course_stats(user_identifier=session_id_val, is_guest=True, session_id=session_id_val)
-            
-            if courses and not error:
-                st.markdown("### 📚 Your Recent Courses")
-                
-                # Show stats if available
-                if stats and not stats_error:
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("📖 Total Courses", stats.get('total_courses', 0))
-                    with col2:
-                        st.metric("❓ Total Questions", stats.get('total_questions', 0))
-                    with col3:
-                        st.metric("📄 Total Sections", stats.get('total_sections', 0))
-                    with col4:
-                        public_count = stats.get('public_courses', 0)
-                        private_count = stats.get('private_courses', 0)
-                        st.metric("🌍 Public / 🔒 Private", f"{public_count} / {private_count}")
-                
-                # Show recent courses
-                st.markdown("#### Recent Courses")
-                
-                # Display courses in a grid
-                cols = st.columns(3)
-                for i, course in enumerate(courses[:6]):  # Show up to 6 recent courses
-                    with cols[i % 3]:
-                        course_title = course.get('title', 'Untitled Course')
-                        course_id = course.get('course_id')
-                        created_at = course.get('created_at', 'Unknown')
-                        total_questions = course.get('total_questions', 0)
-                        is_public = course.get('is_public', True)
-                        
-                        # Create course card
-                        privacy_icon = "🌍" if is_public else "🔒"
-                        
-                        with st.container():
-                            st.markdown(f"""
-                            <div style="
-                                border: 1px solid #9d00ff; 
-                                border-radius: 15px; 
-                                padding: 1rem; 
-                                margin-bottom: 1rem;
-                                background: rgba(157, 0, 255, 0.05);
-                                transition: all 0.3s ease;
-                            ">
-                                <h4>{privacy_icon} {course_title[:30]}{'...' if len(course_title) > 30 else ''}</h4>
-                                <p style="color: #888;">📊 {total_questions} questions</p>
-                                <p style="color: #666; font-size: 0.8em;">📅 {created_at}</p>                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            if st.button(f"▶️ Continue Learning", key=f"course_btn_{course_id}", use_container_width=True):
-                                if course_id: # Ensure course_id is not None
-                                    st.query_params["course_id"] = str(course_id)
-                                    st.session_state.current_course_id = str(course_id)
-                                    st.switch_page("pages/3_Course.py")
-                                else:
-                                    st.error("Course ID is missing, cannot navigate.")
-                
-                # Show "View All" button if there are more courses
-                if len(courses) > 6:
-                    st.info(f"... and {len(courses) - 6} more courses. Login to view your complete course library!")
-            
-            elif error:
-                st.warning(f"⚠️ Could not load courses: {error}")
-            else:
-                # No courses found
-                st.markdown("### 🚀 Ready to Get Started?")
-                st.info("No courses yet. Upload a PDF or enter a URL below to generate your first interactive course!")
-                
-        except Exception as e:
-            st.error(f"❌ Error loading course dashboard: {e}")
-            # Fall back to session state
-            show_session_course_dashboard()
-    else:
-        # Fall back to session state if MongoDB is not available
-        show_session_course_dashboard()
-
-def show_session_course_dashboard():
-    """Show course dashboard from session state"""
-    if 'course_history' in st.session_state and st.session_state.course_history:
-        st.markdown("### 📚 Your Courses (Session)")
-        
-        # Simple metrics
-        total_courses = len(st.session_state.course_history)
-        st.metric("📖 Courses This Session", total_courses)
-          # Show recent courses
-        for i, course in enumerate(st.session_state.course_history[-3:]):  # Show last 3
-            course_title = course.get('title', 'Untitled Course')
-            if st.button(f"📄 {course_title}", key=f"session_course_btn_{i}", use_container_width=True):
-                st.session_state.current_course_id = course['id']
-                st.switch_page("pages/3_Course.py")
-    else:
-        st.markdown("### 🚀 Ready to Get Started?")
-        st.info("No courses yet. Upload a PDF or enter a URL below to generate your first interactive course!")
-
-# Cookie authentication check on page load (without showing login form)
-# authenticator, config = check_authentication() # This line was causing the error and is removed as stauth is no longer used here.
-# if authenticator and st.session_state.authentication_status is None:
-#     st.session_state.name = st.session_state.get('name')
-#     st.session_state.username = st.session_state.get('username')
-#     # No automatic st.rerun() here, let the page load and then elements can react to auth status
 
 if __name__ == "__main__":
     main()
