@@ -1,5 +1,6 @@
 """
-Optimized MongoDB Course Management System
+MongoDB Course Management System
+Handles course storage, retrieval, and management with support for both authenticated and guest users.
 """
 import streamlit as st
 import pymongo
@@ -16,7 +17,10 @@ try:
     COURSES_COLLECTION = "courses"
     USER_COURSES_COLLECTION = "user_courses"
 except KeyError as e:
-    st.error(f"Missing secret: {e}")
+    st.error(f"Missing secret: {e}. Please ensure MONGODB_URI is set in your Streamlit secrets.")
+    st.stop()
+except Exception as e:
+    st.error(f"An error occurred while loading secrets: {e}")
     st.stop()
 
 class MongoCourseManager:
@@ -28,9 +32,24 @@ class MongoCourseManager:
             self.user_courses_collection = self.db[USER_COURSES_COLLECTION]
             # Test connection
             self.client.admin.command('ping')
+            # Create indexes for better performance
             self._create_indexes()
+        except pymongo.errors.ConfigurationError as e:
+            st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
+            self.client = None
+            self.db = None
+            self.courses_collection = None
+            self.user_courses_collection = None
+            st.stop()
+        except pymongo.errors.ConnectionFailure as e:
+            st.error(f"Failed to connect to MongoDB: {e}")
+            self.client = None
+            self.db = None
+            self.courses_collection = None
+            self.user_courses_collection = None
+            st.stop()
         except Exception as e:
-            st.error(f"MongoDB initialization error: {e}")
+            st.error(f"An unexpected error occurred during MongoDB initialization: {e}")
             self.client = None
             self.db = None
             self.courses_collection = None
@@ -38,95 +57,105 @@ class MongoCourseManager:
             st.stop()
 
     def _ensure_connection(self):
-        """Lightweight connection check"""
-        if self.client is None:
+        """Ensure MongoDB connection is active"""
+        if self.client is None or self.db is None:
+            st.error("MongoDB connection is not available.")
             return False
         try:
             self.client.admin.command('ping')
             return True
-        except:
+        except pymongo.errors.ConnectionFailure:
+            st.error("MongoDB connection lost. Please try again later.")
             return False
 
     def _create_indexes(self):
-        """Create optimized indexes"""
+        """Create database indexes for better performance"""
         try:
             if self.courses_collection is not None:
                 self.courses_collection.create_index("course_id", unique=True)
-                self.courses_collection.create_index([("creator", 1), ("is_guest", 1)])
+                self.courses_collection.create_index("creator")
                 self.courses_collection.create_index("is_public")
             
             if self.user_courses_collection is not None:
                 self.user_courses_collection.create_index([("user_identifier", 1), ("course_id", 1)], unique=True)
-        except:
+        except Exception:
             pass
 
     def generate_course_id(self) -> str:
-        """Generate unique course ID"""
+        """Generate a unique course ID"""
         return str(ObjectId())
 
     def save_course(self, course_data: List[Dict], course_title: str, creator: str, 
                    is_guest: bool = False, session_id: Optional[str] = None, is_public: bool = True) -> Tuple[Optional[str], Optional[str]]:
-        """Optimized course saving"""
-        if not self._ensure_connection() or course_data is None:
-            return None, "Database connection error or no data"
+        """Save a course to MongoDB"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        if course_data is None: # Add this check
+            st.warning("Attempted to save a course with no data (course_data is None).")
+            return None, "Course data was None."
 
         try:
-            # Efficient serialization
+            # Convert Pydantic models in course_data to dicts
             serializable_course_data = []
-            if course_data:
+            if course_data: # Ensure course_data is not None before iterating
                 for item in course_data:
-                    if hasattr(item, 'model_dump'):
+                    if hasattr(item, 'model_dump'):  # Pydantic v2
                         serializable_course_data.append(item.model_dump(mode='json'))
-                    elif hasattr(item, 'dict'):
+                    elif hasattr(item, 'dict'):  # Pydantic v1
                         serializable_course_data.append(item.dict())
                     elif isinstance(item, dict):
-                        serializable_course_data.append(self._process_dict_item(item))
+                        # If it's already a dict, ensure nested Pydantic models are also converted
+                        processed_item = {}
+                        for key, value in item.items():
+                            if hasattr(value, 'model_dump'):
+                                processed_item[key] = value.model_dump(mode='json')
+                            elif isinstance(value, list) and value and hasattr(value[0], 'model_dump'):
+                                processed_item[key] = [v.model_dump(mode='json') for v in value]
+                            else:
+                                processed_item[key] = value
+                        serializable_course_data.append(processed_item)
                     else:
+                        # If it's some other type that's not a dict or Pydantic model,
+                        # it might cause issues, but we'll pass it through for now.
+                        # Ideally, course_data should consistently be List[Union[Dict, PydanticModel]]
                         serializable_course_data.append(item)
 
             course_id = self.generate_course_id()
             course_document = {
                 "course_id": course_id,
                 "title": course_title,
-                "content": serializable_course_data,
+                "content": serializable_course_data, # Use the serialized data
                 "creator": creator,
                 "is_guest": is_guest,
                 "session_id": session_id if is_guest else None,
                 "is_public": is_public,
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
-                "total_questions": self._count_questions(serializable_course_data),
-                "total_sections": len(serializable_course_data) if serializable_course_data else 0
+                "total_questions": self._count_questions(serializable_course_data), # Use robust _count_questions
+                "total_sections": len(serializable_course_data) if serializable_course_data else 0 # Handle if serializable_course_data is empty
             }
             
             if self.courses_collection is not None:
-                self.courses_collection.insert_one(course_document)
+                result = self.courses_collection.insert_one(course_document)
                 user_identifier = session_id if is_guest else creator
                 if user_identifier:
                     self._add_to_user_courses(user_identifier, course_id, is_guest)
                 return course_id, None
             else:
-                return None, "Database connection error"
+                return None, "Database connection error."
             
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error saving course: {e}")
             return None, f"Database error: {e}"
-
-    def _process_dict_item(self, item):
-        """Process dictionary items efficiently"""
-        processed_item = {}
-        for key, value in item.items():
-            if hasattr(value, 'model_dump'):
-                processed_item[key] = value.model_dump(mode='json')
-            elif isinstance(value, list) and value and hasattr(value[0], 'model_dump'):
-                processed_item[key] = [v.model_dump(mode='json') for v in value]
-            else:
-                processed_item[key] = value
-        return processed_item
+        except Exception as e:
+            st.error(f"Unexpected error saving course: {e}")
+            return None, f"An unexpected error occurred: {e}"
 
     def get_course(self, course_id: str) -> Tuple[Optional[Dict], Optional[str]]:
-        """Optimized course retrieval"""
+        """Retrieve a course by ID"""
         if not self._ensure_connection():
-            return None, "Database connection error"
+            return None, "Database connection error."
         
         try:
             if self.courses_collection is not None:
@@ -135,17 +164,22 @@ class MongoCourseManager:
                     course.pop('_id', None)
                     return course, None
                 else:
-                    return None, "Course not found"
+                    return None, "Course not found."
             else:
-                return None, "Database connection error"
-        except Exception as e:
+                return None, "Database connection error."
+                
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error retrieving course: {e}")
             return None, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error retrieving course: {e}")
+            return None, f"An unexpected error occurred: {e}"
 
     def get_user_courses(self, user_identifier: str, is_guest: bool = False, 
                         session_id: Optional[str] = None) -> Tuple[Optional[List[Dict]], Optional[str]]:
-        """Optimized user courses retrieval"""
+        """Get all courses for a user"""
         if not self._ensure_connection():
-            return None, "Database connection error"
+            return None, "Database connection error."
         
         try:
             if self.courses_collection is not None:
@@ -154,32 +188,26 @@ class MongoCourseManager:
                 else:
                     query = {"creator": user_identifier, "is_guest": False}
                 
-                # Optimized projection - only get necessary fields
-                projection = {
-                    "_id": 0,
-                    "course_id": 1,
-                    "title": 1,
-                    "created_at": 1,
-                    "total_questions": 1,
-                    "total_sections": 1,
-                    "is_public": 1
-                }
-                
                 courses = list(self.courses_collection.find(
-                    query, projection
-                ).sort("created_at", -1).limit(20))  # Limit results
+                    query,
+                    {"_id": 0}
+                ).sort("created_at", -1))
                 
                 return courses, None
             else:
-                return None, "Database connection error"
+                return None, "Database connection error."
             
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error retrieving user courses: {e}")
             return None, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error retrieving user courses: {e}")
+            return None, f"An unexpected error occurred: {e}"
 
     def get_course_stats(self, user_identifier: str, is_guest: bool = False, session_id: Optional[str] = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        """Optimized course statistics"""
+        """Get course statistics for a user"""
         if not self._ensure_connection():
-            return None, "Database connection error"
+            return None, "Database connection error."
 
         try:
             if self.courses_collection is not None:
@@ -188,49 +216,36 @@ class MongoCourseManager:
                 else:
                     query = {"creator": user_identifier, "is_guest": False}
 
-                # Use aggregation for better performance
-                pipeline = [
-                    {"$match": query},
-                    {"$group": {
-                        "_id": None,
-                        "total_courses": {"$sum": 1},
-                        "total_questions": {"$sum": "$total_questions"},
-                        "total_sections": {"$sum": "$total_sections"},
-                        "public_courses": {"$sum": {"$cond": ["$is_public", 1, 0]}},
-                        "private_courses": {"$sum": {"$cond": ["$is_public", 0, 1]}}
-                    }}
-                ]
-                
-                result = list(self.courses_collection.aggregate(pipeline))
-                
-                if result:
-                    stats = result[0]
-                    stats.pop('_id', None)
-                    total_courses = stats.get('total_courses', 0)
-                    total_questions = stats.get('total_questions', 0)
-                    stats['average_questions_per_course'] = round(
-                        total_questions / total_courses if total_courses > 0 else 0, 2
-                    )
-                    return stats, None
-                else:
-                    return {
-                        "total_courses": 0,
-                        "total_questions": 0,
-                        "average_questions_per_course": 0,
-                        "total_sections": 0,
-                        "public_courses": 0,
-                        "private_courses": 0
-                    }, None
-            else:
-                return None, "Database connection error"
+                courses = list(self.courses_collection.find(query, {"_id": 0, "total_questions": 1, "total_sections": 1}))
 
-        except Exception as e:
+                if not courses:
+                    return {"total_courses": 0, "total_questions": 0, "average_questions_per_course": 0, "total_sections": 0}, None
+
+                total_courses = len(courses)
+                total_questions = sum(course.get("total_questions", 0) for course in courses)
+                total_sections = sum(course.get("total_sections", 0) for course in courses)
+                average_questions_per_course = total_questions / total_courses if total_courses > 0 else 0
+
+                return {
+                    "total_courses": total_courses,
+                    "total_questions": total_questions,
+                    "average_questions_per_course": round(average_questions_per_course, 2),
+                    "total_sections": total_sections
+                }, None
+            else:
+                return None, "Database connection error."
+
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error retrieving course stats: {e}")
             return None, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error retrieving course stats: {e}")
+            return None, f"An unexpected error occurred: {e}"
 
     def transfer_guest_courses(self, session_id: str, new_user_identifier: str) -> Tuple[int, Optional[str]]:
-        """Optimized course transfer"""
+        """Transfer guest courses to authenticated user when they log in"""
         if not self._ensure_connection():
-            return 0, "Database connection error"
+            return 0, "Database connection error."
         
         try:
             if self.courses_collection is not None:
@@ -247,26 +262,29 @@ class MongoCourseManager:
                 )
                 
                 if result.modified_count > 0:
-                    # Update user courses tracking
-                    transferred_courses = self.courses_collection.find(
+                    transferred_courses = list(self.courses_collection.find(
                         {"creator": new_user_identifier, "is_guest": False},
                         {"course_id": 1, "_id": 0}
-                    )
+                    ))
                     
                     for course in transferred_courses:
                         self._add_to_user_courses(new_user_identifier, course["course_id"], False)
                 
                 return result.modified_count, None
             else:
-                return 0, "Database connection error"
+                return 0, "Database connection error."
             
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error transferring courses: {e}")
             return 0, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error transferring courses: {e}")
+            return 0, f"An unexpected error occurred: {e}"
 
     def delete_course(self, course_id: str, user_identifier: str, is_guest: bool = False) -> Tuple[bool, Optional[str]]:
-        """Optimized course deletion"""
+        """Delete a course (only by its creator)"""
         if not self._ensure_connection():
-            return False, "Database connection error"
+            return False, "Database connection error."
         
         try:
             if self.courses_collection is not None and self.user_courses_collection is not None:
@@ -275,9 +293,9 @@ class MongoCourseManager:
                 else:
                     query = {"course_id": course_id, "creator": user_identifier, "is_guest": False}
                 
-                course = self.courses_collection.find_one(query, {"_id": 1})
+                course = self.courses_collection.find_one(query)
                 if not course:
-                    return False, "Course not found or no permission"
+                    return False, "Course not found or you don't have permission to delete it."
                 
                 result = self.courses_collection.delete_one(query)
                 self.user_courses_collection.delete_one({
@@ -287,27 +305,57 @@ class MongoCourseManager:
                 
                 return result.deleted_count > 0, None
             else:
-                return False, "Database connection error"
+                return False, "Database connection error."
             
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error deleting course: {e}")
             return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error deleting course: {e}")
+            return False, f"An unexpected error occurred: {e}"
 
-    def can_access_course(self, course_id: str, user_identifier: Optional[str] = None, 
-                         session_id: Optional[str] = None) -> Tuple[bool, Optional[str]]:
-        """Optimized access check"""
+    def update_course_privacy(self, course_id: str, user_identifier: str, is_public: bool) -> Tuple[bool, Optional[str]]:
+        """Update course privacy setting"""
         if not self._ensure_connection():
-            return False, "Database connection error"
+            return False, "Database connection error."
         
         try:
             if self.courses_collection is not None:
-                # Only get necessary fields
-                course = self.courses_collection.find_one(
-                    {"course_id": course_id},
-                    {"is_public": 1, "creator": 1, "session_id": 1, "is_guest": 1}
+                result = self.courses_collection.update_one(
+                    {"course_id": course_id, "creator": user_identifier, "is_guest": False},
+                    {
+                        "$set": {
+                            "is_public": is_public,
+                            "updated_at": datetime.now(timezone.utc)
+                        }
+                    }
                 )
                 
+                if result.matched_count == 0:
+                    return False, "Course not found or you don't have permission to modify it."
+                
+                return result.modified_count > 0, None
+            else:
+                return False, "Database connection error."
+            
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error updating course privacy: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error updating course privacy: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def can_access_course(self, course_id: str, user_identifier: Optional[str] = None, 
+                         session_id: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+        """Check if a user can access a course"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            if self.courses_collection is not None:
+                course = self.courses_collection.find_one({"course_id": course_id})
                 if not course:
-                    return False, "Course not found"
+                    return False, "Course not found."
                 
                 if course.get("is_public", True):
                     return True, None
@@ -318,15 +366,19 @@ class MongoCourseManager:
                 if session_id and course.get("session_id") == session_id and course.get("is_guest"):
                     return True, None
                 
-                return False, "Private course - no access"
+                return False, "This course is private and you don't have access to it."
             else:
-                return False, "Database connection error"
+                return False, "Database connection error."
             
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error checking course access: {e}")
             return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error checking course access: {e}")
+            return False, f"An unexpected error occurred: {e}"
 
     def _add_to_user_courses(self, user_identifier: str, course_id: str, is_guest: bool):
-        """Optimized user course tracking"""
+        """Add course to user courses tracking"""
         try:
             if self.user_courses_collection is not None:
                 self.user_courses_collection.update_one(
@@ -341,29 +393,29 @@ class MongoCourseManager:
                     },
                     upsert=True
                 )
-        except:
+        except Exception:
             pass
 
     def _count_questions(self, course_data: Optional[List[Dict]]) -> int:
-        """Optimized question counting"""
-        if not course_data:
+        """Count total questions in course data. Handles None and empty lists."""
+        if not course_data:  # Handles None or empty list
             return 0
         
-        total = 0
+        total_questions_count = 0
         for section_dict in course_data:
             if isinstance(section_dict, dict):
-                # Count main section questions
-                quiz_list = section_dict.get('quiz')
+                # Check 'quiz' field (previously also checked 'questions')
+                quiz_list = section_dict.get('quiz') 
                 if isinstance(quiz_list, list):
-                    total += len(quiz_list)
+                    total_questions_count += len(quiz_list)
                 
-                # Count subsection questions
+                # Recursively count questions in subsections
                 subsections_list = section_dict.get('subsections')
-                if isinstance(subsections_list, list):
-                    total += self._count_questions(subsections_list)
-        return total
+                if isinstance(subsections_list, list): 
+                    total_questions_count += self._count_questions(subsections_list) # Recursive call
+        return total_questions_count
 
-# Singleton pattern for better performance
+# Global instance
 _course_manager = None
 
 def get_course_manager() -> MongoCourseManager:
