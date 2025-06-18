@@ -1,4 +1,22 @@
 """
+PERFORMANCE OPTIMIZATIONS APPLIED:
+
+1. ✅ Removed excessive st.rerun() calls and replaced with flags
+2. ✅ Added @st.cache_data for course loading from MongoDB (5-minute TTL)
+3. ✅ Optimized session state management with optimize_session_state()
+4. ✅ Added caching for total question count calculations
+5. ✅ Used URL query parameters for navigation instead of reruns
+6. ✅ Added unique keys to all buttons to prevent conflicts
+7. ✅ Optimized course data loading with cached database calls
+8. ✅ Reduced redundant database queries
+9. ✅ Improved fill-in-the-blank component performance
+10. ✅ Optimized match question submission handling
+
+These changes should significantly improve performance, especially on 
+Render's free plan with limited resources.
+"""
+
+"""
 Dynamic Course Display Page
 """
 import streamlit as st
@@ -193,7 +211,50 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Cache for course data to avoid repeated database calls
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def _load_course_from_mongo(course_id, user_identifier, session_id):
+    """Cached function to load course data from MongoDB"""
+    if not MONGO_AVAILABLE:
+        return None, "MongoDB not available"
+    
+    try:
+        course_manager = get_course_manager()
+        
+        # Check if user can access this course
+        can_access, access_error = course_manager.can_access_course(
+            course_id=course_id,
+            user_identifier=user_identifier,
+            session_id=session_id
+        )
+        
+        if not can_access:
+            return None, access_error
+        
+        # Load course from MongoDB
+        course_doc, load_error = course_manager.get_course(course_id)
+        
+        if course_doc and not load_error:
+            return course_doc['content'], None  # Return the course content
+        elif load_error:
+            return None, load_error
+        else:
+            return None, "Course not found"
+    except Exception as e:
+        return None, f"Error accessing course database: {e}"
+
+def optimize_session_state():
+    """Optimize session state by batching updates and reducing unnecessary flags"""
+    # Clear temporary flags that might cause unnecessary reruns
+    flags_to_clear = ['privacy_updated', 'fitb_answered', 'match_submitted', 'course_changed']
+    for flag in flags_to_clear:
+        if flag in st.session_state:
+            del st.session_state[flag]
+
 def main():
+    # Optimize session state and clear temporary flags
+    optimize_session_state()
+    
     # Show sidebar navigation
     show_sidebar_navigation()
     
@@ -206,7 +267,7 @@ def main():
             st.switch_page("pages/1_🏠_Home.py")
         return
     
-    # Load course data
+    # Load course data (now with caching)
     course_data = load_course_data(course_id)
     
     if not course_data:
@@ -273,8 +334,7 @@ def show_sidebar_navigation():
         current_course_id = get_current_course_id()
         if current_course_id and MONGO_AVAILABLE:
             st.markdown("### ⚙️ Course Settings")
-            
-            # Privacy toggle for authenticated users only
+              # Privacy toggle for authenticated users only
             if st.session_state.get('authentication_status'):
                 try:
                     course_manager = get_course_manager()
@@ -288,35 +348,36 @@ def show_sidebar_navigation():
                         
                         col1, col2 = st.columns(2)
                         with col1:
-                            if st.button("🌍 Make Public", use_container_width=True, disabled=current_privacy):
+                            if st.button("🌍 Make Public", use_container_width=True, disabled=current_privacy, key="make_public_btn"):
                                 success, error = course_manager.update_course_privacy(current_course_id, st.session_state['username'], True)
                                 if success:
                                     st.success("✅ Course is now public!")
-                                    st.rerun()
+                                    # Use a flag instead of immediate rerun
+                                    st.session_state.privacy_updated = True
                                 else:
                                     st.error(f"❌ {error}")
                         
                         with col2:
-                            if st.button("🔒 Make Private", use_container_width=True, disabled=not current_privacy):
+                            if st.button("🔒 Make Private", use_container_width=True, disabled=not current_privacy, key="make_private_btn"):
                                 success, error = course_manager.update_course_privacy(current_course_id, st.session_state['username'], False)
                                 if success:
                                     st.success("✅ Course is now private!")
-                                    st.rerun()
+                                    # Use a flag instead of immediate rerun
+                                    st.session_state.privacy_updated = True
                                 else:
                                     st.error(f"❌ {error}")
                         
                         st.markdown("---")
                         
                         # Delete course button
-                        if st.button("🗑️ Delete Course", use_container_width=True, type="secondary"):
+                        if st.button("🗑️ Delete Course", use_container_width=True, type="secondary", key="delete_course_btn"):
                             st.session_state.show_delete_confirmation = True
-                        
-                        # Delete confirmation
+                          # Delete confirmation
                         if st.session_state.get('show_delete_confirmation', False):
                             st.warning("⚠️ Are you sure you want to delete this course?")
                             col1, col2 = st.columns(2)
                             with col1:
-                                if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                                if st.button("✅ Yes, Delete", use_container_width=True, type="primary", key="confirm_delete_btn"):
                                     success, error = course_manager.delete_course(
                                         current_course_id, 
                                         st.session_state['username'], 
@@ -326,12 +387,14 @@ def show_sidebar_navigation():
                                         st.success("✅ Course deleted!")
                                         st.session_state.show_delete_confirmation = False
                                         st.switch_page("pages/1_🏠_Home.py")
-                                    else:                                        st.error(f"❌ {error}")
+                                    else:
+                                        st.error(f"❌ {error}")
                             
                             with col2:
-                                if st.button("❌ Cancel", use_container_width=True):
+                                if st.button("❌ Cancel", use_container_width=True, key="cancel_delete_btn"):
                                     st.session_state.show_delete_confirmation = False
-                                    st.rerun()
+                                    # Use a flag instead of immediate rerun
+                                    st.session_state.delete_cancelled = True
                 
                 except Exception as e:
                     st.error(f"❌ Error loading course settings: {e}")
@@ -376,8 +439,7 @@ def show_course_history_sidebar():
         if 'course_history' in st.session_state and st.session_state.course_history:
             for i, course in enumerate(st.session_state.course_history):
                 # Highlight current course
-                current_course_id = get_current_course_id()
-                # Ensure course_id from history and current_course_id are comparable (both strings)
+                current_course_id = get_current_course_id()                # Ensure course_id from history and current_course_id are comparable (both strings)
                 course_id_in_history = str(course.get('course_id', course.get('id'))) # Handle both possible keys
                 
                 button_type = "primary" if course_id_in_history == str(current_course_id) else "secondary"
@@ -386,7 +448,8 @@ def show_course_history_sidebar():
                     # When a course is selected from history, update query_params to navigate
                     st.query_params.course_id = course_id_in_history
                     st.session_state.current_section_index = 0  # Reset to first section
-                    st.rerun() # Rerun to reflect the new course_id in URL and load it
+                    # Use a flag instead of immediate rerun
+                    st.session_state.course_changed = True
         else:
             st.info("No courses yet. Generate your first course!")
 
@@ -394,13 +457,27 @@ def get_current_course_id():
     """Get the current course ID from URL params or session state"""
     # First check URL parameters for course_id
     if "course_id" in st.query_params:
-        return st.query_params["course_id"]
+        course_id = st.query_params["course_id"]
+        # Cache the course_id in session state to avoid repeated URL param reads
+        if st.session_state.get('current_course_id') != course_id:
+            st.session_state.current_course_id = course_id
+        return course_id
+    
+    # Check URL for section parameter and update session state
+    if "section" in st.query_params:
+        try:
+            section_idx = int(st.query_params["section"])
+            if st.session_state.get('current_section_index') != section_idx:
+                st.session_state.current_section_index = section_idx
+        except (ValueError, TypeError):
+            pass
     
     # Check if we have a shared course ID in session state (from redirect)
     if 'shared_course_id' in st.session_state:
         shared_id = st.session_state.shared_course_id
         # Clear it after use to avoid confusion
         del st.session_state.shared_course_id
+        st.session_state.current_course_id = shared_id
         return shared_id
     
     # Try to get from session state (for backward compatibility)
@@ -414,33 +491,17 @@ def load_course_data(course_id):
     """Load course data by ID from MongoDB or session state"""
     # First try to load from MongoDB if available
     if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:  # MongoDB ObjectId is 24 chars
-        try:
-            course_manager = get_course_manager()
-            
-            # Check if user can access this course
-            user_identifier = st.session_state.get('username')
-            session_id = get_session_id() if not user_identifier else None
-            
-            can_access, access_error = course_manager.can_access_course(
-                course_id=course_id,
-                user_identifier=user_identifier,
-                session_id=session_id
-            )
-            
-            if not can_access:
-                st.error(f"❌ Access denied: {access_error}")
-                return None
-            
-            # Load course from MongoDB
-            course_doc, load_error = course_manager.get_course(course_id)
-            
-            if course_doc and not load_error:
-                return course_doc['content']  # Return the course content
-            elif load_error:
-                st.error(f"❌ Error loading course: {load_error}")
-                return None
-        except Exception as e:
-            st.error(f"❌ Error accessing course database: {e}")
+        # Check if user can access this course
+        user_identifier = st.session_state.get('username')
+        session_id = get_session_id() if not user_identifier else None
+        
+        # Use cached function to avoid repeated database calls
+        course_content, error = _load_course_from_mongo(course_id, user_identifier, session_id)
+        
+        if course_content and not error:
+            return course_content
+        elif error:
+            st.error(f"❌ Error loading course: {error}")
             return None
     
     # Fall back to session state for backward compatibility
@@ -471,7 +532,15 @@ def show_score_display(course_data):
         """, unsafe_allow_html=True)
 
 def count_total_questions(course_data):
-    """Count total questions in course"""
+    """Count total questions in course - optimized version"""
+    if not course_data:
+        return 0
+    
+    # Use cached count if available
+    cache_key = f"total_questions_{hash(str(course_data))}"
+    if cache_key in st.session_state:
+        return st.session_state[cache_key]
+    
     total = 0
     for section in course_data:
         if 'quiz' in section or 'questions' in section:
@@ -483,6 +552,9 @@ def count_total_questions(course_data):
                 if 'quiz' in subsection or 'questions' in subsection:
                     sub_questions = subsection.get('quiz', subsection.get('questions', []))
                     total += len(sub_questions)
+    
+    # Cache the result
+    st.session_state[cache_key] = total
     return total
 
 def show_course_navigation(course_data):
@@ -494,22 +566,24 @@ def show_course_navigation(course_data):
     
     with col1:
         if current_section > 0:
-            if st.button("⬅️ Previous Section"):
+            if st.button("⬅️ Previous Section", key="prev_section_btn"):
                 st.session_state.current_section_index = current_section - 1
-                st.rerun()
+                # Use query params to avoid rerun
+                st.query_params.section = str(current_section - 1)
         else:
-            st.button("⬅️ Previous Section", disabled=True)
+            st.button("⬅️ Previous Section", disabled=True, key="prev_section_btn_disabled")
     
     with col2:
         st.markdown(f"**Section {current_section + 1} of {total_sections}**")
     
     with col3:
         if current_section < total_sections - 1:
-            if st.button("Next Section ➡️"):
+            if st.button("Next Section ➡️", key="next_section_btn"):
                 st.session_state.current_section_index = current_section + 1
-                st.rerun()
+                # Use query params to avoid rerun
+                st.query_params.section = str(current_section + 1)
         else:
-            st.button("Next Section ➡️", disabled=True)
+            st.button("Next Section ➡️", disabled=True, key="next_section_btn_disabled")
 
 def display_current_section(course_data, course_id):
     """Display the current section content"""
@@ -705,8 +779,7 @@ def display_question(question_item, section_key, question_idx):
             if current_answer is not None:
                 current_answer = current_answer.strip()
                 is_answer_correct = current_answer.lower() == str(answer).lower()
-                
-                # If answer is correct and not already processed
+                  # If answer is correct and not already processed
                 if is_answer_correct and not is_correct:
                     # Mark as correct
                     if "answers" not in st.session_state:
@@ -720,9 +793,9 @@ def display_question(question_item, section_key, question_idx):
                         "question_type": question_type
                     }
                     st.session_state.feedback[question_key] = "Correct!"
-                    st.rerun()  # Refresh to show feedback and disable input
-                  # Handle give up action
-                elif is_give_up_action and not is_correct:
+                    # Use a flag instead of immediate rerun for performance
+                    st.session_state.fitb_answered = True
+                  # Handle give up action                elif is_give_up_action and not is_correct:
                     if "answers" not in st.session_state:
                         st.session_state.answers = {}
                     if "feedback" not in st.session_state:
@@ -734,7 +807,8 @@ def display_question(question_item, section_key, question_idx):
                         "question_type": question_type
                     }
                     st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
-                    st.rerun()
+                    # Use a flag instead of immediate rerun for performance
+                    st.session_state.fitb_answered = True
               # Display feedback for fill-in-the-blank questions
             answer_data = st.session_state.answers.get(question_key, {})
             if answer_data:  # If there's any answer data (correct or incorrect)
@@ -894,8 +968,7 @@ def display_question(question_item, section_key, question_idx):
                         # We use that value from session_state for submission.
                         user_selections_to_submit = st.session_state.get(match_answers_key, {})
                         st.session_state[question_key] = json.dumps(user_selections_to_submit)
-                        
-                        # Ensure match_data (correct answers) is a dict before dumping and handling submission
+                          # Ensure match_data (correct answers) is a dict before dumping and handling submission
                         if isinstance(match_data, dict):
                             correct_answer_json = json.dumps(match_data)
                             handle_answer_submission(question_key, correct_answer_json, "match", None)
@@ -905,7 +978,8 @@ def display_question(question_item, section_key, question_idx):
                             st.session_state.user_answers[question_key] = json.dumps(user_selections_to_submit)
                             st.session_state.feedback[question_key] = "Error: Could not process the correct answer data."
                         
-                        st.rerun()
+                        # Use a flag instead of immediate rerun for performance
+                        st.session_state.match_submitted = True
                 elif not is_answered:
                     # If not all items are matched, show a disabled-like message or a disabled button
                     # For simplicity, we can just not show the button or show it disabled.
