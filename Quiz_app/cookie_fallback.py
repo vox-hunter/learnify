@@ -4,7 +4,6 @@ This module provides a fallback cookie manager initialization for pages that mig
 """
 
 import streamlit as st
-import os
 
 def ensure_cookie_manager():
     """Ensure cookie manager is available in session state, with fallback initialization"""
@@ -14,12 +13,8 @@ def ensure_cookie_manager():
         try:
             from streamlit_cookies_manager import EncryptedCookieManager
             
-            # Use environment variable or secrets, with a generated default for development
-            cookie_key = (
-                os.environ.get("COOKIE_ENCRYPTION_KEY") or 
-                st.secrets.get("COOKIE_ENCRYPTION_KEY") or 
-                "learnify-secure-key-2024-change-for-production"
-            )
+            # Use only Streamlit secrets
+            cookie_key = st.secrets.get("COOKIE_ENCRYPTION_KEY", "learnify-secure-key-2024-change-for-production")
             
             cookie_manager = EncryptedCookieManager(
                 password=cookie_key,

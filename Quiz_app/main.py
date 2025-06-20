@@ -41,12 +41,8 @@ except ImportError:
 def initialize_cookie_manager():
     """Initialize cookie manager with error handling for deployment environments"""
     try:
-        # Use environment variable or secrets, with a generated default for development
-        cookie_key = (
-            os.environ.get("COOKIE_ENCRYPTION_KEY") or 
-            st.secrets.get("COOKIE_ENCRYPTION_KEY") or 
-            "learnify-secure-key-2024-change-for-production"
-        )
+        # Use only Streamlit secrets
+        cookie_key = st.secrets.get("COOKIE_ENCRYPTION_KEY", "learnify-secure-key-2024-change-for-production")
         
         cookie_manager = EncryptedCookieManager(
             password=cookie_key,
