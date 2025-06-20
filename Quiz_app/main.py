@@ -38,16 +38,39 @@ except ImportError:
     MONGO_AVAILABLE = False
 
 # --- Auth & Cookie Management (No UI Rendering) ---
-if MONGO_AVAILABLE:
-    COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
-    cookies = EncryptedCookieManager(
-        password=COOKIE_ENCRYPTION_KEY,
-        prefix="learnify/auth",
-    )
-    st.session_state.cookies = cookies # Store cookies in session state
+def initialize_cookie_manager():
+    """Initialize cookie manager with error handling for deployment environments"""
+    try:
+        # Use environment variable or secrets, with a generated default for development
+        cookie_key = (
+            os.environ.get("COOKIE_ENCRYPTION_KEY") or 
+            st.secrets.get("COOKIE_ENCRYPTION_KEY") or 
+            "learnify-secure-key-2024-change-for-production"
+        )
+        
+        cookie_manager = EncryptedCookieManager(
+            password=cookie_key,
+            prefix="learnify/auth",
+        )
+        return cookie_manager
+    except Exception as e:
+        st.warning(f"Could not initialize cookie manager: {e}. Authentication features will be limited.")
+        return None
 
-    if not cookies.ready():
-        st.warning("Cookies are not ready. This may cause issues with authentication.")
+if MONGO_AVAILABLE:
+    cookies = initialize_cookie_manager()
+    st.session_state.cookies = cookies
+
+    # Check if cookies are ready without triggering boolean evaluation
+    cookies_ready = False
+    if cookies is not None:
+        try:
+            cookies_ready = cookies.ready()
+        except Exception:
+            cookies_ready = False
+    
+    if not cookies_ready:
+        st.warning("Cookies are initializing... Authentication features may be limited.")
 
     AUTH_COOKIE_NAME = "username"
 
@@ -60,12 +83,22 @@ if MONGO_AVAILABLE:
         return st.session_state.auth_manager
 
     manager = get_auth_manager()
-
+    
     def auto_login_from_cookie():
         if st.session_state.get('authentication_status'):
             return
-        if not cookies.ready(): return
-        cookie_username = cookies.get(AUTH_COOKIE_NAME)
+        
+        # Safely check if cookies are available and ready
+        if not hasattr(st.session_state, 'cookies') or st.session_state.cookies is None:
+            return
+        
+        try:
+            if not st.session_state.cookies.ready():
+                return
+        except Exception:
+            return
+            
+        cookie_username = st.session_state.cookies.get(AUTH_COOKIE_NAME)
         if cookie_username and cookie_username != "logged_out" and manager:
             user_data = manager.find_user_by_username(cookie_username)
             if user_data:
@@ -83,15 +116,24 @@ if MONGO_AVAILABLE:
         st.session_state.pop('username', None)
         st.session_state.pop('name', None)
         st.session_state.pop('email', None)
-        if cookies.ready():
-            cookies[AUTH_COOKIE_NAME] = "logged_out"
-            cookies.save()
+        
+        # Safely check and update cookies
+        if hasattr(st.session_state, 'cookies') and st.session_state.cookies is not None:
+            try:
+                if st.session_state.cookies.ready():
+                    st.session_state.cookies[AUTH_COOKIE_NAME] = "logged_out"
+                    st.session_state.cookies.save()
+            except Exception:
+                pass  # Ignore cookie errors during logout
+                
         st.query_params.clear()
         st.rerun()
 else:
     st.session_state['authentication_status'] = False
+    st.session_state.cookies = None  # Ensure cookies is available even when MONGO is not available
     def logout_user(): # Define for non-mongo case
         st.session_state['authentication_status'] = False
+        st.rerun()
         st.rerun()
 
 # --- Pages Definition ---

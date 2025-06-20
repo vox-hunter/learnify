@@ -23,8 +23,11 @@ if not cookies:
     st.stop()
 
 # Initialize cookies if they haven't been, e.g. on first run
-if not cookies.ready():
-    st.stop() # Cookies are not ready, something is wrong.
+# Note: On some deployment platforms, cookies might take time to initialize
+cookies_ready = cookies is not None and cookies.ready()
+if not cookies_ready:
+    st.warning("Cookies are initializing... Authentication features may be limited.")
+    # Don't stop - allow the page to continue with limited functionality
 
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
 
@@ -56,9 +59,8 @@ def login_user(username, user_data):
                 st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
         except Exception as e:
             st.warning(f"⚠️ Error transferring guest courses: {e}")
-    
-    # Update cookies in a single operation
-    if cookies.ready():
+      # Update cookies in a single operation
+    if cookies and cookies.ready():
         cookies["guest_courses_count"] = "0"  # Reset guest course count
         cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
         cookies.save() # Save all cookie changes at once
@@ -68,9 +70,8 @@ def logout_user():
     st.session_state['authentication_status'] = False
     st.session_state['username'] = None
     st.session_state['name'] = None
-    st.session_state['email'] = None
-    # Flagging is handled by main.py now
-    if cookies.ready():
+    st.session_state['email'] = None    # Flagging is handled by main.py now
+    if cookies and cookies.ready():
         # Set cookie to "logged_out" instead of deleting (more reliable)
         cookies[AUTH_COOKIE_NAME] = "logged_out"
         cookies.save()
