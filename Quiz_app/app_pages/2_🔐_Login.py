@@ -18,31 +18,13 @@ except ImportError as e:
 
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
-if cookies is None:
-    # Try fallback initialization
-    try:
-        from cookie_fallback import ensure_cookie_manager
-        if ensure_cookie_manager():
-            cookies = st.session_state.get('cookies')
-        else:
-            st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
-            st.markdown("Please go back to the [Home page](/) to start the application properly.")
-            st.stop()
-    except ImportError:
-        st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
-        st.markdown("Please go back to the [Home page](/) to start the application properly.")
-        st.stop()
+if not cookies:
+    st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
+    st.stop()
 
 # Initialize cookies if they haven't been, e.g. on first run
-# Note: On some deployment platforms, cookies might take time to initialize
-try:
-    cookies_ready = cookies is not None and cookies.ready()
-except Exception:
-    cookies_ready = False
-
-if not cookies_ready:
-    st.warning("Cookies are initializing... Authentication features may be limited.")
-    # Don't stop - allow the page to continue with limited functionality
+if not cookies.ready():
+    st.stop() # Cookies are not ready, something is wrong.
 
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
 
@@ -73,30 +55,25 @@ def login_user(username, user_data):
             elif transfer_error:
                 st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
         except Exception as e:
-            st.warning(f"⚠️ Error transferring guest courses: {e}")    # Update cookies in a single operation
-    if cookies is not None:
-        try:
-            if cookies.ready():
-                cookies["guest_courses_count"] = "0"  # Reset guest course count
-                cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
-                cookies.save() # Save all cookie changes at once
-        except Exception:
-            pass  # Ignore cookie errors during login
+            st.warning(f"⚠️ Error transferring guest courses: {e}")
+    
+    # Update cookies in a single operation
+    if cookies.ready():
+        cookies["guest_courses_count"] = "0"  # Reset guest course count
+        cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
+        cookies.save() # Save all cookie changes at once
     st.rerun()
 
 def logout_user():
     st.session_state['authentication_status'] = False
     st.session_state['username'] = None
     st.session_state['name'] = None
-    st.session_state['email'] = None    # Flagging is handled by main.py now
-    if cookies is not None:
-        try:
-            if cookies.ready():
-                # Set cookie to "logged_out" instead of deleting (more reliable)
-                cookies[AUTH_COOKIE_NAME] = "logged_out"
-                cookies.save()
-        except Exception:
-            pass  # Ignore cookie errors during logout
+    st.session_state['email'] = None
+    # Flagging is handled by main.py now
+    if cookies.ready():
+        # Set cookie to "logged_out" instead of deleting (more reliable)
+        cookies[AUTH_COOKIE_NAME] = "logged_out"
+        cookies.save()
     st.rerun()
 
 # Initialize session state variables if they don't exist
