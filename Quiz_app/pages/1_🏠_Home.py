@@ -28,13 +28,28 @@ except ImportError as e:
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
 if not cookies:
-    st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
-    st.stop()
+    # Try fallback initialization
+    try:
+        from cookie_fallback import ensure_cookie_manager
+        if ensure_cookie_manager():
+            cookies = st.session_state.get('cookies')
+        else:
+            st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
+            st.markdown("Please refresh the page or go back to the [Home page](/) to start the application properly.")
+            st.stop()
+    except ImportError:
+        st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
+        st.markdown("Please refresh the page or go back to the [Home page](/) to start the application properly.")
+        st.stop()
 
 # Initialize cookies if they haven't been, e.g. on first run
 # This needs to be called early, but after st.set_page_config
 # Note: On some deployment platforms, cookies might take time to initialize
-cookies_ready = cookies is not None and cookies.ready()
+try:
+    cookies_ready = cookies is not None and cookies.ready()
+except Exception:
+    cookies_ready = False
+
 if not cookies_ready:
     st.warning("Cookies are initializing... Some features may be limited.")
     # Don't stop - allow the page to continue with limited functionality
