@@ -9,7 +9,7 @@ import sys
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="Learnify",
+    page_title="AI Loom",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"

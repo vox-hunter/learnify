@@ -233,8 +233,6 @@ else: # Not authenticated, show login or registration
 
 # --- Footer or other elements outside the main auth flow ---
 st.markdown("---")
-st.info("Learnify - Your AI Learning Companion")
-
 # It's important to remove or adapt any leftover code that relied on the old authenticator's
 # specific config structure (like YAML loading for credentials directly in this file).
 # The MongoAuthManager now handles the direct interaction with the database for user data.
