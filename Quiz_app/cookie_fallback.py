@@ -34,4 +34,5 @@ def ensure_cookie_manager():
             st.session_state.cookies = None
             return False
     
-    return True
+    # Check if we have a cookie manager now (could be None if initialization failed)
+    return st.session_state.cookies is not None

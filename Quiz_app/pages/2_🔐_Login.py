@@ -18,7 +18,7 @@ except ImportError as e:
 
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
-if not cookies:
+if cookies is None:
     # Try fallback initialization
     try:
         from cookie_fallback import ensure_cookie_manager
@@ -73,12 +73,15 @@ def login_user(username, user_data):
             elif transfer_error:
                 st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
         except Exception as e:
-            st.warning(f"⚠️ Error transferring guest courses: {e}")
-      # Update cookies in a single operation
-    if cookies and cookies.ready():
-        cookies["guest_courses_count"] = "0"  # Reset guest course count
-        cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
-        cookies.save() # Save all cookie changes at once
+            st.warning(f"⚠️ Error transferring guest courses: {e}")    # Update cookies in a single operation
+    if cookies is not None:
+        try:
+            if cookies.ready():
+                cookies["guest_courses_count"] = "0"  # Reset guest course count
+                cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
+                cookies.save() # Save all cookie changes at once
+        except Exception:
+            pass  # Ignore cookie errors during login
     st.rerun()
 
 def logout_user():
@@ -86,10 +89,14 @@ def logout_user():
     st.session_state['username'] = None
     st.session_state['name'] = None
     st.session_state['email'] = None    # Flagging is handled by main.py now
-    if cookies and cookies.ready():
-        # Set cookie to "logged_out" instead of deleting (more reliable)
-        cookies[AUTH_COOKIE_NAME] = "logged_out"
-        cookies.save()
+    if cookies is not None:
+        try:
+            if cookies.ready():
+                # Set cookie to "logged_out" instead of deleting (more reliable)
+                cookies[AUTH_COOKIE_NAME] = "logged_out"
+                cookies.save()
+        except Exception:
+            pass  # Ignore cookie errors during logout
     st.rerun()
 
 # Initialize session state variables if they don't exist
