@@ -4,7 +4,7 @@ from typing import List
 
 resend.api_key = "re_QDXfGZ4Q_BcTWvKF6k19tXRHGeBu5na7X"
 
-with open("content.html", "r", encoding="utf-8") as file:
+with open("content_fixed.html", "r", encoding="utf-8") as file:
     html_content = file.read()
 
 
