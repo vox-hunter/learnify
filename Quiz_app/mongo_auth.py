@@ -83,7 +83,7 @@ class MongoAuthManager:
                 "name": name,
                 "email_verified": False,  # Optional: for email verification flow
                 "marketing_consent": marketing_consent,  # Store marketing consent
-                "created_at": "2025-06-21"  # Add creation timestamp
+                "created_at": datetime.utcnow().isoformat()  # Add creation timestamp
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
