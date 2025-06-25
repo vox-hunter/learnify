@@ -1,7 +1,8 @@
 import streamlit as st
 import pymongo
 from pymongo import errors as pymongo_errors
-import bcrypt # For password hashing
+import bcrypt  # For password hashing
+from datetime import datetime  # For timestamps
 
 # It's good practice to load secrets at the beginning and provide clear error messages if they are missing.
 try:
@@ -232,22 +233,21 @@ class MongoAuthManager:
             code: Verification code
             purpose: 'registration' or 'password_reset'
             expires_in_minutes: Code expiration time
-        
-        Returns:
+          Returns:
             tuple: (success: bool, error_message: str)
         """
         if not self._ensure_connection():
             return False, "Database connection error."
         
         try:
-            import datetime
-            expiry_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_in_minutes)
+            from datetime import timedelta
+            expiry_time = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
             
             verification_data = {
                 "email": email,
                 "code": code,
                 "purpose": purpose,
-                "created_at": datetime.datetime.utcnow(),
+                "created_at": datetime.utcnow(),
                 "expires_at": expiry_time,
                 "used": False
             }
@@ -274,22 +274,19 @@ class MongoAuthManager:
             email: User email
             entered_code: Code entered by user
             purpose: 'registration' or 'password_reset'
-        
-        Returns:
+          Returns:
             tuple: (success: bool, error_message: str)
         """
         if not self._ensure_connection():
             return False, "Database connection error."
         
         try:
-            import datetime
-            
             # Find the verification code
             verification_doc = self.db.verification_codes.find_one({
                 "email": email,
                 "purpose": purpose,
                 "used": False,
-                "expires_at": {"$gt": datetime.datetime.utcnow()}
+                "expires_at": {"$gt": datetime.utcnow()}
             })
             
             if not verification_doc:
@@ -302,16 +299,16 @@ class MongoAuthManager:
             # Mark code as used
             self.db.verification_codes.update_one(
                 {"_id": verification_doc["_id"]},
-                {"$set": {"used": True}}            )
+                {"$set": {"used": True}}
+            )
             
             return True, None
-            
         except ValueError:
             return False, "Invalid code format."
         except Exception as e:
             st.error(f"Error verifying code: {e}")
             return False, f"Database error: {e}"
-    
+
     def mark_email_verified(self, email):
         """Mark user's email as verified"""
         if not self._ensure_connection():
@@ -333,9 +330,8 @@ class MongoAuthManager:
             return
         
         try:
-            import datetime
             self.db.verification_codes.delete_many({
-                "expires_at": {"$lt": datetime.datetime.utcnow()}
+                "expires_at": {"$lt": datetime.utcnow()}
             })
         except Exception as e:
             st.error(f"Error cleaning up expired codes: {e}")
