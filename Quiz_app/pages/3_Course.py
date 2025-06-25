@@ -593,37 +593,67 @@ def display_question(question_item, section_key, question_idx):
             if "answers" not in st.session_state:
                 st.session_state.answers = {}
             if "feedback" not in st.session_state:
-                st.session_state.feedback = {}
-
-            # Check if this question has been answered correctly
+                st.session_state.feedback = {}            # Check if this question has been answered correctly
             answer_data = st.session_state.answers.get(question_key, {})
             is_correct = answer_data.get("is_correct", False)
             
+            # Process the answer to ensure it's a string
+            correct_answer_for_component = answer
+            if isinstance(answer, list) and len(answer) > 0:
+                correct_answer_for_component = str(answer[0])
+            else:
+                correct_answer_for_component = str(answer)
+            
             user_input = fill_in_the_blanks_input(
                 question_text_full=question_text_full, 
-                correctAnswer=answer, 
+                correctAnswer=correct_answer_for_component, 
                 key=component_instance_key,
                 disabled=is_correct  # Disable input if answer is correct
             )
-            
-            # Handle both string input and object input (for give up action)
+              # Handle both string input and object input (for enhanced component behavior)
             current_answer = ""
             is_give_up_action = False
+            is_correct_action = False
+            is_wrong_action = False
             
             if isinstance(user_input, dict):
-                # Handle give up action via Enter key
+                # Handle enhanced component return format
                 current_answer = user_input.get("value", "")
-                is_give_up_action = user_input.get("action") == "give_up"
+                action = user_input.get("action", "")
+                is_give_up_action = action == "give_up"
+                is_correct_action = action == "correct_answer"
+                is_wrong_action = user_input.get("isWrong", False)
+                
+                # Debug info
+                if action not in ["typing", "blur"]:  # Don't spam logs for normal typing
+                    st.write(f"🔍 Debug: Action={action}, Answer='{current_answer}', Correct={user_input.get('isCorrect', False)}, Wrong={is_wrong_action}")
             elif isinstance(user_input, str):
-                # Regular typing
-                current_answer = user_input
-            
-            # Real-time checking as user types or on give up
+                # Fallback for standard text input
+                current_answer = user_input# Real-time checking as user types or on specific actions
             if current_answer is not None:
                 current_answer = current_answer.strip()
-                is_answer_correct = current_answer.lower() == str(answer).lower()
-                  # If answer is correct and not already processed
-                if is_answer_correct and not is_correct:
+                
+                # Handle answer format - extract from list if needed
+                correct_answer_str = answer
+                if isinstance(answer, list) and len(answer) > 0:
+                    correct_answer_str = str(answer[0])  # Take first element if it's a list
+                else:
+                    correct_answer_str = str(answer)
+                
+                answer_matches = current_answer.lower() == correct_answer_str.lower()
+                
+                # Enhanced debug output
+                st.write("🔍 **Answer Check Debug:**")
+                st.write(f"- User Answer: '{current_answer}' (length: {len(current_answer)})")
+                st.write(f"- Raw Answer Data: {answer} (type: {type(answer)})")
+                st.write(f"- Processed Correct Answer: '{correct_answer_str}' (length: {len(correct_answer_str)})")
+                st.write(f"- User Answer (lower): '{current_answer.lower()}'")
+                st.write(f"- Correct Answer (lower): '{correct_answer_str.lower()}'")
+                st.write(f"- Match Result: {answer_matches}")
+                st.write(f"- Action: {action if isinstance(user_input, dict) else 'string input'}")
+                
+                # If answer is correct and not already processed
+                if (answer_matches or is_correct_action) and not is_correct:
                     # Mark as correct
                     if "answers" not in st.session_state:
                         st.session_state.answers = {}
@@ -635,9 +665,9 @@ def display_question(question_item, section_key, question_idx):
                         "is_correct": True,
                         "question_type": question_type
                     }
-                    st.session_state.feedback[question_key] = "Correct!"
-                    # Use a flag instead of immediate rerun for performance
+                    st.session_state.feedback[question_key] = "Correct! 🎉"
                     st.session_state.fitb_answered = True
+                    st.rerun()  # Immediate rerun for correct answers to update UI
                   # Handle give up action                elif is_give_up_action and not is_correct:
                     if "answers" not in st.session_state:
                         st.session_state.answers = {}

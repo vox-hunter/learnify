@@ -5,6 +5,7 @@ import streamlit as st
 import sys
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
+import io
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -345,9 +346,8 @@ def main():
                     pass # auto_login_from_cookie() is in main.py
             except Exception:
                 pass
-    
-    # Top navigation
-    col1, col2, col3 = st.columns([6, 1, 1]) # Adjusted column ratio for better spacing
+      # Top navigation
+    _, col2, col3 = st.columns([6, 1, 1])  # Adjusted column ratio for better spacing
     
     with col2: # Login/User status
         if st.session_state.get('authentication_status'):
@@ -402,37 +402,54 @@ def main():
         uploaded_file = st.file_uploader(
             "Choose a PDF file",
             type=["pdf"],
-            help="Maximum file size: 10MB, Maximum words: 15,000",
+            help="Large files will be automatically compressed during course generation. Maximum words: 15,000",
             label_visibility="collapsed"
         )
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
             file_size_mb = file_size / (1024*1024)
-              # Check file size limit (10MB)
+              # Show file info and size warning if large
             if file_size > 10 * 1024 * 1024:
-                st.error(f"❌ File too large ({file_size_mb:.1f} MB). Maximum size is 10MB.")
-                uploaded_file = None
-            else:                # Analyze PDF content for word count
-                try:
-                    pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
-                    word_count = pdf_analysis['word_count']
-                    
-                    if word_count > 15000:
-                        st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                        st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above 10MB limit)")
+                st.info("💡 **Note:** File will be automatically compressed during course generation to fit within limits.")
+            else:
+                st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")              # For large files, skip heavy analysis during upload to avoid delays
+            if uploaded_file:
+                if file_size > 10 * 1024 * 1024:
+                    # Large file: do quick validation only
+                    try:
+                        # Quick test - try to read first few bytes to verify it's a valid PDF
+                        file_content = uploaded_file.getvalue()
+                        if not file_content.startswith(b'%PDF'):
+                            st.error("❌ Invalid PDF file format detected.")
+                            uploaded_file = None
+                        else:
+                            st.info("📋 **Large file uploaded successfully!** Word count validation will be performed during course generation after compression.")
+                    except Exception as e:
+                        st.error(f"❌ Error reading PDF file: {str(e)}")
                         uploaded_file = None
-                    elif word_count == 0:
-                        st.error("❌ Could not extract text from this PDF. Please try a different file.")
-                        uploaded_file = None
-                    else:
-                        st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                else:
+                    # Small file: do full analysis during upload as before
+                    try:
+                        pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
+                        word_count = pdf_analysis['word_count']
                         
-                        if word_count > 12000:
-                            st.warning("⚠️ Large document detected. Generation may take longer than usual.")
+                        if word_count > 15000:
+                            st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                            uploaded_file = None
+                        elif word_count == 0:
+                            st.error("❌ Could not extract text from this PDF. Please try a different file.")
+                            uploaded_file = None
+                        else:
+                            st.success(f"📄 File processed: {uploaded_file.name} ({file_size_mb:.1f} MB, {word_count:,} words)")
                             
-                except Exception as e:
-                    st.error(f"❌ Error analyzing PDF: {str(e)}")
-                    uploaded_file = None
+                            if word_count > 12000:
+                                st.warning("⚠️ Large document detected. Generation may take longer than usual.")
+                                
+                    except Exception as e:
+                        st.error(f"❌ Error analyzing PDF: {str(e)}")
+                        uploaded_file = None
     
     with tab2:
         st.markdown("### Enter PDF URL")
@@ -516,14 +533,73 @@ def generate_and_redirect(uploaded_file, pdf_url):
             time.sleep(1.5)  # Allow users to read the status
         
         try:
-            # Generate course with real-time status updates
+            # Handle file compression if needed before generation
             if uploaded_file:
-                uploaded_file.seek(0)  # Reset file pointer
+                # Check file size and compress if necessary
+                file_content = uploaded_file.read()
+                file_size_mb = len(file_content) / (1024 * 1024)
+                
+                if file_size_mb > 10:
+                    status_text.text(f"📦 Large file detected ({file_size_mb:.1f}MB). Compressing...")
+                    progress_bar.progress(5)
+                      # Compress the file
+                    compressed_content, final_size_mb, _, _ = smart_pdf_compression(
+                        file_content, target_size_mb=10
+                    )
+                    
+                    if final_size_mb <= 10:
+                        status_text.text(f"✅ Compression successful: {file_size_mb:.1f}MB → {final_size_mb:.1f}MB")
+                        progress_bar.progress(10)
+                        import time
+                        time.sleep(1.0)  # Show compression success briefly
+                        file_content = compressed_content
+                    else:
+                        # Compression didn't achieve target, but continue anyway
+                        status_text.text(f"⚠️ Partial compression: {file_size_mb:.1f}MB → {final_size_mb:.1f}MB")
+                        progress_bar.progress(10)
+                        import time
+                        time.sleep(1.0)
+                        file_content = compressed_content                
+                # For large files that were compressed, validate word count on compressed content
+                if file_size_mb > 10:
+                    status_text.text("📝 Analyzing compressed file content...")
+                    progress_bar.progress(12)
+                    
+                    try:
+                        pdf_analysis = analyze_pdf_content(file_content)
+                        word_count = pdf_analysis['word_count']
+                        
+                        if word_count > 15000:
+                            status_text.text("❌ Analysis failed: too many words even after compression")
+                            st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                            st.session_state.is_generating_course = False
+                            return
+                        elif word_count == 0:
+                            status_text.text("❌ Analysis failed: no text found")
+                            st.error("❌ Could not extract text from the compressed PDF. Please try a different file.")
+                            st.session_state.is_generating_course = False
+                            return
+                        else:
+                            status_text.text(f"✅ Content validated: {word_count:,} words found")
+                            progress_bar.progress(14)
+                            
+                    except Exception as e:
+                        status_text.text("❌ Analysis failed: error reading content")
+                        st.error(f"❌ Error analyzing compressed PDF: {str(e)}")
+                        st.session_state.is_generating_course = False
+                        return
+                
+                # Reset file pointer and generate course
+                status_text.text("🚀 Starting course generation...")
+                progress_bar.progress(15)
+                
                 course_data, error_message = generate_course(
-                    file_content=uploaded_file.read(), 
+                    file_content=file_content, 
                     status_callback=status_callback
                 )
             else:
+                # URL-based generation (no compression needed)
                 course_data, error_message = generate_course(
                     file_url=pdf_url, 
                     status_callback=status_callback
@@ -537,7 +613,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 if uploaded_file:
                     course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
                 else:
-                    course_title = f"🔗 Course from URL"
+                    course_title = "🔗 Course from URL"
 
                 generated_course_id = None  # Will store the ID if successfully saved
                 save_error_occurred = False
@@ -604,7 +680,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
                     st.session_state.current_pdf_url = None
                     # Do not redirect, allow user to see the error and try again.
                     
-            else: # error_message from local_backend.generate_course
+            else:  # error_message from local_backend.generate_course
                 st.error(f"❌ {error_message}")
                 st.session_state.is_generating_course = False
                 st.session_state.current_uploaded_file = None
@@ -659,5 +735,130 @@ def show_course_history():
                 guest_count = get_guest_course_count()
                 remaining = 3 - guest_count
                 st.info(f"🎯 Guest: {remaining}/3 courses remaining")
+                
+# --- PDF Compression Functions ---
+def compress_pdf(pdf_content, target_size_mb=10):
+    """
+    Compress a PDF using multiple strategies to achieve significant size reduction.
+    
+    Args:
+        pdf_content (bytes): Original PDF content
+        target_size_mb (int): Target size in MB
+        
+    Returns:
+        tuple: (compressed_pdf_bytes, compression_ratio, success)
+    """
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        
+        # Check if compression is needed
+        original_size = len(pdf_content)
+        original_size_mb = original_size / (1024 * 1024)
+        
+        if original_size_mb <= target_size_mb:
+            return pdf_content, 1.0, True
+            
+        # Strategy 1: Basic PyPDF2 compression
+        pdf_reader = PdfReader(io.BytesIO(pdf_content))
+        pdf_writer = PdfWriter()
+        
+        # Apply basic compression to all pages
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            
+            # Apply content stream compression
+            try:
+                page.compress_content_streams()
+            except (AttributeError, Exception):
+                pass
+            
+            pdf_writer.add_page(page)
+        
+        # Get compressed result
+        compressed_pdf = io.BytesIO()
+        pdf_writer.write(compressed_pdf)
+        compressed_content = compressed_pdf.getvalue()
+        compressed_size_mb = len(compressed_content) / (1024 * 1024)
+        
+        # If still too large, try page reduction strategy
+        if compressed_size_mb > target_size_mb:
+            total_pages = len(pdf_reader.pages)
+            
+            # Calculate how many pages we can keep
+            target_ratio = target_size_mb / compressed_size_mb
+            pages_to_keep = max(1, int(total_pages * target_ratio * 0.9))  # Keep 90% of calculated ratio for safety
+            
+            if pages_to_keep < total_pages:
+                # Create a new PDF with subset of pages
+                pdf_writer_subset = PdfWriter()
+                
+                for page_num in range(pages_to_keep):
+                    page = pdf_reader.pages[page_num]
+                    try:
+                        page.compress_content_streams()
+                    except Exception:
+                        pass
+                    pdf_writer_subset.add_page(page)
+                
+                # Get subset result
+                subset_pdf = io.BytesIO()
+                pdf_writer_subset.write(subset_pdf)
+                subset_content = subset_pdf.getvalue()
+                subset_size_mb = len(subset_content) / (1024 * 1024)
+                
+                if subset_size_mb <= target_size_mb:
+                    compression_ratio = len(subset_content) / original_size
+                    return subset_content, compression_ratio, True
+        
+        # Return the best compression we achieved
+        compression_ratio = len(compressed_content) / original_size
+        return compressed_content, compression_ratio, True
+        
+    except Exception:
+        # If compression fails, return original content
+        return pdf_content, 1.0, False
 
-main()
+def smart_pdf_compression(pdf_content, target_size_mb=10):
+    """
+    Smart PDF compression with multiple strategies and detailed feedback.
+    
+    Args:
+        pdf_content (bytes): Original PDF content
+        target_size_mb (int): Target size in MB
+        
+    Returns:
+        tuple: (final_pdf_bytes, final_size_mb, compression_ratio, success_message)
+    """
+    original_size = len(pdf_content)
+    original_size_mb = original_size / (1024 * 1024)
+    
+    if original_size_mb <= target_size_mb:
+        return pdf_content, original_size_mb, 1.0, "No compression needed"
+    
+    # Try aggressive compression
+    compressed_content, compression_ratio, success = compress_pdf(pdf_content, target_size_mb)
+    
+    if success:
+        final_size_mb = len(compressed_content) / (1024 * 1024)
+        
+        # Provide detailed feedback based on compression achieved
+        if final_size_mb <= target_size_mb:
+            if compression_ratio < 0.5:  # More than 50% reduction
+                strategy = "Aggressive compression with significant size reduction"
+            elif compression_ratio < 0.8:  # 20-50% reduction  
+                strategy = "Standard compression"
+            else:  # Less than 20% reduction
+                strategy = "Basic compression"
+                
+            return compressed_content, final_size_mb, compression_ratio, f"✅ {strategy}: {original_size_mb:.1f}MB → {final_size_mb:.1f}MB"
+        else:
+            # Even with compression, still too large
+            if compression_ratio < 0.7:  # At least 30% reduction achieved
+                return compressed_content, final_size_mb, compression_ratio, f"⚠️ Compressed {original_size_mb:.1f}MB → {final_size_mb:.1f}MB but still above {target_size_mb}MB limit"
+            else:
+                return compressed_content, final_size_mb, compression_ratio, f"❌ Minimal compression achieved: {original_size_mb:.1f}MB → {final_size_mb:.1f}MB (still above {target_size_mb}MB)"
+    else:
+        return pdf_content, original_size_mb, 1.0, "❌ Compression failed - using original file"
+
+if __name__ == "__main__":
+    main()

@@ -2,14 +2,15 @@
     display: inline-flex; /* Inline flex to flow with text */
     flex-wrap: wrap; /* Allow content to wrap */
     align-items: baseline; /* Align text and input nicely */
-    padding: 4px 0; /* Increased padding for better visibility */
+    padding: 8px 0; /* Increased padding for better visibility */
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; /* Match Streamlit's font */
     font-size: 1rem; /* Match Streamlit's explanation text size */
     background-color: transparent !important; /* Ensure transparency */
     line-height: 1.6; /* Match Streamlit's line height */
-    min-height: 30px; /* Minimum height to ensure visibility */
+    min-height: 35px; /* Minimum height to ensure visibility */
     width: 100%; /* Ensure it takes full width */
-    margin-bottom: 8px; /* Add margin at the bottom for spacing */
+    margin-bottom: 12px; /* Add margin at the bottom for spacing */
+    border-radius: 15px; /* Match your app's rounded corners */
 }
 
 /* Styles for the new overlay approach */
@@ -18,40 +19,50 @@
   display: inline-block; /* Allows it to flow with text but be a positioning container */
   vertical-align: baseline; /* Aligns the wrapper with the surrounding text */
   line-height: inherit;
-  min-height: 24px; /* Ensure minimum height for visibility */
-  margin: 2px 0; /* Add a bit of margin for better spacing */
+  min-height: 30px; /* Ensure minimum height for visibility */
+  margin: 3px 2px; /* Add a bit of margin for better spacing */
+  border-radius: 12px; /* Match your app's rounded style */
+  transition: all 0.3s ease; /* Smooth transitions like your buttons */
 }
 
 .blank-placeholder-text {
   /* This text ('___') is visible and defines the space */
-  color: #777; /* Color of the underscores, can be themed */
-  font-family: monospace, sans-serif; /* Monospace for consistent underscore width */
+  color: #9d00ff; /* Your app's primary purple color */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; /* Match your app font */
+  font-weight: 600; /* Slightly bold to match your app's style */
   visibility: visible; /* Underscores should be visible */
   line-height: inherit; 
-  padding: 0.1em 0; /* Adjust to align text vertically if needed */
+  padding: 0.1em 0.3em; /* Adjust to align text vertically if needed */
   white-space: pre; /* Preserve underscore sequence if it has spaces */
   display: inline-block; /* Ensures proper alignment */
   position: relative; /* For alignment reference */
+  border-bottom: 3px solid #9d00ff; /* Purple line matching your theme */
+  transition: all 0.3s ease; /* Smooth transition for focus effects */
+  border-radius: 0 0 8px 8px; /* Rounded bottom corners */
 }
 
 .blank-input-overlay {
   position: absolute;
-  top: -1px; /* Move text slightly up to position it on top of underscores */
+  top: -2px; /* Slightly adjusted for better alignment */
   left: 0;
   width: 100%; /* Makes input cover the .blank-placeholder-text */
   height: 100%;
-  min-height: 24px; /* Ensure minimum height for visibility */
-  background-color: transparent;
-  border: none; /* No border on the input itself */
-  padding: 0.1em 0.2em; /* Match .blank-input's original padding, adjust for alignment */
+  min-height: 30px; /* Ensure minimum height for visibility */
+  background-color: transparent !important; /* Completely transparent background */
+  border: none !important; /* No border on the input itself */
+  padding: 0.2em 0.3em; /* Match your app's input padding */
   margin: 0;
   font-size: inherit;
-  font-family: inherit; /* Use Streamlit's font */
-  color: inherit; /* Use Streamlit's text color */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; /* Match your app font */
+  color: #ededed; /* Light text color matching your app */
+  font-weight: 600; /* Slightly bold to match your app's style */
   text-align: center; /* Center text within the blank space */
   box-sizing: border-box;
   line-height: inherit;
   z-index: 1; /* Ensure input is above the placeholder text */
+  outline: none; /* Remove default focus outline */
+  border-radius: 8px; /* Match your app's rounded style */
+  transition: all 0.3s ease; /* Smooth transitions like your app */
 }
 
 .blank-input-overlay:focus {
@@ -67,6 +78,81 @@
 .fill-in-the-blanks-container.disabled .blank-input-overlay {
     color: #777; /* Text color for disabled input */
     cursor: not-allowed;
+}
+
+/* Correct answer state styling */
+.fill-in-the-blanks-container.correct .blank-placeholder-text {
+    color: #00ff00; /* Bright green for correct answers */
+    border-bottom-color: #00ff00; /* Green line under correct answers */
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.1)); /* Subtle green background gradient */
+    box-shadow: 0 2px 8px rgba(0, 255, 0, 0.2); /* Green glow effect */
+}
+
+.blank-input-overlay.correct {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2), rgba(0, 200, 0, 0.15)) !important; /* Light green background gradient */
+    color: #ffffff !important; /* White text for correct answers */
+    font-weight: 700; /* Make correct answers bold */
+    text-shadow: 0 0 8px rgba(0, 255, 0, 0.3); /* Green text glow */
+    border-radius: 8px;
+}
+
+/* Wrong answer state styling */
+.fill-in-the-blanks-container.wrong .blank-placeholder-text {
+    color: #9d00ff; /* Purple for wrong answers */
+    border-bottom-color: #9d00ff; /* Purple line under wrong answers */
+    background: linear-gradient(135deg, rgba(157, 0, 255, 0.1), rgba(122, 0, 204, 0.1)); /* Subtle purple background gradient */
+    box-shadow: 0 2px 8px rgba(157, 0, 255, 0.2); /* Purple glow effect */
+}
+
+.blank-input-overlay.wrong {
+    background: linear-gradient(135deg, rgba(157, 0, 255, 0.2), rgba(122, 0, 204, 0.15)) !important; /* Purple background gradient */
+    color: #ffffff !important; /* White text for wrong answers */
+    font-weight: 700; /* Make wrong answers bold */
+    text-shadow: 0 0 8px rgba(157, 0, 255, 0.3); /* Purple text glow */
+    border-radius: 8px;
+}
+
+/* Locked state styling */
+.blank-input-overlay.locked {
+    cursor: not-allowed;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)) !important; /* Very subtle light background */
+    color: #999 !important; /* Gray text */
+    border-radius: 8px;
+}
+
+.fill-in-the-blanks-container.disabled .blank-placeholder-text {
+    color: #666; /* Darker gray underscores when disabled */
+    border-bottom-color: #444; /* Dark gray line */
+    background: rgba(255, 255, 255, 0.02); /* Very subtle background */
+}
+
+/* Focus state for active inputs */
+.blank-input-overlay:focus:not(.locked):not(.correct) {
+    outline: none;
+}
+
+/* Focus effect on the wrapper - matching your app's purple theme */
+.blank-wrapper:focus-within:not(.correct):not(.locked) .blank-placeholder-text {
+    border-bottom-color: #ff6b6b; /* Your app's secondary coral color on focus */
+    color: #ff6b6b; /* Coral underscores on focus */
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.1), rgba(255, 107, 107, 0.05)); /* Subtle coral background */
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3); /* Coral glow effect matching your buttons */
+    transform: translateY(-1px); /* Subtle lift effect */
+}
+
+/* Hover effect for better UX - matching your app's style */
+.blank-wrapper:hover:not(.correct):not(.locked) .blank-placeholder-text {
+    border-bottom-color: #7a00cc; /* Darker purple on hover */
+    color: #7a00cc; /* Darker purple underscores on hover */
+    background: linear-gradient(135deg, rgba(157, 0, 255, 0.1), rgba(122, 0, 204, 0.05)); /* Purple background gradient */
+    box-shadow: 0 2px 10px rgba(157, 0, 255, 0.2); /* Purple glow effect */
+    transform: translateY(-1px); /* Subtle lift effect like your buttons */
+}
+
+/* Active/typing state */
+.blank-wrapper:focus-within:not(.correct):not(.locked) .blank-input-overlay {
+    color: #ff6b6b !important; /* Coral text when typing */
+    text-shadow: 0 0 5px rgba(255, 107, 107, 0.3); /* Subtle glow when typing */
 }
 
 /* Remove old .blank-input styles if no longer used, or keep if there's a fallback */

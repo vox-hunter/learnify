@@ -1,5 +1,6 @@
 \
 import streamlit.components.v1 as components
+import streamlit as st
 import os
 
 # Set to True when deploying, False for local development of the component
@@ -15,13 +16,18 @@ else:
     build_dir = os.path.join(parent_dir, "frontend/build")
     if not os.path.exists(build_dir):
         # Fallback for environments where build might not be present (like Streamlit Cloud)
-        print(f"WARNING: Build directory {build_dir} not found for st_fill_in_the_blanks component.")
-        print("Falling back to standard text input for fill-in-the-blanks questions.")
+        st.warning(f"⚠️ Fill-in-the-blanks component build directory not found: {build_dir}")
+        st.info("🔄 Falling back to standard text input for fill-in-the-blanks questions.")
         _component_func = None  # Will be handled in the wrapper function
     else:
-        _component_func = components.declare_component(
-            "st_fill_in_the_blanks", path=build_dir
-        )
+        try:
+            _component_func = components.declare_component(
+                "st_fill_in_the_blanks", path=build_dir
+            )
+        except Exception as e:
+            st.error(f"❌ Error loading fill-in-the-blanks component: {str(e)}")
+            st.info("🔄 Falling back to standard text input for fill-in-the-blanks questions.")
+            _component_func = None
 
 def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, default_value="", disabled=False): # Renamed answer_to_blank to correctAnswer
     """
@@ -45,11 +51,18 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
     Returns
     -------
     str
-        The current text entered by the user in the blank.
-    """
+        The current text entered by the user in the blank.    """
+    # Validate input types and convert to strings if needed
+    if not isinstance(question_text_full, str):
+        print(f"WARNING: question_text_full should be a string, got {type(question_text_full)}")
+        question_text_full = str(question_text_full) if question_text_full else ""
+    
+    if not isinstance(correctAnswer, str):
+        print(f"WARNING: correctAnswer should be a string, got {type(correctAnswer)}")
+        correctAnswer = str(correctAnswer) if correctAnswer else ""
+    
     if _component_func is None:
         # Fallback to standard Streamlit text input when component build is not available
-        import streamlit as st
         return st.text_input(
             f"Fill in the blank: {question_text_full.replace('___', '_____')}",
             value=default_value,
@@ -58,14 +71,26 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
             help=f"Correct answer: {correctAnswer}" if disabled else None
         )
     else:
-        component_value = _component_func(
-            question_text_full=question_text_full,
-            correctAnswer=correctAnswer,
-            key=key,
-            default=default_value,
-            disabled=disabled
-        )
-        return component_value
+        try:
+            component_value = _component_func(
+                question_text_full=question_text_full,
+                correctAnswer=correctAnswer,
+                key=key,
+                default=default_value,
+                disabled=disabled
+            )
+            return component_value
+        except Exception as e:
+            # If component fails, fall back to text input
+            st.error(f"❌ Fill-in-the-blanks component error: {str(e)}")
+            st.info("🔄 Using fallback text input")
+            return st.text_input(
+                f"Fill in the blank: {question_text_full.replace('___', '_____')}",
+                value=default_value,
+                key=f"{key}_fallback" if key else None,
+                disabled=disabled,
+                help=f"Correct answer: {correctAnswer}" if disabled else None
+            )
 
 # Example usage (for testing the component independently)
 if __name__ == "__main__":

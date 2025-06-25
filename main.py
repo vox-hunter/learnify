@@ -20,6 +20,13 @@ import importlib.util
 
 # Load the main application module
 main_path = os.path.join(quiz_app_path, "main.py")
+print(f"Looking for main.py at: {main_path}")
+print(f"File exists: {os.path.exists(main_path)}")
+
+if not os.path.exists(main_path):
+    st.error(f"Cannot find main.py at {main_path}")
+    st.stop()
+
 spec = importlib.util.spec_from_file_location("main_app", main_path)
 main_app = importlib.util.module_from_spec(spec)
 

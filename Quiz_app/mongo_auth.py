@@ -1,6 +1,6 @@
 import streamlit as st
 import pymongo
-from bson.objectid import ObjectId
+from pymongo import errors as pymongo_errors
 import bcrypt # For password hashing
 
 # It's good practice to load secrets at the beginning and provide clear error messages if they are missing.
@@ -23,13 +23,13 @@ class MongoAuthManager:
             self.users_collection = self.db[USER_COLLECTION]
             # Test connection
             self.client.admin.command('ping')
-        except pymongo.errors.ConfigurationError as e:
+        except pymongo_errors.ConfigurationError as e:
             st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
             self.client = None
             self.db = None
             self.users_collection = None
             st.stop()
-        except pymongo.errors.ConnectionFailure as e:
+        except pymongo_errors.ConnectionFailure as e:
             st.error(f"Failed to connect to MongoDB: {e}")
             self.client = None
             self.db = None
@@ -51,7 +51,7 @@ class MongoAuthManager:
             # Ping the database to ensure the connection is active
             self.client.admin.command('ping')
             return True
-        except pymongo.errors.ConnectionFailure:
+        except pymongo_errors.ConnectionFailure:
             st.error("MongoDB connection lost. Please try again later.")
             # Optionally, try to reconnect here
             return False
@@ -66,7 +66,7 @@ class MongoAuthManager:
         # Check hashed password. Using .encode('utf-8') for both.
         return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-    def add_user(self, username, password, email, name):
+    def add_user(self, username, password, email, name, marketing_consent=False):
         if not self._ensure_connection():
             return None, "Database connection error."
         if self.users_collection.find_one({"username": username}):
@@ -81,11 +81,13 @@ class MongoAuthManager:
                 "password": hashed_pw,
                 "email": email,
                 "name": name,
-                "email_verified": False # Optional: for email verification flow
+                "email_verified": False,  # Optional: for email verification flow
+                "marketing_consent": marketing_consent,  # Store marketing consent
+                "created_at": datetime.utcnow().isoformat()  # Add creation timestamp
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             st.error(f"MongoDB error adding user: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
@@ -97,7 +99,7 @@ class MongoAuthManager:
             return None
         try:
             return self.users_collection.find_one({"username": username})
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             st.error(f"MongoDB error finding user by username: {e}")
             return None
         except Exception as e:
@@ -109,7 +111,7 @@ class MongoAuthManager:
             return None
         try:
             return self.users_collection.find_one({"email": email})
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             st.error(f"MongoDB error finding user by email: {e}")
             return None
         except Exception as e:
@@ -219,6 +221,200 @@ class MongoAuthManager:
         except Exception as e:
             st.error(f"Unexpected error saving config to MongoDB: {e}")
             return False
+
+    # --- Email Verification Methods ---
+    def store_verification_code(self, email, code, purpose="registration", expires_in_minutes=10):
+        """
+        Store verification code in database
+        
+        Args:
+            email: User email
+            code: Verification code
+            purpose: 'registration' or 'password_reset'
+            expires_in_minutes: Code expiration time
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            import datetime
+            expiry_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_in_minutes)
+            
+            verification_data = {
+                "email": email,
+                "code": code,
+                "purpose": purpose,
+                "created_at": datetime.datetime.utcnow(),
+                "expires_at": expiry_time,
+                "used": False
+            }
+            
+            # Remove any existing verification codes for this email and purpose
+            self.db.verification_codes.delete_many({
+                "email": email,
+                "purpose": purpose
+            })
+            
+            # Insert new verification code
+            result = self.db.verification_codes.insert_one(verification_data)
+            return True, None
+            
+        except Exception as e:
+            st.error(f"Error storing verification code: {e}")
+            return False, f"Database error: {e}"
+    
+    def verify_code(self, email, entered_code, purpose="registration"):
+        """
+        Verify the entered code against stored code
+        
+        Args:
+            email: User email
+            entered_code: Code entered by user
+            purpose: 'registration' or 'password_reset'
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            import datetime
+            
+            # Find the verification code
+            verification_doc = self.db.verification_codes.find_one({
+                "email": email,
+                "purpose": purpose,
+                "used": False,
+                "expires_at": {"$gt": datetime.datetime.utcnow()}
+            })
+            
+            if not verification_doc:
+                return False, "Invalid or expired verification code."
+            
+            # Check if codes match
+            if verification_doc["code"] != int(entered_code):
+                return False, "Incorrect verification code."
+            
+            # Mark code as used
+            self.db.verification_codes.update_one(
+                {"_id": verification_doc["_id"]},
+                {"$set": {"used": True}}            )
+            
+            return True, None
+            
+        except ValueError:
+            return False, "Invalid code format."
+        except Exception as e:
+            st.error(f"Error verifying code: {e}")
+            return False, f"Database error: {e}"
+    
+    def mark_email_verified(self, email):
+        """Mark user's email as verified"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            result = self.users_collection.update_one(
+                {"email": email},
+                {"$set": {"email_verified": True}}
+            )
+            return result.modified_count > 0, None
+        except Exception as e:
+            st.error(f"Error marking email as verified: {e}")
+            return False, f"Database error: {e}"
+    
+    def cleanup_expired_codes(self):
+        """Remove expired verification codes"""
+        if not self._ensure_connection():
+            return
+        
+        try:
+            import datetime
+            self.db.verification_codes.delete_many({
+                "expires_at": {"$lt": datetime.datetime.utcnow()}
+            })
+        except Exception as e:
+            st.error(f"Error cleaning up expired codes: {e}")
+
+    def delete_user_account(self, username, confirm_username):
+        """
+        Delete a user account and all associated data after confirmation
+        
+        Args:
+            username: Username of the account to delete
+            confirm_username: Confirmation username (must match username)
+        
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        # Verify confirmation
+        if username != confirm_username:
+            return False, "Username confirmation does not match. Account deletion cancelled."
+        
+        # Check if user exists
+        user_doc = self.find_user_by_username(username)
+        if not user_doc:
+            return False, "User not found."
+        
+        try:
+            # Start a transaction to ensure data consistency
+            with self.client.start_session() as session:
+                with session.start_transaction():
+                    # Delete user from users collection
+                    user_result = self.users_collection.delete_one(
+                        {"username": username}, 
+                        session=session
+                    )
+                    
+                    if user_result.deleted_count == 0:
+                        session.abort_transaction()
+                        return False, "Failed to delete user account."
+                    
+                    # Delete associated courses from courses database
+                    # We need to access the courses database
+                    courses_db = self.client["learnify_courses"]  # Course database name
+                    courses_collection = courses_db["courses"]
+                    user_courses_collection = courses_db["user_courses"]
+                    
+                    # Delete all courses created by this user
+                    courses_result = courses_collection.delete_many(
+                        {"creator": username, "is_guest": False}, 
+                        session=session
+                    )
+                    
+                    # Delete user course associations
+                    user_courses_result = user_courses_collection.delete_many(
+                        {"user_identifier": username}, 
+                        session=session
+                    )
+                    
+                    # Delete verification codes (if any) - cleanup orphaned verification entries
+                    self.users_collection.delete_many(
+                        {"username": username, "verification_code": {"$exists": True}}, 
+                        session=session
+                    )
+                    
+                    # Commit the transaction
+                    session.commit_transaction()
+                    
+                    return True, f"Account deleted successfully. Removed {courses_result.deleted_count} courses and {user_courses_result.deleted_count} course associations."
+                    
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error deleting account: {e}")
+            return False, f"Database error: {e}"
+        except (ValueError, TypeError, AttributeError) as e:
+            st.error(f"Error deleting account: {e}")
+            return False, f"Error during account deletion: {e}"
+        except Exception as e:  # pylint: disable=broad-except
+            st.error(f"Unexpected error deleting account: {e}")
+            return False, f"An unexpected error occurred: {e}"
 
 # Example usage (optional, for testing this file directly)
 if __name__ == '__main__':
@@ -334,6 +530,23 @@ if __name__ == '__main__':
                         st.info("No details provided to update.")
                 else:
                     st.error("Username is required to update details.")
+        
+        # Test Delete User Account
+        with st.form("delete_account_form"):
+            st.subheader("Delete User Account")
+            delete_username = st.text_input("Username to delete")
+            confirm_username = st.text_input("Confirm Username", placeholder="Type your username to confirm")
+            submitted_delete = st.form_submit_button("Delete Account")
+
+            if submitted_delete:
+                if delete_username and confirm_username:
+                    success, message = manager.delete_user_account(delete_username, confirm_username)
+                    if success:
+                        st.success(message)
+                    else:
+                        st.error(message)
+                else:
+                    st.error("Username and confirmation are required.")
     else:
         st.error("Failed to initialize MongoAuthManager. Cannot run tests.")
 
