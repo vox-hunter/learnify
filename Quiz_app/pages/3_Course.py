@@ -368,18 +368,19 @@ def load_course_data(course_id):
         return None
 
 def show_score_display(course_data):
-    """Display current score"""
+    """Display simple progress bar"""
     total_questions = count_total_questions(course_data)
     current_score = st.session_state.get('current_score', 0)
     
     if total_questions > 0:
-        score_percentage = (current_score / total_questions) * 100
-        st.markdown(f"""
-        <div class="score-container">
-            <h3>📊 Your Progress</h3>
-            <h2>{current_score}/{total_questions} ({score_percentage:.1f}%)</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        # Calculate progress as a value between 0 and 1
+        progress_value = current_score / total_questions
+        
+        # Show simple progress bar without text
+        st.progress(progress_value)
+    else:
+        # Show empty progress bar if no questions
+        st.progress(0)
 
 def count_total_questions(course_data):
     """Count total questions in course - optimized version"""
