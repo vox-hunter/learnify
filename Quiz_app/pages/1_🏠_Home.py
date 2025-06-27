@@ -61,10 +61,6 @@ try:
 except Exception:
     cookies_ready = False
 
-if not cookies_ready:
-    st.warning("Cookies are initializing... Some features may be limited.")
-    # Don't stop - allow the page to continue with limited functionality
-
 AUTH_COOKIE_NAME = "username" # Consistent cookie name
 GUEST_COURSES_COOKIE_NAME = "guest_courses_count" # Cookie to track guest course generation
 

@@ -48,10 +48,6 @@ try:
 except Exception:
     cookies_ready = False
 
-if not cookies_ready:
-    st.warning("Cookies are initializing... Authentication features may be limited.")
-    # Don't stop - allow the page to continue with limited functionality
-
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
 
 # --- Authentication State Management ---

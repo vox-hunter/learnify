@@ -75,9 +75,6 @@ if MONGO_AVAILABLE:
             cookies_ready = cookies.ready()
         except Exception:
             cookies_ready = False
-    
-    if not cookies_ready:
-        st.warning("Cookies are initializing... Authentication features may be limited.")
 
     AUTH_COOKIE_NAME = "username"
 
