@@ -12,15 +12,19 @@ st.set_page_config(
     page_title="AI Loom",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded"  # Set to expanded - we'll handle collapse via CSS
 )
 
-# --- Inject Loading Animation FIRST ---
-from loading_animation import inject_loading_screen, show_loading_status
-inject_loading_screen()
+# --- Start Loading Animation ---
+from streamlit_loading import start_background_loading, complete_loading, ensure_loading_cleanup
 
-# Show initial loading status
-show_loading_status("Initializing AI Loom...")
+# Check if loading was already completed (for page refreshes/navigation)
+if not st.session_state.get('app_loading_complete', False):
+    # Start loading animation in background
+    start_background_loading()
+else:
+    # Ensure loading UI is cleaned up on all pages
+    ensure_loading_cleanup()
 
 # --- Custom CSS to hide navigation links ---
 st.markdown("""
@@ -36,18 +40,13 @@ st.markdown("""
 # Add parent directory to path to allow imports from Quiz_app
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Show loading progress
-show_loading_status("Loading authentication system...", 20)
-
 try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager
     from streamlit_cookies_manager import EncryptedCookieManager
     MONGO_AVAILABLE = True
-    show_loading_status("Database connection established...", 40)
 except ImportError:
     MONGO_AVAILABLE = False
-    show_loading_status("Running in local mode...", 40)
 
 # --- Auth & Cookie Management (No UI Rendering) ---
 def initialize_cookie_manager():
@@ -66,7 +65,6 @@ def initialize_cookie_manager():
         return None
 
 if MONGO_AVAILABLE:
-    show_loading_status("Initializing cookies and session...", 60)
     cookies = initialize_cookie_manager()
     st.session_state.cookies = cookies
 
@@ -92,7 +90,6 @@ if MONGO_AVAILABLE:
         return st.session_state.auth_manager
 
     manager = get_auth_manager()
-    show_loading_status("Authentication ready...", 80)
     
     def auto_login_from_cookie():
         if st.session_state.get('authentication_status'):
@@ -222,8 +219,11 @@ with st.sidebar:
                 st.switch_page("pages/2_🔐_Login.py")
 
 # --- Run Page ---
-show_loading_status("Finalizing interface...", 100)
 pg.run()
+
+# Complete loading after everything is initialized
+if not st.session_state.get('app_loading_complete', False):
+    complete_loading()
 
 # Mark loading as complete
 st.session_state['app_fully_loaded'] = True

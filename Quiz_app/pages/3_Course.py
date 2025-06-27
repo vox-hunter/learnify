@@ -9,6 +9,13 @@ import re
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Ensure loading UI is cleaned up
+try:
+    from streamlit_loading import ensure_loading_cleanup
+    ensure_loading_cleanup()
+except ImportError:
+    pass
+
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
 except ImportError:

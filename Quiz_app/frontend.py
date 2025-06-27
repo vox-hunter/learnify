@@ -17,6 +17,10 @@ except ImportError:
 # Import loading animation utilities if available
 try:
     from loading_animation import show_loading_status
+    from streamlit_loading import ensure_loading_cleanup
+    
+    # Ensure loading UI is cleaned up
+    ensure_loading_cleanup()
 except ImportError:
     def show_loading_status(message, progress=None):
         pass  # Fallback if loading animation is not available
