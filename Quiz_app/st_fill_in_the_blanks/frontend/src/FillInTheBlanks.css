@@ -9,6 +9,8 @@
     width: 100%;
     margin-bottom: 12px;
     border-radius: 15px;
+    box-sizing: border-box; /* Ensure proper box model */
+    overflow: visible; /* Prevent border clipping */
 }
 
 .question-display {
@@ -268,5 +270,7 @@
 .fill-in-the-blanks-container.completed {
     border: 2px solid rgba(0, 255, 0, 0.3);
     background: linear-gradient(135deg, rgba(0, 255, 0, 0.05), rgba(0, 200, 0, 0.02));
+    margin: 2px; /* Add margin to prevent border clipping */
+    box-sizing: border-box; /* Ensure border is included in element's total width */
 }
 

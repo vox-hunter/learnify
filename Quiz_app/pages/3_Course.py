@@ -730,16 +730,19 @@ def display_question(question_item, section_key, question_idx):
                     }
                     st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
                     st.session_state.fitb_answered = True
-                    st.rerun()  # Rerun to update UI and disable component
-              # Display feedback for fill-in-the-blank questions
+                    st.rerun()  # Rerun to update UI and disable component              # Display feedback for fill-in-the-blank questions
             answer_data = st.session_state.answers.get(question_key, {})
             if answer_data:  # If there's any answer data (correct or incorrect)
                 feedback_text = st.session_state.feedback.get(question_key)
                 if feedback_text:
-                    if "Correct!" in feedback_text:
-                        st.success(f"✅ {feedback_text}")
-                    else:
-                        st.error(f"❌ {feedback_text}")
+                    # Mark that feedback has been displayed for this question to prevent duplicate display
+                    feedback_displayed_key = f"{question_key}_feedback_displayed"
+                    if feedback_displayed_key not in st.session_state:
+                        st.session_state[feedback_displayed_key] = True
+                        if "Correct!" in feedback_text:
+                            st.success(f"✅ {feedback_text}")
+                        else:
+                            st.error(f"❌ {feedback_text}")
     
     elif question_type == "match":
         # Get the matching items from the question's answer
@@ -950,28 +953,30 @@ def display_question(question_item, section_key, question_idx):
                  on_change=handle_answer_submission,
                  args=(question_key, answer, question_type, None),
                  disabled=is_answered
-                 )    
-    # Display feedback if answered
+                 )      # Display feedback if answered
     if is_answered: # This relies on checked_answers[question_key] being True
-        feedback_text = st.session_state.feedback.get(question_key)
-        if feedback_text: # Check if feedback text exists and is not empty
-            if "Correct!" in feedback_text:
-                st.success(f"✅ {feedback_text}")
-            elif feedback_text.startswith("Incorrect."):
-                # Extract the part after "Incorrect. " to check for errors vs. partial scores
-                detailed_feedback = feedback_text[len("Incorrect. "):]
-                if any(err_keyword in detailed_feedback.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
-                    st.error(f"❌ {feedback_text}") # e.g., "Incorrect. Error: Malformed data."
+        # Check if feedback has already been displayed (e.g., by fill-in-the-blank component)
+        feedback_displayed_key = f"{question_key}_feedback_displayed"
+        if feedback_displayed_key not in st.session_state:
+            feedback_text = st.session_state.feedback.get(question_key)
+            if feedback_text: # Check if feedback text exists and is not empty
+                if "Correct!" in feedback_text:
+                    st.success(f"✅ {feedback_text}")
+                elif feedback_text.startswith("Incorrect."):
+                    # Extract the part after "Incorrect. " to check for errors vs. partial scores
+                    detailed_feedback = feedback_text[len("Incorrect. "):]
+                    if any(err_keyword in detailed_feedback.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
+                        st.error(f"❌ {feedback_text}") # e.g., "Incorrect. Error: Malformed data."
+                    else:
+                        # For partial scores or simple incorrect messages without specific error keywords
+                        st.info(f"ℹ️ {feedback_text}") # e.g., "Incorrect. You matched 2 out of 3." or "Incorrect. Your answer: X, Correct answer: Y"
+                elif any(err_keyword in feedback_text.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
+                    # For direct error messages not prepended with "Incorrect."
+                    st.error(f"❌ {feedback_text}")
                 else:
-                    # For partial scores or simple incorrect messages without specific error keywords
-                    st.info(f"ℹ️ {feedback_text}") # e.g., "Incorrect. You matched 2 out of 3." or "Incorrect. Your answer: X, Correct answer: Y"
-            elif any(err_keyword in feedback_text.lower() for err_keyword in ["error", "unexpected", "invalid", "malformed"]):
-                # For direct error messages not prepended with "Incorrect."
-                st.error(f"❌ {feedback_text}")
-            else:
-                # Fallback for any other non-empty feedback, treat as informational
-                # This could catch custom feedback messages that don't fit the patterns above
-                st.info(f"ℹ️ {feedback_text}")
+                    # Fallback for any other non-empty feedback, treat as informational
+                    # This could catch custom feedback messages that don't fit the patterns above
+                    st.info(f"ℹ️ {feedback_text}")
         # else: No feedback message was found in session state for this question_key.
         # If is_answered is True but feedback_text is None or empty, nothing will be shown here.
         # This would be a state inconsistency if it occurs.
