@@ -1,196 +1,414 @@
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import {
   Streamlit,
   withStreamlitConnection,
 } from "streamlit-component-lib"
 import "./FillInTheBlanks.css"
 
+interface BlankState {
+  answer: string;
+  userInput: string;
+  isCorrect: boolean;
+  isAttempted: boolean;
+  isRevealed: boolean;
+}
+
 interface FillInTheBlanksProps {
   args: {
     question_text_full: string
-    correctAnswer: string // This prop now holds the actual correct answer string
-    default_value?: string
+    correctAnswer: string | string[] // Can be single answer or array for multiple blanks
+    default_value?: string | string[]
     disabled?: boolean
   }
 }
 
 const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
-  // Debug logging
-  console.log("FillInTheBlanks component props:", props);
-  console.log("Args received:", props.args);
+  // Initialize all hooks first (React rules requirement)
+  const [blanks, setBlanks] = useState<BlankState[]>([]);
+  const [currentBlankIndex, setCurrentBlankIndex] = useState(0);
+  const [allCompleted, setAllCompleted] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [hasError, setHasError] = useState<string | null>(null);
   
-  const { question_text_full, correctAnswer, default_value, disabled } = props.args
-  
-  // Type checking and validation with debug output
-  console.log("question_text_full type:", typeof question_text_full, "value:", question_text_full);
-  console.log("correctAnswer type:", typeof correctAnswer, "value:", correctAnswer);
-  
-  // Ensure we have valid string values
-  const safeQuestionText = typeof question_text_full === 'string' ? question_text_full : String(question_text_full || "");
-  const safeCorrectAnswer = typeof correctAnswer === 'string' ? correctAnswer : String(correctAnswer || "");
-  
-  console.log("Safe values - question:", safeQuestionText, "answer:", safeCorrectAnswer);
-  const [inputValue, setInputValue] = useState<string>(default_value || "")
-  const [isCorrect, setIsCorrect] = useState<boolean>(false)
-  const [isLocked, setIsLocked] = useState<boolean>(disabled || false)
-  const [isWrong, setIsWrong] = useState<boolean>(false) // New state for wrong answers
-  const inputRef = useRef<HTMLInputElement>(null) // For the input element itself
-  const componentRootRef = useRef<HTMLDivElement>(null); // Ref for the root div of the component
-  let hasRenderedFirstInput = false;// Effect to set the component's height in Streamlit with a minimum height to ensure visibility
+  const componentRootRef = useRef<HTMLDivElement>(null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Process props safely using useMemo
+  const { safeQuestionText, safeAnswers, isDisabled } = useMemo(() => {
+    let questionText = "";
+    let answers: string[] = [];
+    let disabled = false;
+    
+    try {
+      const { question_text_full, correctAnswer, disabled: propDisabled } = props.args || {};
+      
+      // Extract disabled state
+      disabled = Boolean(propDisabled);
+      
+      // Enhanced type safety for question text
+      if (question_text_full != null) {
+        if (typeof question_text_full === 'string') {
+          questionText = question_text_full;
+        } else {
+          console.warn("Converting non-string question_text_full:", typeof question_text_full, question_text_full);
+          questionText = String(question_text_full);
+        }
+      }
+      
+      // Enhanced type safety for answers
+      if (correctAnswer != null) {
+        if (Array.isArray(correctAnswer)) {
+          answers = correctAnswer.map(ans => {
+            if (ans != null) {
+              if (typeof ans === 'string') {
+                return ans;
+              } else {
+                console.warn("Converting non-string answer:", typeof ans, ans);
+                return String(ans);
+              }
+            }
+            return "";
+          });        } else {
+          if (typeof correctAnswer === 'string') {
+            answers = [correctAnswer];
+          } else {
+            answers = [String(correctAnswer)];
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error processing component props:", error);
+      setHasError(`Error processing props: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    return { safeQuestionText: questionText, safeAnswers: answers, isDisabled: disabled };
+  }, [props.args]);  // Validate data and set error if needed
+  useEffect(() => {
+    if (!safeQuestionText || safeAnswers.length === 0) {
+      setHasError(`Invalid fill-in-the-blanks data. Question: '${safeQuestionText}', Answers: ${JSON.stringify(safeAnswers)}`);
+    } else {
+      setHasError(null);
+    }
+  }, [safeQuestionText, safeAnswers]);
+  // Initialize blanks from answers
+  useEffect(() => {
+    if (safeAnswers.length > 0 && !hasError) {
+      const initialBlanks = safeAnswers.map((answer: string) => {
+        if (isDisabled) {
+          // If component is disabled, pre-fill with correct answers and mark as correct
+          return {
+            answer: answer.trim(),
+            userInput: answer.trim(),
+            isCorrect: true,
+            isAttempted: true,
+            isRevealed: false
+          };
+        } else {
+          // Normal initialization for active component
+          return {
+            answer: answer.trim(),
+            userInput: "",
+            isCorrect: false,
+            isAttempted: false,
+            isRevealed: false
+          };
+        }
+      });
+      setBlanks(initialBlanks);
+      setCurrentBlankIndex(0);
+      setAllCompleted(isDisabled); // If disabled, mark as completed
+      setShowFeedback(false);
+      inputRefs.current = new Array(initialBlanks.length).fill(null);
+    }
+  }, [safeAnswers, hasError, isDisabled]);
+
+  // Set component height
   useEffect(() => {
     if (componentRootRef.current) {
-      // Calculate height based on content with a minimum of 40px to prevent cutting off
-      const contentHeight = Math.max(componentRootRef.current.scrollHeight, 40);
-      // Add some extra padding to ensure visibility
-      Streamlit.setFrameHeight(contentHeight + 10);
+      const contentHeight = Math.max(componentRootRef.current.scrollHeight, 80);
+      Streamlit.setFrameHeight(contentHeight + 20);
     }
-  }, [safeQuestionText, safeCorrectAnswer, default_value, disabled, inputValue]); // Dependencies that affect height
-  // Effect to check if answer is correct
-  useEffect(() => {
-    const trimmedInput = inputValue.trim().toLowerCase()
-    const trimmedAnswer = safeCorrectAnswer.trim().toLowerCase()
-    const correct = trimmedInput === trimmedAnswer && trimmedInput.length > 0
-    
-    console.log("Answer check:", {
-      input: trimmedInput,
-      expected: trimmedAnswer,
-      isCorrect: correct
-    })
-    
-    setIsCorrect(correct)
-    
-    if (correct && !isLocked) {
-      console.log("Answer is correct! Locking input...")
-      setIsLocked(true)
-      setIsWrong(false) // Clear wrong state if correct
-      // Send success signal to Streamlit
-      Streamlit.setComponentValue({
-        value: inputValue,
-        isCorrect: true,
-        isWrong: false,
-        action: 'correct_answer'
-      })
-    }
-  }, [inputValue, safeCorrectAnswer, isLocked])  // Update locked state when disabled prop changes
-  useEffect(() => {
-    setIsLocked(disabled || false)
-    if (disabled) {
-      setIsWrong(false) // Clear wrong state when disabled externally
-    }
-  }, [disabled])
+  }, [safeQuestionText, safeAnswers, blanks, showFeedback]);
 
-  // Update internal state if default_value prop changes (e.g., from Streamlit state)
-  useEffect(() => {
-    if (default_value !== undefined && default_value !== inputValue) {
-      setInputValue(default_value)
-    }    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [default_value])
-    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (isLocked) return // Don't allow changes if locked
-    
-    const newValue = event.target.value
-    console.log("Input changed:", newValue)
-    setInputValue(newValue)
-    
-    // Clear wrong state when user starts typing again
-    if (isWrong) {
-      setIsWrong(false)
-    }
-    
-    // Send value to Streamlit on every keystroke for real-time checking
-    Streamlit.setComponentValue({
-      value: newValue,
-      isCorrect: false,
-      isWrong: false,
-      action: 'typing'
-    })
-  }
+  // Return error state if there's an error
+  if (hasError) {
+    return (
+      <div style={{ color: 'red', padding: '10px', border: '1px solid red', borderRadius: '4px' }}>
+        <strong>Fill-in-the-blanks component error:</strong>
+        <br />
+        {hasError}
+        <br />
+        <small>Props: {JSON.stringify(props, null, 2)}</small>
+      </div>
+    );
+  }  // Check if current blank is correct
+  const checkCurrentBlank = (overrideValue?: string) => {
+    if (currentBlankIndex >= blanks.length || allCompleted || isDisabled) return;
 
-  const handleBlur = () => {
-    if (!isLocked) {
-      Streamlit.setComponentValue({
-        value: inputValue,
-        isCorrect: isCorrect,
-        isWrong: isWrong,
-        action: 'blur'
-      })
-    }
-  }
-
-  // Handle key presses, particularly the Enter key for "give up" functionality
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      console.log("Enter pressed - giving up or confirming")
-      if (!isCorrect) {
-        // Mark as wrong and lock the input
-        console.log("Answer is wrong! Marking as wrong and locking...")
-        setIsWrong(true)
-        setIsLocked(true)
+    const currentBlank = blanks[currentBlankIndex];
+    // Use override value if provided (for auto-check), otherwise use current state
+    const inputValue = overrideValue !== undefined ? overrideValue : currentBlank.userInput;
+    const userAnswer = inputValue.trim().toLowerCase();
+    const correctAnswer = currentBlank.answer.toLowerCase();
+    const isCorrect = userAnswer === correctAnswer;    // Remove debug logging
+    setBlanks(prev => {
+      const newBlanks = [...prev];
+      newBlanks[currentBlankIndex] = {
+        ...currentBlank,
+        userInput: inputValue, // Use the actual input value, not just currentBlank.userInput
+        isCorrect,
+        isAttempted: true,
+        isRevealed: false
+      };
+      
+      // Check if this was the last blank to complete
+      const updatedBlanks = newBlanks;
+      const hasUnatttempted = updatedBlanks.some(blank => !blank.isAttempted);
+      
+      // Calculate the correct score immediately with the updated blanks
+      const allCorrect = updatedBlanks.every(blank => blank.isCorrect);
+      const correctCount = updatedBlanks.filter(blank => blank.isCorrect).length;
+        // Remove debug logging
+      
+        // Schedule the next action after state update
+      if (!hasUnatttempted) {
+        setAllCompleted(true);
+        
+        // Use the pre-calculated values to ensure accuracy
         Streamlit.setComponentValue({
-          value: inputValue,
-          isCorrect: false,
-          isWrong: true,
-          action: 'give_up'
-        })
-      }
-      // Prevent default behavior (like form submission)
-      event.preventDefault()
-    }
-  }
-  // Regex to find sequences of 3 or more underscores
-  const BLANK_PLACEHOLDER_REGEX = /(_{3,})/g; // Keep the 'g' flag to find all occurrences
-  
-  // Safely split the question text
-  const parts = safeQuestionText.split(BLANK_PLACEHOLDER_REGEX);
-  console.log("Split parts:", parts);
-
-  // The input field's maxLength will be based on the correctAnswer's length.
-  // This is a simplification assuming one blank. For multiple, this would need adjustment.
-  const answerLength = safeCorrectAnswer ? safeCorrectAnswer.length : 10; // Default length if not specified
-  const inputMaxLength = Math.max(1, answerLength);
-  // Calculate the width of the placeholder text (underscores)
-  // Use the original underscores from the question, not generated ones
-  let originalBlankText = "___"; // Default fallback
-  const blankMatch = safeQuestionText.match(BLANK_PLACEHOLDER_REGEX);
-  if (blankMatch && blankMatch[0]) {
-    originalBlankText = blankMatch[0]; // Use the actual underscores from the question
-  }
-  const placeholderTextForSizing = originalBlankText;
-  console.log("Original blank text:", originalBlankText);  console.log("Placeholder text for sizing:", placeholderTextForSizing);
-  
-  return (
-    <div ref={componentRootRef} className={`fill-in-the-blanks-container ${isLocked ? 'disabled' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}>
-      {parts.map((part, index) => {
-        if (BLANK_PLACEHOLDER_REGEX.test(part)) {
-          BLANK_PLACEHOLDER_REGEX.lastIndex = 0; // Reset regex state for next test/exec
-          if (!hasRenderedFirstInput) {
-            hasRenderedFirstInput = true;
-            return (
-              <span key={index} className={`blank-wrapper ${isCorrect ? 'correct' : ''} ${isLocked ? 'locked' : ''} ${isWrong ? 'wrong' : ''}`}>
-                <span className="blank-placeholder-text">{placeholderTextForSizing}</span>
-                <input
-                  type="text"
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  disabled={isLocked}
-                  maxLength={inputMaxLength}
-                  className={`blank-input-overlay ${isCorrect ? 'correct' : ''} ${isLocked ? 'locked' : ''} ${isWrong ? 'wrong' : ''}`}
-                  placeholder=""
-                  aria-label={`Fill in the blank for: ${parts[index-1] || ''}`}
-                />
-              </span>
-            );
-          } else {
-            // For subsequent blanks, render them as static text (styled underscores)
-            return <span key={index} className="blank-placeholder-text">{part}</span>;
-          }
-        } else {
-          return <span key={index}>{part}</span>;
+          value: updatedBlanks.map(blank => blank.userInput || blank.answer),
+          isCorrect: allCorrect,
+          correctCount: correctCount,
+          totalBlanks: updatedBlanks.length,
+          action: 'question_complete'
+        });
+      } else {
+        // Find next unattempted blank
+        const nextIndex = updatedBlanks.findIndex(blank => !blank.isAttempted);
+        if (nextIndex !== -1) {
+          setCurrentBlankIndex(nextIndex);
+          // Focus next input
+          setTimeout(() => {
+            if (inputRefs.current[nextIndex]) {
+              inputRefs.current[nextIndex]?.focus();
+            }
+          }, 100);
         }
-      })}
+      }
+      
+      return newBlanks;
+    });
+
+    if (isCorrect) {
+      setFeedbackMessage("✅ Correct!");
+    } else {
+      setFeedbackMessage(`❌ Incorrect. The answer was: ${currentBlank.answer}`);
+    }
+    
+    setShowFeedback(true);
+    setTimeout(() => {
+      setShowFeedback(false);
+    }, isCorrect ? 800 : 1500); // Shorter feedback display for correct answers
+  };  // Give up on current blank
+  const giveUpCurrentBlank = () => {
+    if (currentBlankIndex >= blanks.length || allCompleted || isDisabled) return;
+
+    const currentBlank = blanks[currentBlankIndex];    setBlanks(prev => {
+      const newBlanks = [...prev];      newBlanks[currentBlankIndex] = {
+        ...currentBlank,
+        isCorrect: false,
+        isAttempted: true,
+        isRevealed: true,
+        userInput: currentBlank.userInput // Keep the user's input, we'll show the correct answer via isRevealed
+      };
+      
+      // Check if this was the last blank to complete
+      const updatedBlanks = newBlanks;
+      const hasUnatttempted = updatedBlanks.some(blank => !blank.isAttempted);
+      
+      // Calculate the correct score immediately with the updated blanks
+      const allCorrect = updatedBlanks.every(blank => blank.isCorrect);
+      const correctCount = updatedBlanks.filter(blank => blank.isCorrect).length;
+        // Remove debug logging
+      
+        // Schedule the next action after state update
+      if (!hasUnatttempted) {
+        setAllCompleted(true);
+        
+        // Use the pre-calculated values to ensure accuracy
+        Streamlit.setComponentValue({
+          value: updatedBlanks.map(blank => blank.userInput || blank.answer),
+          isCorrect: allCorrect,
+          correctCount: correctCount,
+          totalBlanks: updatedBlanks.length,
+          action: 'question_complete'
+        });
+      } else {
+        // Find next unattempted blank
+        const nextIndex = updatedBlanks.findIndex(blank => !blank.isAttempted);
+        if (nextIndex !== -1) {
+          setCurrentBlankIndex(nextIndex);
+          // Focus next input
+          setTimeout(() => {
+            if (inputRefs.current[nextIndex]) {
+              inputRefs.current[nextIndex]?.focus();
+            }
+          }, 100);
+        }
+      }
+      
+      return newBlanks;
+    });
+
+    setFeedbackMessage(`💡 The answer was: ${currentBlank.answer}`);
+    setShowFeedback(true);
+    setTimeout(() => {
+      setShowFeedback(false);
+    }, 2000);
+  };  // Handle input change for current blank
+  const handleInputChange = (value: string) => {
+    if (allCompleted || isDisabled) return;
+
+    setBlanks(prev => {
+      const newBlanks = [...prev];
+      if (newBlanks[currentBlankIndex]) {
+        newBlanks[currentBlankIndex] = {
+          ...newBlanks[currentBlankIndex],
+          userInput: value
+        };
+      }
+      return newBlanks;
+    });    // Auto-check answer as user types
+    const currentBlank = blanks[currentBlankIndex];
+    if (currentBlank) {
+      const userAnswer = value.trim().toLowerCase();
+      const correctAnswer = currentBlank.answer.toLowerCase();
+      const isMatch = userAnswer === correctAnswer;
+        // Remove debug logging
+      
+        if (isMatch) {
+        // Answer is correct! Auto-submit with a small delay to show the correct input
+        setTimeout(() => {
+          checkCurrentBlank(value); // Pass the actual typed value
+        }, 300);
+      }
+    }
+  };  // Handle key press
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !showFeedback) {
+      const currentBlank = blanks[currentBlankIndex];
+      if (currentBlank?.userInput.trim()) {
+        checkCurrentBlank();
+      }
+    } else if (event.key === 'Escape') {
+      // Allow users to give up with Escape key
+      giveUpCurrentBlank();
+    }
+  };
+
+  // Render the question with blanks
+  const renderQuestion = () => {
+    const BLANK_PLACEHOLDER_REGEX = /(_{3,})/g;
+    const parts = safeQuestionText.split(BLANK_PLACEHOLDER_REGEX);
+    let blankIndex = 0;
+
+    return parts.map((part: string, index: number) => {
+      if (BLANK_PLACEHOLDER_REGEX.test(part)) {
+        BLANK_PLACEHOLDER_REGEX.lastIndex = 0;
+          if (blankIndex < blanks.length) {
+          const blank = blanks[blankIndex];
+          const isCurrentBlank = blankIndex === currentBlankIndex && !allCompleted && !isDisabled;
+          const answerLength = Math.max(blank.answer.length, 3);
+            let displayValue = "";
+          let blankClass = "blank-wrapper";
+          
+          if (blank.isAttempted) {
+            if (blank.isCorrect) {
+              displayValue = blank.userInput || blank.answer; // Ensure we show the answer even if userInput is empty
+              blankClass += " correct";
+            } else if (blank.isRevealed) {
+              displayValue = blank.answer; // Show correct answer when revealed
+              blankClass += " revealed";
+            } else {
+              displayValue = blank.userInput;
+              blankClass += " incorrect";
+            }
+          } else if (isCurrentBlank) {
+            blankClass += " current";
+          } else {
+            blankClass += " pending";
+          }          // Remove debug logging
+
+          const element = (
+            <span key={index} className={blankClass}>
+              {blank.isAttempted ? (
+                <span 
+                  className="completed-blank"
+                  style={{ 
+                    minWidth: `${answerLength * 0.8}em`,
+                    display: 'inline-block',
+                    textAlign: 'center'
+                  }}
+                >
+                  {displayValue}
+                </span>              ) : isCurrentBlank ? (
+                <input
+                  ref={el => inputRefs.current[blankIndex] = el}
+                  type="text"
+                  value={blank.userInput}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className={`blank-input ${
+                    blank.userInput.trim().toLowerCase() === blank.answer.toLowerCase() 
+                      ? 'near-correct' 
+                      : ''
+                  }`}
+                  style={{ 
+                    width: `${Math.max(answerLength * 0.8, 5)}em`
+                  }}
+                  placeholder=""
+                  maxLength={answerLength + 5}
+                  autoFocus
+                  disabled={showFeedback || isDisabled}
+                />
+              ) : (
+                <span 
+                  className="pending-blank"
+                  style={{ 
+                    minWidth: `${answerLength * 0.8}em`,
+                    display: 'inline-block',
+                    textAlign: 'center'
+                  }}
+                >
+                  {'_'.repeat(answerLength)}
+                </span>
+              )}
+            </span>
+          );
+          
+          blankIndex++;
+          return element;
+        }
+      }
+      return <span key={index}>{part}</span>;    });
+  };
+
+  return (
+    <div ref={componentRootRef} className={`fill-in-the-blanks-container ${allCompleted ? 'completed' : ''}`}>
+      <div className="question-display">
+        {renderQuestion()}
+      </div>
+
+      {showFeedback && (
+        <div className="feedback-section">
+          <div className="feedback-message">{feedbackMessage}</div>
+        </div>
+      )}      {allCompleted && (
+        <div className="completion-section" style={{ display: 'none' }}>
+          {/* Completion message removed for cleaner UI */}
+        </div>
+      )}
     </div>
   )
 }

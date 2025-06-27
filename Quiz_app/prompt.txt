@@ -4,7 +4,7 @@ Please generate a JSON-formatted interactive course from this content using the 
 
 Split the content into logical sections and subsections when necessary. Subsections should be short and focused (~40–80 words) on one concept.
 
-For each section or subsection, include 0 to 3 quiz questions, depending on the complexity or relevance of the content.
+For each section or subsection, include 0 to 3 quiz questions relevant to that exact section or subsection, depending on the complexity or relevance of the content.
 
 Quiz questions should be varied in format: multiple_choice, fill_in_the_blank, match, or short_answer.
 
