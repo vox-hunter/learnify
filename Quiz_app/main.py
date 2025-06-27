@@ -15,6 +15,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- Inject Loading Animation FIRST ---
+from loading_animation import inject_loading_screen, show_loading_status
+inject_loading_screen()
+
+# Show initial loading status
+show_loading_status("Initializing AI Loom...")
+
 # --- Custom CSS to hide navigation links ---
 st.markdown("""
 <style>
@@ -29,13 +36,18 @@ st.markdown("""
 # Add parent directory to path to allow imports from Quiz_app
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Show loading progress
+show_loading_status("Loading authentication system...", 20)
+
 try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager
     from streamlit_cookies_manager import EncryptedCookieManager
     MONGO_AVAILABLE = True
+    show_loading_status("Database connection established...", 40)
 except ImportError:
     MONGO_AVAILABLE = False
+    show_loading_status("Running in local mode...", 40)
 
 # --- Auth & Cookie Management (No UI Rendering) ---
 def initialize_cookie_manager():
@@ -54,6 +66,7 @@ def initialize_cookie_manager():
         return None
 
 if MONGO_AVAILABLE:
+    show_loading_status("Initializing cookies and session...", 60)
     cookies = initialize_cookie_manager()
     st.session_state.cookies = cookies
 
@@ -79,6 +92,7 @@ if MONGO_AVAILABLE:
         return st.session_state.auth_manager
 
     manager = get_auth_manager()
+    show_loading_status("Authentication ready...", 80)
     
     def auto_login_from_cookie():
         if st.session_state.get('authentication_status'):
@@ -208,4 +222,8 @@ with st.sidebar:
                 st.switch_page("pages/2_🔐_Login.py")
 
 # --- Run Page ---
+show_loading_status("Finalizing interface...", 100)
 pg.run()
+
+# Mark loading as complete
+st.session_state['app_fully_loaded'] = True

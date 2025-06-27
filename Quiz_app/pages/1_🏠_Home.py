@@ -14,6 +14,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import loading animation utilities if available
+try:
+    from loading_animation import show_loading_status
+except ImportError:
+    def show_loading_status(message, progress=None):
+        pass  # Fallback if loading animation is not available
 
 try:
     from mongo_auth import MongoAuthManager
