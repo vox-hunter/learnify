@@ -158,8 +158,6 @@ pg = st.navigation([home_page, login_page, course_page])
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:
-    st.markdown("---")
-
     if st.session_state.get('authentication_status') and MONGO_AVAILABLE:
         st.header("Courses")
         course_manager = get_course_manager()
