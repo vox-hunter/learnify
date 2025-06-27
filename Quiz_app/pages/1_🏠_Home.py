@@ -376,13 +376,6 @@ def main():
                     st.switch_page("pages/2_🔐_Login.py")
         # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
 
-    with col3: # Logout button
-        if st.session_state.get('authentication_status'):
-            if st.button("🚪 Logout", key="top_nav_logout_btn", use_container_width=True):
-                # logout_user_session() # Use the centralized logout function in main.py
-                # This button is now decorative, logout is in the sidebar
-                pass
-        # If not authenticated, this column remains empty or could show a register link if col2 is for login
 
     # Main content container
     st.markdown('<div class="main-container">', unsafe_allow_html=True)

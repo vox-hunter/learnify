@@ -167,7 +167,58 @@ with st.sidebar:
                 st.error(error)
             
             if courses:
-                with st.container(height=400):
+                # Calculate dynamic height based on number of courses
+                num_courses = len(courses)
+                
+                # Each course item takes roughly 50px (button + spacing)
+                # Add some padding and account for menu items
+                base_height = num_courses * 50 + 20  # 20px for padding
+                
+                # Set minimum and maximum heights to keep it reasonable
+                min_height = 60   # Minimum for at least one course
+                max_height = 400  # Maximum to prevent overly tall sidebar
+                
+                # Use dynamic height, but only add container if more than 6 courses
+                dynamic_height = max(min_height, min(base_height, max_height))
+                
+                if num_courses > 6:
+                    # Use scrollable container for many courses
+                    with st.container(height=dynamic_height):
+                        for course in courses:
+                            course_id_val = course.get('_id') or course.get('id') or course.get('course_id')
+                            if not course_id_val:
+                                continue
+
+                            course_id = str(course_id_val)
+                            course_title = course.get('title', 'Untitled Course')
+                            
+                            col1, col2 = st.columns([0.8, 0.2])
+                            with col1:
+                                if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                                    st.session_state.current_course_id = course_id  # Store in session state
+                                    st.query_params.course_id = course_id
+                                    st.switch_page("pages/3_Course.py")
+                            with col2:
+                                with st.popover("⋮", use_container_width=True):
+                                    if st.button("Delete", key=f"delete_{course_id}", use_container_width=True):
+                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                        if success:
+                                            st.success("Course deleted.")
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                                    
+                                    is_public = course.get('is_public', False)
+                                    share_label = "Make Private" if is_public else "Make Public"
+                                    if st.button(share_label, key=f"share_{course_id}", use_container_width=True):
+                                        success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
+                                        if success:
+                                            st.success("Privacy updated.")
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                else:
+                    # No container needed for few courses - let them expand naturally
                     for course in courses:
                         course_id_val = course.get('_id') or course.get('id') or course.get('course_id')
                         if not course_id_val:
