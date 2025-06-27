@@ -1,3 +1,153 @@
+/* === GLOBAL LOADING ANIMATION === */
+/* This loading overlay covers the entire application until everything is loaded */
+.app-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #0a0014 0%, #1a0033 50%, #0a0014 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeOut 0.8s ease-in-out 0s 1 forwards;
+    animation-delay: 2s; /* Show for at least 2 seconds */
+}
+
+.app-loading-overlay.hide {
+    animation: fadeOut 0.8s ease-in-out 0s 1 forwards;
+    pointer-events: none;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    width: 80px;
+    height: 80px;
+    border: 4px solid rgba(157, 0, 255, 0.1);
+    border-top: 4px solid #9d00ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 24px;
+    box-shadow: 0 0 30px rgba(157, 0, 255, 0.3);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Loading text */
+.loading-text {
+    color: #9d00ff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(157, 0, 255, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.loading-subtext {
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 400;
+    text-align: center;
+    opacity: 0.8;
+    margin-bottom: 32px;
+}
+
+/* Progress bar */
+.loading-progress {
+    width: 300px;
+    height: 6px;
+    background: rgba(157, 0, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.loading-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #9d00ff, #ff6b6b, #9d00ff);
+    border-radius: 3px;
+    animation: loadingProgress 3s ease-in-out infinite;
+}
+
+@keyframes loadingProgress {
+    0% { width: 0%; transform: translateX(-100%); }
+    50% { width: 100%; transform: translateX(0%); }
+    100% { width: 100%; transform: translateX(100%); }
+}
+
+/* Floating particles */
+.loading-particles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.particle {
+    position: absolute;
+    background: #9d00ff;
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: float 6s ease-in-out infinite;
+}
+
+.particle:nth-child(1) { width: 8px; height: 8px; left: 10%; animation-delay: 0s; }
+.particle:nth-child(2) { width: 12px; height: 12px; left: 20%; animation-delay: 1s; }
+.particle:nth-child(3) { width: 6px; height: 6px; left: 30%; animation-delay: 2s; }
+.particle:nth-child(4) { width: 10px; height: 10px; left: 40%; animation-delay: 0.5s; }
+.particle:nth-child(5) { width: 8px; height: 8px; left: 50%; animation-delay: 1.5s; }
+.particle:nth-child(6) { width: 14px; height: 14px; left: 60%; animation-delay: 3s; }
+.particle:nth-child(7) { width: 6px; height: 6px; left: 70%; animation-delay: 2.5s; }
+.particle:nth-child(8) { width: 10px; height: 10px; left: 80%; animation-delay: 4s; }
+.particle:nth-child(9) { width: 8px; height: 8px; left: 90%; animation-delay: 1.2s; }
+
+@keyframes float {
+    0%, 100% { 
+        transform: translateY(100vh) scale(0); 
+        opacity: 0; 
+    }
+    10% { 
+        opacity: 0.6; 
+        transform: translateY(90vh) scale(1); 
+    }
+    90% { 
+        opacity: 0.6; 
+        transform: translateY(-10vh) scale(1); 
+    }
+}
+
+/* Hide main app content while loading */
+.app-loading .stApp > div:not(.app-loading-overlay) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Smooth transition when loading is complete */
+.app-loaded .stApp > div {
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+
+@keyframes fadeOut {
+    from { 
+        opacity: 1; 
+        visibility: visible; 
+    }
+    to { 
+        opacity: 0; 
+        visibility: hidden; 
+    }
+}
+
+/* === END GLOBAL LOADING ANIMATION === */
+
 .fill-in-the-blanks-container {
     display: block; /* Change to block for better layout with controls */
     padding: 16px;

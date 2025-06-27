@@ -14,6 +14,16 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import loading animation utilities if available
+try:
+    from loading_animation import show_loading_status
+    from streamlit_loading import ensure_loading_cleanup
+    
+    # Ensure loading UI is cleaned up on this page
+    ensure_loading_cleanup()
+except ImportError:
+    def show_loading_status(message, progress=None):
+        pass  # Fallback if loading animation is not available
 
 try:
     from mongo_auth import MongoAuthManager
@@ -50,10 +60,6 @@ try:
     cookies_ready = cookies is not None and cookies.ready()
 except Exception:
     cookies_ready = False
-
-if not cookies_ready:
-    st.warning("Cookies are initializing... Some features may be limited.")
-    # Don't stop - allow the page to continue with limited functionality
 
 AUTH_COOKIE_NAME = "username" # Consistent cookie name
 GUEST_COURSES_COOKIE_NAME = "guest_courses_count" # Cookie to track guest course generation
@@ -366,13 +372,6 @@ def main():
                     st.switch_page("pages/2_🔐_Login.py")
         # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
 
-    with col3: # Logout button
-        if st.session_state.get('authentication_status'):
-            if st.button("🚪 Logout", key="top_nav_logout_btn", use_container_width=True):
-                # logout_user_session() # Use the centralized logout function in main.py
-                # This button is now decorative, logout is in the sidebar
-                pass
-        # If not authenticated, this column remains empty or could show a register link if col2 is for login
 
     # Main content container
     st.markdown('<div class="main-container">', unsafe_allow_html=True)

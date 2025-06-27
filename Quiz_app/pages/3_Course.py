@@ -9,6 +9,13 @@ import re
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Ensure loading UI is cleaned up
+try:
+    from streamlit_loading import ensure_loading_cleanup
+    ensure_loading_cleanup()
+except ImportError:
+    pass
+
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
 except ImportError:
@@ -361,17 +368,73 @@ def load_course_data(course_id):
         return None
 
 def show_score_display(course_data):
-    """Display current score"""
+    """Display color-coded progress bar showing correct (green) and incorrect (red) answers"""
     total_questions = count_total_questions(course_data)
-    current_score = st.session_state.get('current_score', 0)
     
     if total_questions > 0:
-        score_percentage = (current_score / total_questions) * 100
-        st.markdown(f"""
-        <div class="score-container">
-            <h3>📊 Your Progress</h3>
-            <h2>{current_score}/{total_questions} ({score_percentage:.1f}%)</h2>
+        # Get current stats
+        correct_answers = st.session_state.get('current_score', 0)
+        answered_questions = len(st.session_state.get('checked_answers', {}))
+        incorrect_answers = answered_questions - correct_answers
+        unanswered_questions = total_questions - answered_questions
+        
+        # Calculate percentages
+        correct_pct = (correct_answers / total_questions) * 100
+        incorrect_pct = (incorrect_answers / total_questions) * 100
+        unanswered_pct = (unanswered_questions / total_questions) * 100
+        
+        # Create color-coded progress bar using HTML and CSS
+        progress_html = f"""
+        <div style="
+            width: 100%;
+            height: 25px;
+            background-color: #4a148c;
+            border-radius: 12px;
+            border: 1px solid #6a1b9a;
+            display: flex;
+            overflow: hidden;
+            margin: 10px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        ">
+            <div style="
+                width: {correct_pct}%;
+                background: linear-gradient(90deg, #28a745, #20c997);
+                height: 100%;
+                transition: width 0.3s ease;
+            "></div>
+            <div style="
+                width: {incorrect_pct}%;
+                background: linear-gradient(90deg, #dc3545, #e74c3c);
+                height: 100%;
+                transition: width 0.3s ease;
+            "></div>
+            <div style="
+                width: {unanswered_pct}%;
+                background-color: #4a148c;
+                height: 100%;
+                transition: width 0.3s ease;
+            "></div>
         </div>
+        """
+        
+        st.markdown(progress_html, unsafe_allow_html=True)
+    else:
+        # Show empty progress bar if no questions
+        st.markdown("""
+        <div style="
+            width: 100%;
+            height: 25px;
+            background-color: #4a148c;
+            border-radius: 12px;
+            border: 1px solid #6a1b9a;
+            margin: 10px 0;
+        "></div>
+        <div style="
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        ">No questions available</div>
         """, unsafe_allow_html=True)
 
 def count_total_questions(course_data):

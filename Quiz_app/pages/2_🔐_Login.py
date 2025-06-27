@@ -6,6 +6,13 @@ from streamlit_cookies_manager import EncryptedCookieManager
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+# Ensure loading UI is cleaned up
+try:
+    from streamlit_loading import ensure_loading_cleanup
+    ensure_loading_cleanup()
+except ImportError:
+    pass
+
 try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager, get_session_id
@@ -40,10 +47,6 @@ try:
     cookies_ready = cookies is not None and cookies.ready()
 except Exception:
     cookies_ready = False
-
-if not cookies_ready:
-    st.warning("Cookies are initializing... Authentication features may be limited.")
-    # Don't stop - allow the page to continue with limited functionality
 
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
 
