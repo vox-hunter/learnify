@@ -596,64 +596,111 @@ def display_question(question_item, section_key, question_idx):
                 st.session_state.feedback = {}            # Check if this question has been answered correctly
             answer_data = st.session_state.answers.get(question_key, {})
             is_correct = answer_data.get("is_correct", False)
-            
-            # Process the answer to ensure it's a string
+            is_answered = bool(answer_data)  # True if question has been answered (correctly or incorrectly)
+              # Process the answer to ensure it's a string
             correct_answer_for_component = answer
             if isinstance(answer, list) and len(answer) > 0:
                 correct_answer_for_component = str(answer[0])
             else:
                 correct_answer_for_component = str(answer)
-            
-            user_input = fill_in_the_blanks_input(
-                question_text_full=question_text_full, 
-                correctAnswer=correct_answer_for_component, 
-                key=component_instance_key,
-                disabled=is_correct  # Disable input if answer is correct
-            )
+              # Add debug output for component data
+            # Process the answer to ensure it's a string
+            user_input = None
+            component_error = None            
+            try:
+                user_input = fill_in_the_blanks_input(
+                    question_text_full=question_text_full, 
+                    correctAnswer=correct_answer_for_component,
+                    key=component_instance_key,
+                    disabled=is_answered  # Disable input if question has been answered
+                )
+            except Exception as e:
+                component_error = str(e)
+                st.error(f"❌ Fill-in-the-blanks component error: {component_error}")
+                st.info("🔄 Using fallback text input")
+                  # Fallback to standard text input
+                fallback_key = f"{component_instance_key}_fallback"
+                user_input = st.text_input(
+                    f"Fill in the blank: {question_text_full.replace('___', '_____')}",
+                    key=fallback_key,
+                    disabled=is_answered,
+                    help=f"Correct answer: {correct_answer_for_component}" if is_answered else None
+                )
               # Handle both string input and object input (for enhanced component behavior)
             current_answer = ""
             is_give_up_action = False
             is_correct_action = False
             is_wrong_action = False
-            
-            if isinstance(user_input, dict):
+              # Early exit if question is already answered to prevent infinite loops
+            if is_answered:
+                # Question already answered, don't process any new input
+                current_answer = ""
+                action = ""
+                is_give_up_action = False
+                is_completed_wrong = False
+                is_correct_action = False
+                is_wrong_action = False
+            elif isinstance(user_input, dict):
                 # Handle enhanced component return format
-                current_answer = user_input.get("value", "")
-                action = user_input.get("action", "")
-                is_give_up_action = action == "give_up"
-                is_correct_action = action == "correct_answer"
-                is_wrong_action = user_input.get("isWrong", False)
+                raw_value = user_input.get("value", "")
+                # Handle both string and list values from component
+                if isinstance(raw_value, list):
+                    current_answer = raw_value[0] if len(raw_value) > 0 else ""
+                else:
+                    current_answer = str(raw_value)
                 
-                # Debug info
-                if action not in ["typing", "blur"]:  # Don't spam logs for normal typing
-                    st.write(f"🔍 Debug: Action={action}, Answer='{current_answer}', Correct={user_input.get('isCorrect', False)}, Wrong={is_wrong_action}")
+                action = user_input.get("action", "")
+                component_says_correct = user_input.get("isCorrect", False)
+                is_give_up_action = action == "give_up"
+                is_completed_wrong = action == "question_complete" and not component_says_correct
+                is_correct_action = (action == "correct_answer" or action == "question_complete") and component_says_correct
+                is_wrong_action = user_input.get("isWrong", False)                # Debug info
+                # if action:  # Only show if there's an action
+                #     st.write(f"🔍 Debug: Action={action}, Raw Value={raw_value}, Answer='{current_answer}', Correct={user_input.get('isCorrect', False)}, Wrong={is_wrong_action}")
             elif isinstance(user_input, str):
-                # Fallback for standard text input
-                current_answer = user_input# Real-time checking as user types or on specific actions
-            if current_answer is not None:
+                # Fallback for standard text input or when component returns string
+                current_answer = user_input
+                action = ""
+                is_give_up_action = False
+                is_completed_wrong = False
+                is_correct_action = False
+                is_wrong_action = False
+            elif user_input is None:
+                current_answer = ""
+                action = ""
+                is_give_up_action = False
+                is_completed_wrong = False
+                is_correct_action = False
+                is_wrong_action = False
+            else:
+                st.warning(f"⚠️ Unexpected input type: {type(user_input)}, value: {user_input}")
+                current_answer = str(user_input) if user_input is not None else ""
+                action = ""
+                is_give_up_action = False
+                is_completed_wrong = False
+                is_correct_action = False
+                is_wrong_action = False
+            
+            # Real-time checking as user types or on specific actions
+            if current_answer is not None and isinstance(current_answer, str):
                 current_answer = current_answer.strip()
                 
                 # Handle answer format - extract from list if needed
                 correct_answer_str = answer
                 if isinstance(answer, list) and len(answer) > 0:
-                    correct_answer_str = str(answer[0])  # Take first element if it's a list
-                else:
+                    correct_answer_str = str(answer[0])  # Take first element if it's a list                else:
                     correct_answer_str = str(answer)
                 
-                answer_matches = current_answer.lower() == correct_answer_str.lower()
+                answer_matches = False
+                if isinstance(current_answer, str) and isinstance(correct_answer_str, str):
+                    answer_matches = current_answer.lower() == correct_answer_str.lower()
                 
-                # Enhanced debug output
-                st.write("🔍 **Answer Check Debug:**")
-                st.write(f"- User Answer: '{current_answer}' (length: {len(current_answer)})")
-                st.write(f"- Raw Answer Data: {answer} (type: {type(answer)})")
-                st.write(f"- Processed Correct Answer: '{correct_answer_str}' (length: {len(correct_answer_str)})")
-                st.write(f"- User Answer (lower): '{current_answer.lower()}'")
-                st.write(f"- Correct Answer (lower): '{correct_answer_str.lower()}'")
-                st.write(f"- Match Result: {answer_matches}")
-                st.write(f"- Action: {action if isinstance(user_input, dict) else 'string input'}")
+                # Only process specific component actions to avoid infinite loops
+                should_process = (isinstance(user_input, dict) and 
+                                action in ["give_up", "correct_answer", "question_complete"]) or isinstance(user_input, str)
                 
                 # If answer is correct and not already processed
-                if (answer_matches or is_correct_action) and not is_correct:
+                if should_process and (answer_matches or is_correct_action) and not is_correct:
                     # Mark as correct
                     if "answers" not in st.session_state:
                         st.session_state.answers = {}
@@ -667,8 +714,10 @@ def display_question(question_item, section_key, question_idx):
                     }
                     st.session_state.feedback[question_key] = "Correct! 🎉"
                     st.session_state.fitb_answered = True
-                    st.rerun()  # Immediate rerun for correct answers to update UI
-                  # Handle give up action                elif is_give_up_action and not is_correct:
+                      # Also update the local is_correct variable for immediate UI update
+                    is_correct = True
+                    st.rerun()  # Immediate rerun for correct answers to update UI                # Handle give up action or completed wrong answer
+                elif should_process and (is_give_up_action or is_completed_wrong) and not is_correct:
                     if "answers" not in st.session_state:
                         st.session_state.answers = {}
                     if "feedback" not in st.session_state:
@@ -680,8 +729,8 @@ def display_question(question_item, section_key, question_idx):
                         "question_type": question_type
                     }
                     st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
-                    # Use a flag instead of immediate rerun for performance
                     st.session_state.fitb_answered = True
+                    st.rerun()  # Rerun to update UI and disable component
               # Display feedback for fill-in-the-blank questions
             answer_data = st.session_state.answers.get(question_key, {})
             if answer_data:  # If there's any answer data (correct or incorrect)
@@ -901,8 +950,7 @@ def display_question(question_item, section_key, question_idx):
                  on_change=handle_answer_submission,
                  args=(question_key, answer, question_type, None),
                  disabled=is_answered
-                 )
-    
+                 )    
     # Display feedback if answered
     if is_answered: # This relies on checked_answers[question_key] being True
         feedback_text = st.session_state.feedback.get(question_key)
@@ -1027,31 +1075,9 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
     # Initialize session state for answer tracking if not already present
     if "answers" not in st.session_state:
         st.session_state.answers = {}
-    
-    # For fill-in-the-blank, the submitted answer comes from the component or text_input
+      # For fill-in-the-blank, skip this function as it's handled by dedicated component logic
     if question_type == "fill_in_the_blank":
-        if submitted_answer is None: # If not passed directly, get from component state
-            component_instance_key = f"fitb_input_{question_key}"
-            user_answer = st.session_state.get(component_instance_key, "").strip()
-        else:
-            user_answer = submitted_answer.strip()
-        
-        is_correct = user_answer.lower() == str(correct_answer).lower()
-        
-        # Provide immediate feedback for fill-in-the-blank
-        if is_correct:
-            st.session_state.feedback[question_key] = "Correct!"
-        else:
-            st.session_state.feedback[question_key] = f"Incorrect. The correct answer is: {correct_answer}"
-        
-        # Update answer tracking
-        st.session_state.answers[question_key] = {
-            "user_answer": user_answer,
-            "is_correct": is_correct,
-            "question_type": question_type
-        }
-        
-        return # Early return for fill-in-the-blank handling    # For other question types, proceed with existing logic
+        return # Let the custom component handle all fill-in-the-blank logic# For other question types, proceed with existing logic
     user_answer = st.session_state.get(question_key)
     
     if user_answer is None: 

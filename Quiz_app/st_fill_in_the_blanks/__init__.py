@@ -53,10 +53,8 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
     dict or str
         For multiple blanks: Returns a dict with 'value', 'isCorrect', 'correctCount', 'totalBlanks', 'action'
         For single blank: Returns the current text entered by the user in the blank.
-    """
-    # Validate input types and convert to appropriate formats
+    """    # Validate input types and convert to appropriate formats
     if not isinstance(question_text_full, str):
-        print(f"WARNING: question_text_full should be a string, got {type(question_text_full)}")
         question_text_full = str(question_text_full) if question_text_full else ""
     
     # Handle both single answer and multiple answers
@@ -64,15 +62,13 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
         answers_array = [str(ans) if ans else "" for ans in correctAnswer]
     else:
         if not isinstance(correctAnswer, str):
-            print(f"WARNING: correctAnswer should be a string or list, got {type(correctAnswer)}")
             correctAnswer = str(correctAnswer) if correctAnswer else ""
         answers_array = [correctAnswer]
     
     # Count blanks in question to determine if we have multiple blanks
     import re
     blank_count = len(re.findall(r'_{3,}', question_text_full))
-    is_multiple_blanks = blank_count > 1
-    
+    is_multiple_blanks = blank_count > 1    
     if _component_func is None:
         # Fallback to standard Streamlit text input when component build is not available
         if is_multiple_blanks:
@@ -89,8 +85,7 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
                 f"Fill in the blank: {question_text_full.replace('___', '_____')}",
                 value=default_value if isinstance(default_value, str) else "",
                 key=key,
-                disabled=disabled,
-                help=f"Correct answer: {answers_array[0]}" if disabled else None
+                disabled=disabled,                help=f"Correct answer: {answers_array[0]}" if disabled else None
             )
     else:
         try:
@@ -99,8 +94,7 @@ def fill_in_the_blanks_input(question_text_full, correctAnswer, key=None, defaul
                 correctAnswer=answers_array if is_multiple_blanks else answers_array[0],
                 key=key,
                 default=default_value,
-                disabled=disabled
-            )
+                disabled=disabled            )
             return component_value
         except Exception as e:
             # If component fails, fall back to text input

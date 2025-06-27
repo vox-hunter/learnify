@@ -423,8 +423,6 @@ def main():
                         if not file_content.startswith(b'%PDF'):
                             st.error("❌ Invalid PDF file format detected.")
                             uploaded_file = None
-                        else:
-                            st.info("📋 **Large file uploaded successfully!** Word count validation will be performed during course generation after compression.")
                     except Exception as e:
                         st.error(f"❌ Error reading PDF file: {str(e)}")
                         uploaded_file = None
