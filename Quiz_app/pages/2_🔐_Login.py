@@ -395,7 +395,7 @@ else: # Not authenticated, show login or registration
             elif st.session_state.registration_step == 'verify':
                 # Step 2: Verify email
                 st.info(f"Please enter the verification code sent to {st.session_state.registration_data.get('email', '')}")
-                
+                st.info("Please check your spam folder if you don't see it in your inbox.")
                 with st.form("verify_registration_form", clear_on_submit=False):
                     entered_code = st.text_input("Enter 6-digit verification code")
                     col1, col2 = st.columns(2)
@@ -459,6 +459,7 @@ else: # Not authenticated, show login or registration
                             )
                             if email_success:
                                 st.success("New verification code sent!")
+                                st.info("Please check your spam folder if you don't see it in your inbox.")
                             else:
                                 st.error(f"Failed to resend email: {email_message}")
                         else:

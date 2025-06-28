@@ -807,12 +807,15 @@ def display_course_completion_stats(course_data, course_id):
     st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("Go back to Home"):
-        st.session_state.course_finished = False
-        for key in list(st.session_state.keys()):
-            if key not in ['username', 'course_history', 'logged_in']:
-                del st.session_state[key]
-        initialize_session_state()
-        st.switch_page("pages/1_🏠_Home.py")
+        # Use session state to prevent double processing
+        if "going_home" not in st.session_state:
+            st.session_state["going_home"] = True
+            st.session_state.course_finished = False
+            for key in list(st.session_state.keys()):
+                if key not in ['username', 'course_history', 'logged_in', 'going_home']:
+                    del st.session_state[key]
+            initialize_session_state()
+            st.switch_page("pages/1_🏠_Home.py")
 
 def display_current_section(course_data, course_id):
     """Display the current section content"""
