@@ -270,6 +270,7 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
   const handleInputChange = (value: string) => {
     if (allCompleted || isDisabled) return;
 
+    // Update the current blank's input value immediately
     setBlanks(prev => {
       const newBlanks = [...prev];
       if (newBlanks[currentBlankIndex]) {
@@ -279,19 +280,19 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
         };
       }
       return newBlanks;
-    });    // Auto-check answer as user types
+    });
+
+    // Check if answer is correct after state update
     const currentBlank = blanks[currentBlankIndex];
     if (currentBlank) {
       const userAnswer = value.trim().toLowerCase();
       const correctAnswer = currentBlank.answer.toLowerCase();
-      const isMatch = userAnswer === correctAnswer;
-        // Remove debug logging
       
-        if (isMatch) {
-        // Answer is correct! Auto-submit with a small delay to show the correct input
+      if (userAnswer === correctAnswer && userAnswer.length > 0) {
+        // Answer is correct! Auto-submit with a small delay
         setTimeout(() => {
-          checkCurrentBlank(value); // Pass the actual typed value
-        }, 300);
+          checkCurrentBlank(value);
+        }, 500);
       }
     }
   };  // Handle key press
@@ -341,7 +342,7 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
           }          // Remove debug logging
 
           const element = (
-            <span key={index} className={blankClass}>
+            <span key={`blank_${blankIndex}`} className={blankClass}>
               {blank.isAttempted ? (
                 <span 
                   className="completed-blank"
@@ -354,9 +355,10 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
                   {displayValue}
                 </span>              ) : isCurrentBlank ? (
                 <input
+                  key={`input_${blankIndex}`}
                   ref={el => inputRefs.current[blankIndex] = el}
                   type="text"
-                  value={blank.userInput}
+                  value={blank.userInput || ''}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   className={`blank-input ${
@@ -391,7 +393,7 @@ const FillInTheBlanks: React.FC<FillInTheBlanksProps> = (props) => {
           return element;
         }
       }
-      return <span key={index}>{part}</span>;    });
+      return <span key={`text_${index}`}>{part}</span>;    });
   };
 
   return (
