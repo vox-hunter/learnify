@@ -3,7 +3,8 @@ import json
 import sys # Add sys import
 import os # Add os import
 import random
-import re
+import time
+import datetime
 
 # Add the parent directory (Quiz app) to sys.path to allow imports from it
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
@@ -18,10 +19,17 @@ except ImportError:
 
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
+    FILL_IN_BLANKS_AVAILABLE = True
 except ImportError:
-    st.error("Fill-in-the-blanks component not available")
+    FILL_IN_BLANKS_AVAILABLE = False
+    fill_in_the_blanks_input = None
+    st.warning("Fill-in-the-blanks component not available - using fallback text input")
     
-import local_backend
+try:
+    import local_backend
+except ImportError:
+    local_backend = None
+    st.warning("Local backend not available for AI validation")
 
 try:
     from mongo_course_manager import get_course_manager, get_session_id
@@ -50,9 +58,115 @@ def initialize_session_state():
         st.session_state.course_history = []
     if "current_course_id" not in st.session_state:
         st.session_state.current_course_id = None
+    if "course_finished" not in st.session_state:
+        st.session_state.course_finished = False
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = time.time()
+
+def reset_course_session_state():
+    """Reset course-specific session state when starting a new course"""
+    # Reset course progress data
+    st.session_state.current_section_index = 0
+    st.session_state.user_answers = {}
+    st.session_state.checked_answers = {}
+    st.session_state.current_score = 0
+    st.session_state.total_questions_in_course = 0
+    st.session_state.scored_correctly_keys = set()
+    st.session_state.feedback = {}
+    st.session_state.course_finished = False
+    st.session_state.start_time = time.time()
+    
+    # Clear any cached question counts
+    keys_to_remove = [key for key in st.session_state.keys() if str(key).startswith('total_questions_')]
+    for key in keys_to_remove:
+        del st.session_state[key]
 
 # Initialize session state
 initialize_session_state()
+
+def is_localhost():
+    """Check if the app is running on localhost."""
+    try:
+        # Get the server address from Streamlit's config
+        server_address = st.get_option('server.address')
+        
+        # Check if the address is localhost or the local IP
+        if server_address in ['localhost', '127.0.0.1', '0.0.0.0']:
+            return True
+            
+        # Fallback for other local IPs
+        import socket
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        
+        return server_address == local_ip
+    except Exception:
+        # If any error occurs, assume it's not localhost for safety
+        return False
+
+def is_admin_user():
+    """Check if admin features should be enabled for specific admin users."""
+    username = st.session_state.get('username', '')
+    email = st.session_state.get('email', '')
+    
+    admin_usernames = ["vox"]
+    admin_emails = ["vidyutsanthosh4@gmail.com"]
+    
+    return username in admin_usernames or email in admin_emails
+
+def mark_all_section_questions_correct(course_data, section_index, course_id):
+    """Mark all questions in a section as correct (admin function)"""
+    if section_index >= len(course_data):
+        return False
+    
+    section_key = f"course_{course_id}_sec_{section_index}"
+    section_data = course_data[section_index]
+    
+    # Mark main section questions as correct
+    _mark_section_questions_correct_recursive(section_data, section_key)
+    
+    return True
+
+def _mark_section_questions_correct_recursive(section_data, section_key):
+    """Recursively mark all questions in a section and its subsections as correct"""
+    # Check if section_data is a Pydantic model or dict
+    is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+    
+    if is_pydantic_model:
+        questions = getattr(section_data, "quiz", [])
+        subsections = getattr(section_data, "subsections", [])
+    else:
+        questions = section_data.get('quiz', section_data.get('questions', []))
+        subsections = section_data.get('subsections', [])
+    
+    # Handle None values
+    if questions is None:
+        questions = []
+    if subsections is None:
+        subsections = []
+    
+    # Mark main section questions as correct
+    if questions:
+        for i, _ in enumerate(questions):
+            question_key = f"{section_key}_q_{i}"
+            
+            # Mark as answered correctly
+            st.session_state.checked_answers[question_key] = True
+            st.session_state.user_answers[question_key] = "Admin Override"
+            
+            # Add to score tracking if not already counted
+            if question_key not in st.session_state.scored_correctly_keys:
+                st.session_state.current_score += 1
+                st.session_state.scored_correctly_keys.add(question_key)
+            
+            # Add feedback
+            st.session_state.feedback[question_key] = "Correct! (Admin Override)"
+    
+    # Mark subsection questions as correct
+    if subsections:
+        for sub_idx, subsection in enumerate(subsections):
+            subsection_key = f"{section_key}_sub_{sub_idx}"
+            _mark_section_questions_correct_recursive(subsection, subsection_key)
 
 # Apply modern CSS styling
 st.markdown("""
@@ -226,7 +340,7 @@ def _load_course_from_mongo(course_id, user_identifier, session_id):
             return None, load_error
         else:
             return None, "Course not found"
-    except Exception as e:
+    except (ImportError, AttributeError, ConnectionError) as e:
         return None, f"Error accessing course database: {e}"
 
 def optimize_session_state():
@@ -252,6 +366,11 @@ def main():
             st.switch_page("app_pages/1_🏠_Home.py")
         return
     
+    # Check if this is a new course (different from the last one)
+    if st.session_state.get('last_course_id') != course_id:
+        reset_course_session_state()
+        st.session_state.last_course_id = course_id
+    
     # Load course data (now with caching)
     course_data = load_course_data(course_id)
     
@@ -259,6 +378,10 @@ def main():
         st.error("❌ Course not found. It may have been deleted.")
         if st.button("🏠 Go to Home"):
             st.switch_page("app_pages/1_🏠_Home.py")
+        return
+
+    if st.session_state.get('course_finished', False):
+        display_course_completion_stats(course_data, course_id)
         return
       # Main course container
     st.markdown('<div class="course-container">', unsafe_allow_html=True)
@@ -273,7 +396,7 @@ def main():
             course_doc, _ = course_manager.get_course(course_id)
             if course_doc:
                 course_title = course_doc.get('title', '📚 Course')
-        except Exception as e:
+        except (ImportError, AttributeError, ConnectionError) as e:
             st.error(f"An error occurred while fetching the course title from MongoDB: {e}")
     
     # Fall back to session state
@@ -295,8 +418,52 @@ def main():
     # Score display
     show_score_display(course_data)
     
+    # Admin controls (enabled on localhost or for admin users)
+    if is_admin_user():
+        st.markdown("---")
+        
+        # Show localhost indicator
+        if is_localhost():
+            st.markdown("### 🔧 Admin Controls (Localhost Mode)")
+            st.info("💻 Admin features are enabled because you're running on localhost")
+        else:
+            st.markdown("### 🔧 Admin Controls")
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if st.button("✅ Mark Current Section Complete", key="admin_mark_section"):
+                success = mark_all_section_questions_correct(course_data, current_section, course_id)
+                if success:
+                    st.success(f"✅ Marked all questions in Section {current_section + 1} as correct!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to mark section complete")
+        
+        with col2:
+            if st.button("✅ Mark All Sections Complete", key="admin_mark_all"):
+                total_marked = 0
+                for section_idx in range(len(course_data)):
+                    success = mark_all_section_questions_correct(course_data, section_idx, course_id)
+                    if success:
+                        total_marked += 1
+                
+                if total_marked > 0:
+                    st.success(f"✅ Marked all questions in {total_marked} sections as correct!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to mark any sections complete")
+        
+        with col3:
+            if st.button("🔄 Reset Course Progress", key="admin_reset"):
+                reset_course_session_state()
+                st.success("✅ Course progress reset!")
+                st.rerun()
+        
+        st.markdown("---")
+    
     # Course navigation
-    show_course_navigation(course_data)
+    show_course_navigation(course_data, course_id)
     
     # Display current section
     display_current_section(course_data, course_id)
@@ -463,7 +630,54 @@ def count_total_questions(course_data):
     st.session_state[cache_key] = total
     return total
 
-def show_course_navigation(course_data):
+def are_all_questions_in_section_answered(course_data, section_index):
+    """Check if all questions in the current section are answered."""
+    if section_index >= len(course_data):
+        return False
+
+    # Get the course ID to construct proper question keys
+    course_id = st.session_state.get('current_course_id', 'unknown')
+    section_key = f"course_{course_id}_sec_{section_index}"
+    
+    # Check if all questions in this section (and its subsections) are answered
+    return _check_section_questions_answered(course_data[section_index], section_key)
+
+def _check_section_questions_answered(section_data, section_key):
+    """Recursively check if all questions in a section and its subsections are answered."""
+    # Check if section_data is a Pydantic model or dict
+    is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+    
+    if is_pydantic_model:
+        questions = getattr(section_data, "quiz", [])
+        subsections = getattr(section_data, "subsections", [])
+    else:
+        questions = section_data.get('quiz', section_data.get('questions', []))
+        subsections = section_data.get('subsections', [])
+    
+    # Handle None values
+    if questions is None:
+        questions = []
+    if subsections is None:
+        subsections = []
+    
+    # Check main section questions
+    if questions:
+        for i, _ in enumerate(questions):
+            question_key = f"{section_key}_q_{i}"
+            is_answered = question_key in st.session_state.get('checked_answers', {})
+            if not is_answered:
+                return False
+    
+    # Check subsection questions
+    if subsections:
+        for sub_idx, subsection in enumerate(subsections):
+            subsection_key = f"{section_key}_sub_{sub_idx}"
+            if not _check_section_questions_answered(subsection, subsection_key):
+                return False
+    
+    return True
+
+def show_course_navigation(course_data, course_id=None):
     """Show section navigation"""
     total_sections = len(course_data)
     current_section = st.session_state.get('current_section_index', 0)
@@ -474,8 +688,8 @@ def show_course_navigation(course_data):
         if current_section > 0:
             if st.button("⬅️ Previous Section", key="prev_section_btn"):
                 st.session_state.current_section_index = current_section - 1
-                # Use query params to avoid rerun
                 st.query_params.section = str(current_section - 1)
+                st.rerun()
         else:
             st.button("⬅️ Previous Section", disabled=True, key="prev_section_btn_disabled")
     
@@ -483,13 +697,127 @@ def show_course_navigation(course_data):
         st.markdown(f"**Section {current_section + 1} of {total_sections}**")
     
     with col3:
+        all_answered = are_all_questions_in_section_answered(course_data, current_section)
+        
+        # Temporary debug to see why button is disabled
+        if not all_answered:
+            with st.expander("🔍 Debug: Why is Next Section disabled?"):
+                course_id = st.session_state.get('current_course_id', 'unknown')
+                section_key = f"course_{course_id}_sec_{current_section}"
+                st.write(f"**Section:** {current_section} (displayed as Section {current_section + 1})")
+                st.write(f"**Section key:** {section_key}")
+                st.write(f"**All checked answers:** {list(st.session_state.get('checked_answers', {}).keys())}")
+                
+                # Show expected vs actual
+                section_data = course_data[current_section]
+                is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+                if is_pydantic_model:
+                    questions = getattr(section_data, "quiz", [])
+                else:
+                    questions = section_data.get('quiz', section_data.get('questions', []))
+                
+                if questions:
+                    st.write(f"**Expected question keys:**")
+                    for i, _ in enumerate(questions):
+                        expected_key = f"{section_key}_q_{i}"
+                        is_answered = expected_key in st.session_state.get('checked_answers', {})
+                        st.write(f"- {expected_key} → {'✅' if is_answered else '❌'}")
+        
         if current_section < total_sections - 1:
-            if st.button("Next Section ➡️", key="next_section_btn"):
+            if st.button("Next Section ➡️", key="next_section_btn", disabled=not all_answered):
                 st.session_state.current_section_index = current_section + 1
-                # Use query params to avoid rerun
                 st.query_params.section = str(current_section + 1)
+                st.rerun()
         else:
-            st.button("Next Section ➡️", disabled=True, key="next_section_btn_disabled")
+            if st.button("🏁 Finish Course", key="finish_course_btn", disabled=not all_answered):
+                st.session_state.course_finished = True
+                st.rerun()
+
+def display_course_completion_stats(course_data, course_id):
+    """Displays the course completion statistics."""
+    
+    st.markdown('<div class="course-container">', unsafe_allow_html=True)
+    st.markdown('<h1 class="course-title">Course Completed!</h1>', unsafe_allow_html=True)
+
+    # --- Score Percentage ---
+    total_questions = count_total_questions(course_data)
+    correct_answers = st.session_state.get('current_score', 0)
+    score_percentage = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
+
+    if score_percentage >= 95:
+        st.balloons()
+
+    # Message based on score
+    if score_percentage == 100:
+        message = "🎉 Perfect Score! You're a master! 🎉"
+    elif score_percentage >= 95:
+        message = "🎊 Outstanding! You've nearly perfected it! 🎊"
+    elif score_percentage >= 70:
+        message = "👍 Great job! You have a solid understanding."
+    elif score_percentage >= 40:
+        message = "🙂 Good effort. A little more practice will make a big difference."
+    else:
+        message = "💪 Keep practicing! Every attempt is a step forward."
+
+    # Animation for score
+    st.markdown(f"""
+    <div class="score-container">
+        <h3>Your Score</h3>
+        <h2 style="font-size: 3rem;">{score_percentage:.2f}%</h2>
+        <p style="font-size: 1.2rem;">{message}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- Memory Strength ---
+    if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
+        course_manager = get_course_manager()
+        course_doc, _ = course_manager.get_course(course_id)
+
+        if course_doc:
+            memory_strength = course_doc.get('memory_strength', 0)
+            last_attempt_timestamp = course_doc.get('last_attempt_timestamp')
+            
+            update_strength = False
+            new_strength = memory_strength
+
+            if last_attempt_timestamp is None:
+                update_strength = True
+                new_strength = 1
+            else:
+                # Handle timezone issues - ensure both datetimes have the same timezone info
+                current_time = datetime.datetime.now(datetime.timezone.utc)
+                
+                # If last_attempt_timestamp is timezone-naive, make it UTC
+                if last_attempt_timestamp.tzinfo is None:
+                    last_attempt_timestamp = last_attempt_timestamp.replace(tzinfo=datetime.timezone.utc)
+                
+                time_since_last_attempt = current_time - last_attempt_timestamp
+                if time_since_last_attempt >= datetime.timedelta(hours=24):
+                    update_strength = True
+                    new_strength = min(memory_strength + 1, 5)
+            
+            if update_strength:
+                time_spent = time.time() - st.session_state.start_time
+                course_manager.update_course_memory_strength(course_id, new_strength, time_spent)
+                memory_strength = new_strength
+
+            st.markdown("<h3>Memory Strength</h3>", unsafe_allow_html=True)
+            lit_icons = "⚡" * memory_strength
+            unlit_icons = "⚪" * (5 - memory_strength)
+            st.markdown(f"<div style='font-size: 2rem;'>{lit_icons}{unlit_icons}</div>", unsafe_allow_html=True)
+
+            if memory_strength < 5:
+                st.info("Re-attempt this course after 24 hours to increase your memory strength!")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.button("Go back to Home"):
+        st.session_state.course_finished = False
+        for key in list(st.session_state.keys()):
+            if key not in ['username', 'course_history', 'logged_in']:
+                del st.session_state[key]
+        initialize_session_state()
+        st.switch_page("pages/1_🏠_Home.py")
 
 def display_current_section(course_data, course_id):
     """Display the current section content"""
@@ -565,7 +893,7 @@ def display_section_content(section_data, section_key):
 
 def display_question(question_item, section_key, question_idx):
     """Display a single question using the proper logic from frontend.py"""
-    import re  # Explicit import for VS Code language server
+    import re  # Import for this function only
     # Check if question_item is a Pydantic model
     is_pydantic_model = hasattr(question_item, '__dict__') and not hasattr(question_item, 'get')
     
@@ -670,18 +998,10 @@ def display_question(question_item, section_key, question_idx):
             # Process the answer to ensure it's a string
             user_input = None
             component_error = None            
-            try:
-                user_input = fill_in_the_blanks_input(
-                    question_text_full=question_text_full, 
-                    correctAnswer=correct_answer_for_component,
-                    key=component_instance_key,
-                    disabled=is_answered  # Disable input if question has been answered
-                )
-            except Exception as e:
-                component_error = str(e)
-                st.error(f"❌ Fill-in-the-blanks component error: {component_error}")
-                st.info("🔄 Using fallback text input")
-                  # Fallback to standard text input
+            
+            if not FILL_IN_BLANKS_AVAILABLE or fill_in_the_blanks_input is None:
+                st.info("🔄 Fill-in-the-blanks component not available - using fallback text input")
+                # Fallback to standard text input
                 fallback_key = f"{component_instance_key}_fallback"
                 user_input = st.text_input(
                     f"Fill in the blank: {question_text_full.replace('___', '_____')}",
@@ -689,11 +1009,31 @@ def display_question(question_item, section_key, question_idx):
                     disabled=is_answered,
                     help=f"Correct answer: {correct_answer_for_component}" if is_answered else None
                 )
+            else:
+                try:
+                    user_input = fill_in_the_blanks_input(
+                        question_text_full=question_text_full, 
+                        correctAnswer=correct_answer_for_component,
+                        key=component_instance_key,
+                        disabled=is_answered  # Disable input if question has been answered
+                    )
+                except (ImportError, ModuleNotFoundError, AttributeError, TypeError) as e:
+                    component_error = str(e)
+                    st.error(f"❌ Fill-in-the-blanks component error: {component_error}")
+                    st.info("🔄 Using fallback text input")
+                    # Fallback to standard text input
+                    fallback_key = f"{component_instance_key}_fallback"
+                    user_input = st.text_input(
+                        f"Fill in the blank: {question_text_full.replace('___', '_____')}",
+                        key=fallback_key,
+                        disabled=is_answered,
+                        help=f"Correct answer: {correct_answer_for_component}" if is_answered else None
+                    )
               # Handle both string input and object input (for enhanced component behavior)
             current_answer = ""
             is_give_up_action = False
             is_correct_action = False
-            is_wrong_action = False
+            # is_wrong_action = False  # Removed unused variable
               # Early exit if question is already answered to prevent infinite loops
             if is_answered:
                 # Question already answered, don't process any new input
@@ -702,7 +1042,7 @@ def display_question(question_item, section_key, question_idx):
                 is_give_up_action = False
                 is_completed_wrong = False
                 is_correct_action = False
-                is_wrong_action = False
+                # is_wrong_action = False  # Removed unused variable
             elif isinstance(user_input, dict):
                 # Handle enhanced component return format
                 raw_value = user_input.get("value", "")
@@ -717,9 +1057,11 @@ def display_question(question_item, section_key, question_idx):
                 is_give_up_action = action == "give_up"
                 is_completed_wrong = action == "question_complete" and not component_says_correct
                 is_correct_action = (action == "correct_answer" or action == "question_complete") and component_says_correct
-                is_wrong_action = user_input.get("isWrong", False)                # Debug info
+                # Note: isWrong flag is available but not used in current logic
+                
+                # Debug info
                 # if action:  # Only show if there's an action
-                #     st.write(f"🔍 Debug: Action={action}, Raw Value={raw_value}, Answer='{current_answer}', Correct={user_input.get('isCorrect', False)}, Wrong={is_wrong_action}")
+                #     st.write(f"🔍 Debug: Action={action}, Raw Value={raw_value}, Answer='{current_answer}', Correct={user_input.get('isCorrect', False)}")
             elif isinstance(user_input, str):
                 # Fallback for standard text input or when component returns string
                 current_answer = user_input
@@ -777,6 +1119,16 @@ def display_question(question_item, section_key, question_idx):
                     }
                     st.session_state.feedback[question_key] = "Correct! 🎉"
                     st.session_state.fitb_answered = True
+                    
+                    # IMPORTANT: Also mark in checked_answers for navigation system
+                    st.session_state.checked_answers[question_key] = True
+                    st.session_state.user_answers[question_key] = current_answer
+                    
+                    # Update score tracking
+                    if question_key not in st.session_state.scored_correctly_keys:
+                        st.session_state.current_score += 1
+                        st.session_state.scored_correctly_keys.add(question_key)
+                    
                       # Also update the local is_correct variable for immediate UI update
                     is_correct = True
                     st.rerun()  # Immediate rerun for correct answers to update UI                # Handle give up action or completed wrong answer
@@ -793,9 +1145,14 @@ def display_question(question_item, section_key, question_idx):
                     }
                     st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
                     st.session_state.fitb_answered = True
+                    
+                    # IMPORTANT: Also mark in checked_answers for navigation system
+                    st.session_state.checked_answers[question_key] = True
+                    st.session_state.user_answers[question_key] = current_answer
+                    
                     st.rerun()  # Rerun to update UI and disable component              # Display feedback for fill-in-the-blank questions
             answer_data = st.session_state.answers.get(question_key, {})
-            if answer_data:  # If there's any answer data (correct or incorrect)
+            if answer_data:  # If there's any answer data (correct or incorrectly)
                 feedback_text = st.session_state.feedback.get(question_key)
                 if feedback_text:
                     # Mark that feedback has been displayed for this question to prevent duplicate display
@@ -956,9 +1313,9 @@ def display_question(question_item, section_key, question_idx):
                         # We use that value from session_state for submission.
                         user_selections_to_submit = st.session_state.get(match_answers_key, {})
                         st.session_state[question_key] = json.dumps(user_selections_to_submit)
-                          # Ensure match_data (correct answers) is a dict before dumping and handling submission
-                        if isinstance(match_data, dict):
-                            correct_answer_json = json.dumps(match_data)
+                        # Ensure match_data (correct answers) is a dict before dumping and handling submission
+                        if isinstance(correct_answer, dict):
+                            correct_answer_json = json.dumps(correct_answer)
                             handle_answer_submission(question_key, correct_answer_json, "match", None)
                         else:
                             st.error("Internal error: Correct answer data for matching is not in the expected dictionary format.")
@@ -1054,7 +1411,7 @@ def fix_json_format(data_str):
     Returns:
         dict or None: Parsed dictionary if successful, None if failed
     """
-    import re  # Explicit import for VS Code language server
+    import re  # Import for this function only
     try:
         # First try normal JSON parsing
         return json.loads(data_str)
@@ -1094,12 +1451,10 @@ def fix_json_format(data_str):
             result = json.loads(cleaned)
             return result
             
-        except (json.JSONDecodeError, Exception):
+        except (json.JSONDecodeError, ValueError, TypeError):
             # If regex approach fails, try manual key-value extraction
             try:
                 # Extract key-value pairs using a more robust approach
-                import re
-                
                 # First try to handle the Key='Value' format specifically
                 pattern_single_quotes = r"([A-Za-z0-9\s]+)='([^']*)'"
                 matches = re.findall(pattern_single_quotes, str(data_str))
@@ -1135,11 +1490,11 @@ def fix_json_format(data_str):
                         result_dict[key] = value
                     return result_dict
                 
-            except Exception:
+            except (json.JSONDecodeError, ValueError, TypeError):
                 pass    
     return None
 
-def handle_answer_submission(question_key, correct_answer, question_type, selected_match_key, submitted_answer=None):
+def handle_answer_submission(question_key, correct_answer, question_type, selected_match_key=None, submitted_answer=None):
     # Initialize session state for answer tracking if not already present
     if "answers" not in st.session_state:
         st.session_state.answers = {}
@@ -1163,7 +1518,7 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
             user_selections = json.loads(user_answer)
             if isinstance(user_selections, dict):
                 # Check if any selection is empty (placeholder)
-                for left_item, right_selection in user_selections.items():
+                for _left_item, right_selection in user_selections.items():
                     if not right_selection or right_selection == "":
                         return  # Don't process submission if placeholder is selected
         except (json.JSONDecodeError, TypeError):
@@ -1191,21 +1546,30 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
             # Get the original question text from session state
             question_text = st.session_state.get(f"{question_key}_question", "")
             
-            # Use AI validation
-            ai_result, ai_explanation = local_backend.validate_short_answer_with_ai(
-                question_text, user_answer, correct_answer
-            )
-            
-            if ai_result is not None: # AI validation was successful               
-                is_correct_locally = ai_result
-                feedback_message = ai_explanation # AI explanation is the full feedback
-            else: # AI validation failed or returned None, fallback to simple check               
+            # Use AI validation if available
+            if local_backend is not None:
+                ai_result, ai_explanation = local_backend.validate_short_answer_with_ai(
+                    question_text, user_answer, correct_answer
+                )
+                
+                if ai_result is not None: # AI validation was successful               
+                    is_correct_locally = ai_result
+                    feedback_message = ai_explanation # AI explanation is the full feedback
+                else: # AI validation failed or returned None, fallback to simple check               
+                    is_correct_locally = is_answer_correct(user_answer, correct_answer, question_type)
+                    display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
+                    if is_correct_locally:
+                        feedback_message = f"Correct! Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
+                    else:
+                        feedback_message = f"Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
+            else:
+                # Local backend not available, use simple validation
                 is_correct_locally = is_answer_correct(user_answer, correct_answer, question_type)
                 display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
                 if is_correct_locally:
-                    feedback_message = f"Correct! Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
+                    feedback_message = f"Correct! Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable)"
                 else:
-                    feedback_message = f"Your answer: {user_answer}, Expected: {display_answer}. (AI validation was skipped)"
+                    feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable)"
                 
         except Exception as e:
             # Fallback to simple string comparison if AI validation fails
@@ -1296,7 +1660,7 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
         # Prepend "Incorrect." to this detailed message.
         st.session_state.feedback[question_key] = f"Incorrect. {feedback_message}"
 
-def is_answer_correct(user_answer, correct_answer, question_type):
+def is_answer_correct(user_answer, correct_answer, question_type=None):
     """Check if user answer matches any acceptable answer"""
     user_clean = str(user_answer).strip().lower()
     

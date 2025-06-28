@@ -7,8 +7,7 @@ import pymongo
 import pymongo.errors
 from bson.objectid import ObjectId
 from datetime import datetime, timezone
-import json
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple, Any
 import uuid
 
 try:
@@ -16,10 +15,10 @@ try:
     DB_NAME = "learnify_courses"
     COURSES_COLLECTION = "courses"
     USER_COURSES_COLLECTION = "user_courses"
-except KeyError as e:
+except (KeyError, AttributeError) as e:
     st.error(f"Missing secret: {e}. Please ensure MONGODB_URI is set in your Streamlit secrets.")
     st.stop()
-except Exception as e:
+except (ValueError, TypeError) as e:
     st.error(f"An error occurred while loading secrets: {e}")
     st.stop()
 
@@ -100,18 +99,42 @@ class MongoCourseManager:
             serializable_course_data = []
             if course_data: # Ensure course_data is not None before iterating
                 for item in course_data:
-                    if hasattr(item, 'model_dump'):  # Pydantic v2
-                        serializable_course_data.append(item.model_dump(mode='json'))
-                    elif hasattr(item, 'dict'):  # Pydantic v1
-                        serializable_course_data.append(item.dict())
+                    # Check if it's a Pydantic model with model_dump (v2)
+                    if hasattr(item, 'model_dump') and callable(getattr(item, 'model_dump', None)):
+                        try:
+                            # Type check to ensure we're calling model_dump on the right object
+                            if not isinstance(item, dict):
+                                serializable_course_data.append(item.model_dump(mode='json'))
+                            else:
+                                serializable_course_data.append(item)
+                        except (AttributeError, TypeError):
+                            # Fallback if model_dump fails
+                            serializable_course_data.append(dict(item) if hasattr(item, '__dict__') else item)
+                    # Check if it's a Pydantic model with dict method (v1)
+                    elif hasattr(item, 'dict') and callable(getattr(item, 'dict', None)):
+                        try:
+                            # Type check to ensure we're calling dict on the right object
+                            if not isinstance(item, dict):
+                                serializable_course_data.append(item.dict())
+                            else:
+                                serializable_course_data.append(item)
+                        except (AttributeError, TypeError):
+                            # Fallback if dict fails
+                            serializable_course_data.append(dict(item) if hasattr(item, '__dict__') else item)
                     elif isinstance(item, dict):
                         # If it's already a dict, ensure nested Pydantic models are also converted
                         processed_item = {}
                         for key, value in item.items():
-                            if hasattr(value, 'model_dump'):
-                                processed_item[key] = value.model_dump(mode='json')
-                            elif isinstance(value, list) and value and hasattr(value[0], 'model_dump'):
-                                processed_item[key] = [v.model_dump(mode='json') for v in value]
+                            if hasattr(value, 'model_dump') and callable(getattr(value, 'model_dump', None)) and not isinstance(value, dict):
+                                try:
+                                    processed_item[key] = value.model_dump(mode='json')
+                                except (AttributeError, TypeError):
+                                    processed_item[key] = value
+                            elif isinstance(value, list) and value and hasattr(value[0], 'model_dump') and not isinstance(value[0], dict):
+                                try:
+                                    processed_item[key] = [v.model_dump(mode='json') for v in value if hasattr(v, 'model_dump')]
+                                except (AttributeError, TypeError):
+                                    processed_item[key] = value
                             else:
                                 processed_item[key] = value
                         serializable_course_data.append(processed_item)
@@ -137,7 +160,7 @@ class MongoCourseManager:
             }
             
             if self.courses_collection is not None:
-                result = self.courses_collection.insert_one(course_document)
+                self.courses_collection.insert_one(course_document)
                 user_identifier = session_id if is_guest else creator
                 if user_identifier:
                     self._add_to_user_courses(user_identifier, course_id, is_guest)
@@ -345,6 +368,39 @@ class MongoCourseManager:
             st.error(f"Unexpected error updating course privacy: {e}")
             return False, f"An unexpected error occurred: {e}"
 
+    def update_course_memory_strength(self, course_id: str, new_strength: int, time_spent: float) -> Tuple[bool, Optional[str]]:
+        """Update the memory strength and last attempt timestamp for a course."""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+
+        try:
+            if self.courses_collection is not None:
+                result = self.courses_collection.update_one(
+                    {"course_id": course_id},
+                    {
+                        "$set": {
+                            "memory_strength": new_strength,
+                            "last_attempt_timestamp": datetime.now(timezone.utc),
+                            "time_spent": time_spent,
+                            "updated_at": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+
+                if result.matched_count == 0:
+                    return False, "Course not found."
+
+                return result.modified_count > 0, None
+            else:
+                return False, "Database connection error."
+
+        except pymongo.errors.PyMongoError as e:
+            st.error(f"MongoDB error updating memory strength: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error updating memory strength: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
     def can_access_course(self, course_id: str, user_identifier: Optional[str] = None, 
                          session_id: Optional[str] = None) -> Tuple[bool, Optional[str]]:
         """Check if a user can access a course"""
@@ -415,15 +471,15 @@ class MongoCourseManager:
                     total_questions_count += self._count_questions(subsections_list) # Recursive call
         return total_questions_count
 
-# Global instance
+# Module-level instance
 _course_manager = None
 
 def get_course_manager() -> MongoCourseManager:
     """Get singleton course manager instance"""
-    global _course_manager
-    if _course_manager is None:
-        _course_manager = MongoCourseManager()
-    return _course_manager
+    # Using module-level variable instead of global
+    if '_course_manager' not in globals() or globals()['_course_manager'] is None:
+        globals()['_course_manager'] = MongoCourseManager()
+    return globals()['_course_manager']
 
 def get_session_id() -> str:
     """Get or create session ID for guest users"""

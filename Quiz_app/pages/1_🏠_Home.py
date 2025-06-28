@@ -460,7 +460,6 @@ def main():
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
         elif pdf_url:
-            st.info("📝 **Note:** Word count and time estimation will be shown during generation for URL uploads.")
             st.warning("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
     
     # Generate button
