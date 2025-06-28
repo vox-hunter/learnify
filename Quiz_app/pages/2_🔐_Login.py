@@ -89,10 +89,23 @@ def login_user(username, user_data):
     st.rerun()
 
 def logout_user():
+    # List of keys to preserve
+    preserve_keys = ['cookies', 'selected_tab']
+
+    # Create a new dictionary with only the preserved keys
+    preserved_state = {key: st.session_state[key] for key in preserve_keys if key in st.session_state}
+
+    # Clear the entire session state
+    st.session_state.clear()
+
+    # Restore the preserved keys
+    for key, value in preserved_state.items():
+        st.session_state[key] = value
+
+    # Set authentication status to False
     st.session_state['authentication_status'] = False
-    st.session_state['username'] = None
-    st.session_state['name'] = None
-    st.session_state['email'] = None    # Flagging is handled by main.py now
+    
+    # Flagging is handled by main.py now
     if cookies is not None:
         try:
             if cookies.ready():
@@ -127,8 +140,15 @@ if st.session_state.get('authentication_status'):
     with container:
         st.title(f"Welcome {st.session_state.get('name', st.session_state.get('username'))}!")
         st.write("You are logged in.")
-        if st.button("Logout"):
-            logout_user()
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Logout"):
+                logout_user()
+        with col2:
+            if st.button("Reset Password"):
+                st.session_state['selected_tab'] = "Forgot Password"
+                logout_user()
         
         st.subheader("Update Your Details")
         with st.form("update_details_form", clear_on_submit=True):
@@ -251,7 +271,19 @@ if st.session_state.get('authentication_status'):
                                 st.error("Please contact support for assistance.")
 else: # Not authenticated, show login or registration
     with container:
-        login_tab, register_tab, forgot_password_tab = st.tabs(["Login", "Register", "Forgot Password"])
+        tab_names = ["Login", "Register", "Forgot Password"]
+        
+        # Determine the default index for the tabs
+        default_index = 0
+        if 'selected_tab' in st.session_state:
+            try:
+                default_index = tab_names.index(st.session_state.selected_tab)
+                # Clear the state after using it so it doesn't persist
+                del st.session_state['selected_tab']
+            except (ValueError, KeyError):
+                default_index = 0 # Default to login if tab name is invalid
+
+        login_tab, register_tab, forgot_password_tab = st.tabs(tab_names)
 
         with login_tab:
             st.subheader("Login to Your Account")
@@ -363,7 +395,7 @@ else: # Not authenticated, show login or registration
             elif st.session_state.registration_step == 'verify':
                 # Step 2: Verify email
                 st.info(f"Please enter the verification code sent to {st.session_state.registration_data.get('email', '')}")
-                
+                st.info("Please check your spam folder if you don't see it in your inbox.")
                 with st.form("verify_registration_form", clear_on_submit=False):
                     entered_code = st.text_input("Enter 6-digit verification code")
                     col1, col2 = st.columns(2)
@@ -427,6 +459,7 @@ else: # Not authenticated, show login or registration
                             )
                             if email_success:
                                 st.success("New verification code sent!")
+                                st.info("Please check your spam folder if you don't see it in your inbox.")
                             else:
                                 st.error(f"Failed to resend email: {email_message}")
                         else:
@@ -439,20 +472,16 @@ else: # Not authenticated, show login or registration
         
         with forgot_password_tab:
             st.subheader("Reset Your Password")
-            
+
             # Password reset flow state management
             if 'reset_step' not in st.session_state:
                 st.session_state.reset_step = 'email'
-            if 'reset_email' not in st.session_state:
-                st.session_state.reset_email = None
-            if 'reset_verification_code' not in st.session_state:
-                st.session_state.reset_verification_code = None
-            
+
             if st.session_state.reset_step == 'email':
                 # Step 1: Enter email address
                 st.write("Enter your email address to receive a password reset code.")
-                with st.form("forgot_password_form", clear_on_submit=False):
-                    fp_email = st.text_input("Email Address", key="fp_email", value=st.session_state.reset_email or "")
+                with st.form("forgot_password_form"):
+                    fp_email = st.text_input("Email Address", key="fp_email_input")
                     submitted_fp = st.form_submit_button("Send Reset Code")
 
                     if submitted_fp:
@@ -463,8 +492,6 @@ else: # Not authenticated, show login or registration
                             if user:
                                 # Generate and send verification code
                                 reset_code = generate_verification_code()
-                                st.session_state.reset_verification_code = reset_code
-                                st.session_state.reset_email = fp_email
                                 
                                 # Store verification code in database
                                 success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
@@ -472,8 +499,9 @@ else: # Not authenticated, show login or registration
                                     # Send email
                                     email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
                                     if email_success:
-                                        st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
+                                        st.session_state.reset_email = fp_email
                                         st.session_state.reset_step = 'verify'
+                                        st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
                                         st.rerun()
                                     else:
                                         st.error(f"Failed to send reset email: {email_message}")
@@ -484,19 +512,15 @@ else: # Not authenticated, show login or registration
             
             elif st.session_state.reset_step == 'verify':
                 # Step 2: Verify code and set new password
-                st.info(f"Please enter the reset code sent to {st.session_state.reset_email}")
+                st.info(f"Please enter the reset code sent to {st.session_state.get('reset_email')}")
                 
-                with st.form("verify_reset_form", clear_on_submit=False):
+                with st.form("verify_reset_form"):
                     entered_code = st.text_input("Enter 6-digit reset code")
                     new_password = st.text_input("New Password", type="password")
                     confirm_new_password = st.text_input("Confirm New Password", type="password")
                     
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        submitted_reset = st.form_submit_button("Reset Password")
-                    with col2:
-                        resend_reset_code = st.form_submit_button("Resend Code")
-                    
+                    submitted_reset = st.form_submit_button("Reset Password")
+
                     if submitted_reset:
                         if not all([entered_code, new_password, confirm_new_password]):
                             st.warning("Please fill all fields.")
@@ -504,59 +528,39 @@ else: # Not authenticated, show login or registration
                             st.error("Passwords do not match.")
                         else:
                             # Verify the code
-                            success, error = manager.verify_code(
-                                st.session_state.reset_email, 
-                                entered_code, 
-                                "password_reset"
-                            )
-                            
-                            if success:
-                                # Find user and update password
-                                user = manager.find_user_by_email(st.session_state.reset_email)
-                                if user:
-                                    success, error = manager.update_user_password(user['username'], new_password)
-                                    if success:
-                                        st.success("Password reset successfully! You can now log in with your new password.")
-                                        
-                                        # Reset state
-                                        st.session_state.reset_step = 'email'
-                                        st.session_state.reset_email = None
-                                        st.session_state.reset_verification_code = None
-                                        st.rerun()
+                            email_to_verify = st.session_state.get('reset_email')
+                            if email_to_verify:
+                                success, error = manager.verify_code(
+                                    email_to_verify, 
+                                    entered_code, 
+                                    "password_reset"
+                                )
+                                
+                                if success:
+                                    # Find user and update password
+                                    user = manager.find_user_by_email(email_to_verify)
+                                    if user:
+                                        update_success, update_error = manager.update_user_password(user['username'], new_password)
+                                        if update_success:
+                                            st.success("Password reset successfully! You can now log in with your new password.")
+                                            
+                                            # Reset state
+                                            st.session_state.reset_step = 'email'
+                                            del st.session_state['reset_email']
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Failed to update password: {update_error}")
                                     else:
-                                        st.error(f"Failed to update password: {error}")
+                                        st.error("User account not found.")
                                 else:
-                                    st.error("User account not found.")
+                                    st.error(f"Verification failed: {error}")
                             else:
-                                st.error(f"Verification failed: {error}")
-                    
-                    if resend_reset_code:
-                        # Generate new code and resend
-                        new_code = generate_verification_code()
-                        st.session_state.reset_verification_code = new_code
-                        
-                        success, error = manager.store_verification_code(
-                            st.session_state.reset_email, 
-                            new_code, 
-                            "password_reset"
-                        )
-                        
-                        if success:
-                            email_success, email_message = send_verification_email(
-                                st.session_state.reset_email, 
-                                new_code, 
-                                "password_reset"
-                            )
-                            if email_success:
-                                st.success("New reset code sent!")
-                            else:
-                                st.error(f"Failed to resend email: {email_message}")
-                        else:
-                            st.error(f"Failed to generate new code: {error}")
-                
-                # Option to go back and change email
+                                st.error("Session expired. Please start the password reset process again.")
+
                 if st.button("← Use Different Email"):
                     st.session_state.reset_step = 'email'
+                    if 'reset_email' in st.session_state:
+                        del st.session_state['reset_email']
                     st.rerun()
 
 # --- Footer or other elements outside the main auth flow ---

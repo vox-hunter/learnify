@@ -192,28 +192,42 @@ with st.sidebar:
                             col1, col2 = st.columns([0.8, 0.2])
                             with col1:
                                 if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
-                                    st.session_state.current_course_id = course_id  # Store in session state
+                                    st.session_state.current_course_id = course_id
                                     st.query_params.course_id = course_id
                                     st.switch_page("pages/3_Course.py")
                             with col2:
                                 with st.popover("⋮", use_container_width=True):
-                                    if st.button("Delete", key=f"delete_{course_id}", use_container_width=True):
-                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                        if success:
-                                            st.success("Course deleted.")
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
+                                    delete_key = f"delete_{course_id}"
+                                    if st.button("Delete", key=delete_key, use_container_width=True):
+                                        # Use session state to track deletion to avoid double processing
+                                        if delete_key not in st.session_state:
+                                            st.session_state[delete_key] = True
+                                            success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                            if success:
+                                                st.success("Course deleted.")
+                                                # Clear the deletion flag after successful deletion
+                                                del st.session_state[delete_key]
+                                                st.rerun()
+                                            else:
+                                                st.error(msg)
+                                                del st.session_state[delete_key]
                                     
+                                    share_key = f"share_{course_id}"
                                     is_public = course.get('is_public', False)
                                     share_label = "Make Private" if is_public else "Make Public"
-                                    if st.button(share_label, key=f"share_{course_id}", use_container_width=True):
-                                        success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
-                                        if success:
-                                            st.success("Privacy updated.")
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
+                                    if st.button(share_label, key=share_key, use_container_width=True):
+                                        # Use session state to track privacy update to avoid double processing
+                                        if share_key not in st.session_state:
+                                            st.session_state[share_key] = True
+                                            success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
+                                            if success:
+                                                st.success("Privacy updated.")
+                                                # Clear the update flag after successful update
+                                                del st.session_state[share_key]
+                                                st.rerun()
+                                            else:
+                                                st.error(msg)
+                                                del st.session_state[share_key]
                 else:
                     # No container needed for few courses - let them expand naturally
                     for course in courses:
@@ -227,28 +241,42 @@ with st.sidebar:
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
                             if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
-                                st.session_state.current_course_id = course_id  # Store in session state
+                                st.session_state.current_course_id = course_id
                                 st.query_params.course_id = course_id
                                 st.switch_page("pages/3_Course.py")
                         with col2:
                             with st.popover("⋮", use_container_width=True):
-                                if st.button("Delete", key=f"delete_{course_id}", use_container_width=True):
-                                    success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                    if success:
-                                        st.success("Course deleted.")
-                                        st.rerun()
-                                    else:
-                                        st.error(msg)
+                                delete_key = f"delete_{course_id}"
+                                if st.button("Delete", key=delete_key, use_container_width=True):
+                                    # Use session state to track deletion to avoid double processing
+                                    if delete_key not in st.session_state:
+                                        st.session_state[delete_key] = True
+                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                        if success:
+                                            st.success("Course deleted.")
+                                            # Clear the deletion flag after successful deletion
+                                            del st.session_state[delete_key]
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                                            del st.session_state[delete_key]
                                 
+                                share_key = f"share_{course_id}"
                                 is_public = course.get('is_public', False)
                                 share_label = "Make Private" if is_public else "Make Public"
-                                if st.button(share_label, key=f"share_{course_id}", use_container_width=True):
-                                    success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
-                                    if success:
-                                        st.success("Privacy updated.")
-                                        st.rerun()
-                                    else:
-                                        st.error(msg)
+                                if st.button(share_label, key=share_key, use_container_width=True):
+                                    # Use session state to track privacy update to avoid double processing
+                                    if share_key not in st.session_state:
+                                        st.session_state[share_key] = True
+                                        success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
+                                        if success:
+                                            st.success("Privacy updated.")
+                                            # Clear the update flag after successful update
+                                            del st.session_state[share_key]
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                                            del st.session_state[share_key]
             else:
                 st.info("No courses yet.")
     

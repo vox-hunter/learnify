@@ -7,15 +7,14 @@ resend.api_key = "re_QDXfGZ4Q_BcTWvKF6k19tXRHGeBu5na7X"
 with open("content_fixed.html", "r", encoding="utf-8") as file:
     html_content = file.read()
 
+# Replace the unsubscribe URL placeholder with a proper HTML link
+html_content = html_content.replace(
+    "{{{RESEND_UNSUBSCRIBE_URL}}}", 
+    '<a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color: #4f46e5;">here</a>'
+)
 
-params: List[resend.Emails.SendParams] = [
-  {
-    "from": "AI Loom <launch@updates.voxhunter.dev>",
-  "to": ["vidyutsanthosh4@gmail.com"],
-  "subject": "You're In!",
-  "html": html_content,
-  },
-]
+params: resend.Broadcasts.SendParams = {
+  "broadcast_id": "73ef9c34-e4a1-44b4-bb36-8d08f37b6bb7",
+}
 
-resend.Batch.send(params)
-
+resend.Broadcasts.send(params)

@@ -8,7 +8,7 @@ For each section or subsection, include 0 to 3 quiz questions relevant to that e
 
 Quiz questions should be varied in format: multiple_choice, fill_in_the_blank, match, or short_answer.
 
-For "fill_in_the_blank" questions, use a sequence of underscores (e.g., "___", "_____", or "_______") in the "question" string to denote the blank. Provide the correct word/phrase for the blank in the "answer" field. Example: `"question": "The capital of France is _____.", "answer": "Paris"`.
+For "fill_in_the_blank" questions, use a sequence of underscores, you should contain only ONE blank per question (e.g., "___", "_____", or "_______") in the "question" string to denote the blank. Provide the correct word/phrase for the blank in the "answer" field. Example: `"question": "The capital of France is _____.", "answer": "Paris"`.
 
 Include one interleaved question per section, referencing a prior topic (but do not label or explain which one).
 

@@ -460,7 +460,6 @@ def main():
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
         elif pdf_url:
-            st.info("📝 **Note:** Word count and time estimation will be shown during generation for URL uploads.")
             st.warning("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
     
     # Generate button
@@ -714,6 +713,8 @@ def show_course_history():
         with st.sidebar:
             st.markdown("### 🏠 Navigation")
             if st.button("🏠 Home", use_container_width=True):
+                # Clear any course-specific session state when going home
+                st.session_state.current_course_id = None
                 st.rerun()
             
             st.markdown("### 📚 Your Courses")
@@ -721,9 +722,14 @@ def show_course_history():
                 display_title = course['title']
                 if len(display_title) > 25:
                     display_title = display_title[:22] + "..."
-                if st.button(f"{display_title}", key=f"course_{course['id']}", use_container_width=True):
-                    st.session_state.current_course_id = course['id']
-                    st.switch_page("pages/3_Course.py")
+                
+                course_key = f"course_{course['id']}"
+                if st.button(f"{display_title}", key=course_key, use_container_width=True):
+                    # Use session state to prevent double processing
+                    if course_key not in st.session_state:
+                        st.session_state[course_key] = True
+                        st.session_state.current_course_id = course['id']
+                        st.switch_page("pages/3_Course.py")
               # Show user status
             st.markdown("---")
             if st.session_state.get('authentication_status'):
