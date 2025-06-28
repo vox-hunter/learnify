@@ -442,17 +442,12 @@ def main():
         
         with col2:
             if st.button("✅ Mark All Sections Complete", key="admin_mark_all"):
-                total_marked = 0
                 for section_idx in range(len(course_data)):
-                    success = mark_all_section_questions_correct(course_data, section_idx, course_id)
-                    if success:
-                        total_marked += 1
+                    mark_all_section_questions_correct(course_data, section_idx, course_id)
                 
-                if total_marked > 0:
-                    st.success(f"✅ Marked all questions in {total_marked} sections as correct!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to mark any sections complete")
+                st.session_state.course_finished = True
+                st.success("✅ Marked all sections as complete and finished the course!")
+                st.rerun()
         
         with col3:
             if st.button("🔄 Reset Course Progress", key="admin_reset"):
