@@ -161,7 +161,7 @@ def send_verification_email(email: str, code: int, purpose: str = "registration"
             subject = "AI Loom - Email Verification Code"
           # Prepare email parameters with best practices for deliverability
         params: resend.Emails.SendParams = {
-            "from": "AI Loom Verification <verification@updates.voxhunter.dev>",
+            "from": "AI Loom Verification <verification@ailoom.me>",
             "to": [email],
             "subject": subject,
             "html": html_content,
