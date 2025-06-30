@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import sys
-from streamlit_cookies_manager import EncryptedCookieManager
+# from streamlit_cookies_manager import EncryptedCookieManager  # Commented out as it's unused
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -16,7 +16,8 @@ except ImportError:
 try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager, get_session_id
-    from email_verification import send_verification_email, generate_verification_code, verify_email_code
+    from email_verification import send_verification_email, generate_verification_code
+    # verify_email_code is not used in this file
     MONGO_AVAILABLE = True
 except ImportError as e:
     # It's okay to call st.error here after set_page_config
@@ -45,7 +46,7 @@ if cookies is None:
 # Note: On some deployment platforms, cookies might take time to initialize
 try:
     cookies_ready = cookies is not None and cookies.ready()
-except Exception:
+except (AttributeError, TypeError):
     cookies_ready = False
 
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
@@ -76,7 +77,7 @@ def login_user(username, user_data):
                 st.success(f"✅ {transferred_count} guest course{'s' if transferred_count != 1 else ''} transferred to your account!")
             elif transfer_error:
                 st.warning(f"⚠️ Could not transfer guest courses: {transfer_error}")
-        except Exception as e:
+        except (AttributeError, ImportError, ConnectionError, TypeError) as e:
             st.warning(f"⚠️ Error transferring guest courses: {e}")    # Update cookies in a single operation
     if cookies is not None:
         try:
@@ -84,7 +85,7 @@ def login_user(username, user_data):
                 cookies["guest_courses_count"] = "0"  # Reset guest course count
                 cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
                 cookies.save() # Save all cookie changes at once
-        except Exception:
+        except (AttributeError, TypeError):
             pass  # Ignore cookie errors during login
     st.rerun()
 
@@ -112,7 +113,7 @@ def logout_user():
                 # Set cookie to "logged_out" instead of deleting (more reliable)
                 cookies[AUTH_COOKIE_NAME] = "logged_out"
                 cookies.save()
-        except Exception:
+        except (AttributeError, TypeError):
             pass  # Ignore cookie errors during logout
     st.rerun()
 
@@ -228,24 +229,26 @@ if st.session_state.get('authentication_status'):
                                     # Delete each course
                                     for course in courses:
                                         try:
-                                            delete_result = course_mgr.courses_collection.delete_one({
-                                                "course_id": course.get("course_id"),
-                                                "creator": st.session_state['username']
-                                            })
-                                            if delete_result.deleted_count > 0:
-                                                courses_deleted += 1
+                                            if hasattr(course_mgr, 'courses_collection') and course_mgr.courses_collection is not None:
+                                                delete_result = course_mgr.courses_collection.delete_one({
+                                                    "course_id": course.get("course_id"),
+                                                    "creator": st.session_state['username']
+                                                })
+                                                if delete_result.deleted_count > 0:
+                                                    courses_deleted += 1
                                         except (AttributeError, TypeError):
                                             continue  # Skip if course deletion fails
                                 
                                 # Delete user account
                                 try:
-                                    user_delete_result = manager.users_collection.delete_one({
-                                        "username": st.session_state['username']
-                                    })
-                                    
-                                    if user_delete_result.deleted_count > 0:
-                                        st.success(f"✅ Account deleted successfully! Removed {courses_deleted} courses.")
-                                        st.balloons()
+                                    if hasattr(manager, 'users_collection') and manager.users_collection is not None:
+                                        user_delete_result = manager.users_collection.delete_one({
+                                            "username": st.session_state['username']
+                                        })
+                                        
+                                        if user_delete_result.deleted_count > 0:
+                                            st.success(f"✅ Account deleted successfully! Removed {courses_deleted} courses.")
+                                            st.balloons()
                                         
                                         # Clear session and redirect
                                         st.session_state.clear()
@@ -339,7 +342,7 @@ else: # Not authenticated, show login or registration
                     
                     # Add clickable links below the checkbox
                     st.markdown("""
-                    📋 [**Terms & Conditions**](https://voxhunter.dev/terms) | 🔒 [**Privacy Policy**](https://voxhunter.dev/privacy)
+                    📋 [**Terms & Conditions**](https://ailoom.me/Terms) | 🔒 [**Privacy Policy**](https://ailoom.me/Privacy)
                     """)
                     
                     # Add optional checkbox for marketing emails (default ticked)
@@ -380,7 +383,7 @@ else: # Not authenticated, show login or registration
                                 
                                 # Store verification code in database
                                 success, error = manager.store_verification_code(reg_email, verification_code, "registration")
-                                if success:
+                                if success and reg_email:
                                     # Send email
                                     email_success, email_message = send_verification_email(reg_email, verification_code, "registration")
                                     if email_success:

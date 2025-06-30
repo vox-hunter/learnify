@@ -60,7 +60,7 @@ def initialize_cookie_manager():
             prefix="learnify/auth",
         )
         return cookie_manager
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         st.warning(f"Could not initialize cookie manager: {e}. Authentication features will be limited.")
         return None
 
@@ -73,7 +73,7 @@ if MONGO_AVAILABLE:
     if cookies is not None:
         try:
             cookies_ready = cookies.ready()
-        except Exception:
+        except (AttributeError, RuntimeError):
             cookies_ready = False
 
     AUTH_COOKIE_NAME = "username"
@@ -82,7 +82,7 @@ if MONGO_AVAILABLE:
         if "auth_manager" not in st.session_state:
             try:
                 st.session_state.auth_manager = MongoAuthManager()
-            except Exception:
+            except (ImportError, ConnectionError, ValueError):
                 st.session_state.auth_manager = None
         return st.session_state.auth_manager
 
@@ -99,7 +99,7 @@ if MONGO_AVAILABLE:
         try:
             if not st.session_state.cookies.ready():
                 return
-        except Exception:
+        except (AttributeError, RuntimeError):
             return
             
         cookie_username = st.session_state.cookies.get(AUTH_COOKIE_NAME)
@@ -127,7 +127,7 @@ if MONGO_AVAILABLE:
                 if st.session_state.cookies.ready():
                     st.session_state.cookies[AUTH_COOKIE_NAME] = "logged_out"
                     st.session_state.cookies.save()
-            except Exception:
+            except (AttributeError, RuntimeError, ValueError):
                 pass  # Ignore cookie errors during logout
                 
         st.query_params.clear()
@@ -137,7 +137,6 @@ else:
     st.session_state.cookies = None  # Ensure cookies is available even when MONGO is not available
     def logout_user(): # Define for non-mongo case
         st.session_state['authentication_status'] = False
-        st.rerun()
         st.rerun()
 
 # --- Pages Definition ---
@@ -149,9 +148,11 @@ else:
     login_page = st.Page("pages/2_🔐_Login.py", title="Login", icon="🔐")
     
 course_page = st.Page("pages/3_Course.py", title="Course")
+privacy_page = st.Page("pages/4_Privacy.py", title="Privacy Policy", icon="🔒")
+terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋")
 
 # --- Navigation Control ---
-pg = st.navigation([home_page, login_page, course_page])
+pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:

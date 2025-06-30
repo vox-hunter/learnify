@@ -865,3 +865,22 @@ def smart_pdf_compression(pdf_content, target_size_mb=10):
 
 if __name__ == "__main__":
     main()
+
+# Footer with legal links
+st.markdown("""
+---
+<div style="text-align: center; margin-top: 3rem; padding: 2rem; color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+    <p>© 2025 AI Loom. All rights reserved.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Footer navigation buttons
+col1, col2, col3 = st.columns([1, 1, 1])
+with col1:
+    if st.button("🔒 Privacy Policy", use_container_width=True, key="footer_privacy"):
+        st.switch_page("pages/4_Privacy.py")
+with col2:
+    st.markdown('<div style="text-align: center; padding: 1rem;">•</div>', unsafe_allow_html=True)
+with col3:
+    if st.button("📋 Terms & Conditions", use_container_width=True, key="footer_terms"):
+        st.switch_page("pages/5_Terms.py")
