@@ -5,17 +5,27 @@ import os # Add os import
 import random
 import time
 import datetime
+import html
+
+def safe_str_convert(value):
+    """Safely convert any value to string for Streamlit text widgets"""
+    if value is None:
+        return ""
+    try:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, indent=2)
+        elif isinstance(value, (str, int, float, bool)):
+            return str(value)
+        else:
+            # For any other type, convert to string
+            return str(value)
+    except (TypeError, ValueError, AttributeError):
+        # If conversion fails, use empty string
+        return ""
 
 # Add the parent directory (Quiz app) to sys.path to allow imports from it
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Ensure loading UI is cleaned up
-try:
-    from streamlit_loading import ensure_loading_cleanup
-    ensure_loading_cleanup()
-except ImportError:
-    pass
 
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
@@ -740,7 +750,7 @@ def main():
         except (ValueError, TypeError):
             pass
     
-    st.markdown(f'<h1 class="course-title">{course_title}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="course-title">{html.escape(course_title)}</h1>', unsafe_allow_html=True)
     
     # Enhanced course metadata with modern styling
     total_sections = len(course_data)
@@ -1122,29 +1132,11 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
                 st.rerun()
 
 def display_course_completion_stats(course_data, course_id):
-    """Displays the enhanced course completion statistics with modern styling."""
+    """Displays compact course completion statistics optimized for no-scroll experience."""
     
     st.markdown('<div class="course-container">', unsafe_allow_html=True)
     
-    # Celebration title with animated gradient
-    st.markdown("""
-    <div class="completion-container">
-        <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
-        <h1 style="
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(45deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
-            background-size: 300% 300%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientShift 3s ease infinite;
-            margin-bottom: 2rem;
-        ">
-            Course Completed!
-        </h1>
-    """, unsafe_allow_html=True)
-
-    # --- Enhanced Score Display ---
+    # --- Enhanced Score Display (Compact) ---
     total_questions = count_total_questions(course_data)
     correct_answers = st.session_state.get('current_score', 0)
     score_percentage = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
@@ -1154,65 +1146,29 @@ def display_course_completion_stats(course_data, course_id):
 
     # Message based on score with emojis
     if score_percentage == 100:
-        message = "� Perfect Score! You're a master! �"
-        emoji = "🥇"
+        message = "Perfect Score! Master level! 🥇"
+        emoji = "🎉"
         color = "#ffd700"
     elif score_percentage >= 95:
-        message = "🎊 Outstanding! You've nearly perfected it! 🎊"
-        emoji = "🥈"
+        message = "Outstanding! Nearly perfect! 🥈"
+        emoji = "🌟"
         color = "#c0c0c0"
     elif score_percentage >= 70:
-        message = "👍 Great job! You have a solid understanding."
-        emoji = "🥉"
+        message = "Great job! Solid understanding. 🥉"
+        emoji = "👍"
         color = "#cd7f32"
     elif score_percentage >= 40:
-        message = "🙂 Good effort. A little more practice will make a big difference."
-        emoji = "📚"
+        message = "Good effort! Keep practicing. 📚"
+        emoji = "�"
         color = "#667eea"
     else:
-        message = "💪 Keep practicing! Every attempt is a step forward."
-        emoji = "🎯"
+        message = "Keep going! Every attempt counts. 🎯"
+        emoji = "🔄"
         color = "#f56565"
 
-    # Enhanced score animation
-    st.markdown(f"""
-        <div style="text-align: center; margin: 2rem 0;">
-            <div style="font-size: 6rem; margin-bottom: 1rem;">{emoji}</div>
-            <div class="completion-score">{score_percentage:.1f}%</div>
-            <div style="
-                font-size: 1.4rem;
-                color: {color};
-                font-weight: 600;
-                margin: 1rem 0;
-                text-shadow: 0 0 10px {color}40;
-            ">
-                {message}
-            </div>
-            <div style="
-                display: flex;
-                justify-content: center;
-                gap: 2rem;
-                margin: 2rem 0;
-                flex-wrap: wrap;
-            ">
-                <div class="stat-item">
-                    <span class="stat-number">{correct_answers}</span>
-                    <div class="stat-label">Correct Answers</div>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">{total_questions}</span>
-                    <div class="stat-label">Total Questions</div>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">{total_questions - correct_answers}</span>
-                    <div class="stat-label">Missed</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # --- Memory Strength with enhanced visualization ---
+    # Get memory strength data first
+    memory_strength = 0
+    show_memory_tip = False
     if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
         course_manager = get_course_manager()
         course_doc, _ = course_manager.get_course(course_id)
@@ -1244,61 +1200,69 @@ def display_course_completion_stats(course_data, course_id):
                 time_spent = time.time() - st.session_state.start_time
                 course_manager.update_course_memory_strength(course_id, new_strength, time_spent)
                 memory_strength = new_strength
-
-            # Enhanced memory strength visualization
-            st.markdown("""
-            <div class="completion-container" style="margin-top: 2rem;">
-                <h3 style="color: #667eea; margin-bottom: 1.5rem; font-size: 1.5rem;">🧠 Memory Strength</h3>
-                <div style="display: flex; justify-content: center; gap: 10px; margin: 1rem 0;">
-            """, unsafe_allow_html=True)
             
-            for i in range(5):
-                if i < memory_strength:
-                    icon = "⚡"
-                    color = "#ffd700"
-                    glow = "0 0 15px #ffd700"
-                else:
-                    icon = "⚪"
-                    color = "#4a5568"
-                    glow = "none"
-                
-                st.markdown(f"""
-                <div style="
-                    font-size: 3rem;
-                    color: {color};
-                    text-shadow: {glow};
-                    transition: all 0.3s ease;
-                ">{icon}</div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            show_memory_tip = memory_strength < 5
 
-            if memory_strength < 5:
-                st.markdown("""
-                <div style="
-                    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-                    border: 1px solid rgba(102, 126, 234, 0.3);
-                    border-radius: 16px;
-                    padding: 1.5rem;
-                    text-align: center;
-                    margin: 1rem 0;
-                    backdrop-filter: blur(20px);
-                ">
-                    <div style="color: #a0aec0; font-size: 1rem;">
-                        🔄 Re-attempt this course after 24 hours to increase your memory strength!
+    # Compact completion display with all info in one section
+    # Build lightning icons first
+    lightning_icons = []
+    for i in range(5):
+        if i < memory_strength:
+            lightning_icons.append('<span style="font-size: 1.5rem; color: #ffd700; text-shadow: 0 0 8px #ffd700; margin: 0 2px;">⚡</span>')
+        else:
+            lightning_icons.append('<span style="font-size: 1.5rem; color: #4a5568; margin: 0 2px;">⚪</span>')
+    
+    lightning_html = ''.join(lightning_icons)
+    
+    completion_html = f"""<div class="completion-container">
+        <div style="text-align: center; padding: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="font-size: 2.5rem;">{emoji}</div>
+                <div>
+                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #667eea, #764ba2, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
+                    <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
+                <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
+                    <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
+                    <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
+                </div>
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #48bb78;">{correct_answers}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Correct</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #667eea;">{total_questions}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Total</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #f56565;">{total_questions - correct_answers}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Missed</div>
                     </div>
                 </div>
+            </div>
+            <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem; color: #667eea; font-weight: 600;">🧠 Memory Strength:</span>
+                    {lightning_html}
                 </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("</div>", unsafe_allow_html=True)
-
+                <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
+                    Level {memory_strength}/5 • {"Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"}
+                </div>
+            </div>
+        </div>
+    </div>"""
+    
+    st.markdown(completion_html, unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Enhanced home button
-    _, col2, _ = st.columns([1, 1, 1])
+    # Compact home button
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        if st.button("🏠 Return to Home", key="return_home_btn"):
+        if st.button("🏠 Return to Home", key="return_home_btn", use_container_width=True):
             # Use session state to prevent double processing
             if "going_home" not in st.session_state:
                 st.session_state["going_home"] = True
@@ -1345,6 +1309,10 @@ def display_progressive_questions(course_data, course_id):
     # Determine how many questions to show based on progress
     questions_to_show = 1  # Always show at least the first question
     
+    # Track the previous number of questions shown for auto-scroll detection
+    prev_questions_shown_key = f"prev_questions_shown_{course_id}"
+    prev_questions_shown = st.session_state.get(prev_questions_shown_key, 1)
+    
     # Check each question to see if it's answered
     for i in range(total_questions):
         if i == 0:
@@ -1356,6 +1324,11 @@ def display_progressive_questions(course_data, course_id):
             questions_to_show = i + 1
         else:
             break
+    
+    # Detect if a new question has appeared (for progress tracking only)
+    new_question_appeared = questions_to_show > prev_questions_shown
+    if new_question_appeared:
+        st.session_state[prev_questions_shown_key] = questions_to_show
     
     # Display questions with section headers when needed
     current_section = None
@@ -1431,10 +1404,10 @@ def display_progressive_questions(course_data, course_id):
                     font-size: 1.1rem;
                     line-height: 1.6;
                     color: #e2e8f0;
-                ">
-                    💡 {explanation}
-                </div>
-                """, unsafe_allow_html=True)
+        ">
+            💡 {html.escape(explanation)}
+        </div>
+        """, unsafe_allow_html=True)
         
         # Check if this is a newly unlocked question
         is_newly_unlocked = (i == questions_to_show - 1 and 
@@ -1459,6 +1432,7 @@ def display_progressive_questions(course_data, course_id):
             backdrop-filter: blur(20px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            scroll-margin-bottom: 150px;
             {'border-color: rgba(102, 126, 234, 0.6); box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);' if is_newly_unlocked else ''}
         ">
             <div style="
@@ -1491,55 +1465,15 @@ def display_progressive_questions(course_data, course_id):
         
         # Close the question container
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Position this question at the bottom if it's the current one
-        if i == questions_to_show - 1 and not is_answered:
-            st.markdown(f"""
-            <script>
-                // Smoothly scroll to position this question at the bottom
-                setTimeout(function() {{
-                    const questionElement = document.getElementById('question-{i}');
-                    if (questionElement) {{
-                        const rect = questionElement.getBoundingClientRect();
-                        const viewportHeight = window.innerHeight;
-                        const currentScroll = window.pageYOffset;
-                        
-                        // Position the question so its bottom aligns with the bottom of viewport
-                        const targetScroll = currentScroll + rect.bottom - viewportHeight + 50;
-                        
-                        if (targetScroll > currentScroll) {{
-                            // Gentle scroll animation
-                            let start = currentScroll;
-                            let distance = targetScroll - start;
-                            let duration = 2000;
-                            let startTime = null;
-                            
-                            function easeOutQuart(t) {{
-                                return 1 - Math.pow(1 - t, 4);
-                            }}
-                            
-                            function scrollAnimation(currentTime) {{
-                                if (startTime === null) startTime = currentTime;
-                                const timeElapsed = currentTime - startTime;
-                                const progress = Math.min(timeElapsed / duration, 1);
-                                
-                                const easedProgress = easeOutQuart(progress);
-                                const currentPosition = start + (distance * easedProgress);
-                                
-                                window.scrollTo(0, currentPosition);
-                                
-                                if (progress < 1) {{
-                                    requestAnimationFrame(scrollAnimation);
-                                }}
-                            }}
-                            
-                            requestAnimationFrame(scrollAnimation);
-                        }}
-                    }}
-                }}, {1000 if is_newly_unlocked else 100});
-            </script>
-            """, unsafe_allow_html=True)
     
+    # Check if we need to scroll to a specific question (manual scroll only)
+    scroll_target = st.session_state.get(f"scroll_to_question_{course_id}")
+    if scroll_target is not None:
+        # Clear the scroll flag
+        del st.session_state[f"scroll_to_question_{course_id}"]
+        # Add a simple scroll indicator
+        st.info(f"📍 Scrolled to Question {scroll_target + 1}")
+
     # Calculate completion for course finished check (without displaying progress)
     completed_questions = sum(1 for i in range(questions_to_show) if all_questions[i]['key'] in st.session_state and st.session_state[all_questions[i]['key']])
     
@@ -1567,6 +1501,40 @@ def display_progressive_questions(course_data, course_id):
         if not st.session_state.get('course_finished', False):
             st.session_state.course_finished = True
             st.rerun()
+    else:
+        # Add floating progress indicator and manual scroll button for incomplete courses
+        current_question_number = questions_to_show
+        
+        # Simplified floating indicator
+        st.markdown(f"""
+        <div style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        ">
+            <span>📍</span>
+            <span>Question {current_question_number} of {total_questions}</span>
+        </div>
+        
+        <style>
+            /* Global smooth scrolling */
+            html {{
+                scroll-behavior: smooth;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1592,7 +1560,7 @@ def display_current_section(course_data, course_id):
         # For dictionaries, use get method
         section_title = current_section.get('section_title', current_section.get('section', f'Section {current_section_index + 1}'))
     
-    st.markdown(f'<h2 class="section-title">{section_title}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="section-title">{html.escape(section_title)}</h2>', unsafe_allow_html=True)
     
     # Display section content
     display_section_content(current_section, section_key)
@@ -1627,7 +1595,7 @@ def display_section_content(section_data, section_key):
             line-height: 1.6;
             color: #e2e8f0;
         ">
-            💡 {explanation}
+            💡 {html.escape(explanation)}
         </div>
         """, unsafe_allow_html=True)
     
@@ -1679,7 +1647,7 @@ def display_section_content(section_data, section_key):
                     font-size: 1.5rem;
                     font-weight: 600;
                 ">
-                    🔸 {sub_title}
+                    🔸 {html.escape(sub_title)}
                 </h3>
             """, unsafe_allow_html=True)
             
@@ -1725,10 +1693,10 @@ def display_question(question_item, section_key, question_idx):
 
     # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
     if question_type not in ["fill_in_the_blank", "fill in the blank"]:
-        st.markdown(f'<div class="question-text">{question_text_full}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
     else:
         # For fill-in-the-blank, display the question text in the card as well
-        st.markdown(f'<div class="question-text">{question_text_full}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices
@@ -1762,29 +1730,8 @@ def display_question(question_item, section_key, question_idx):
         
         if not question_text_full or not correct_answer_for_blank:
             st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer. Using standard input.")
-            # Fallback to standard text input
-            current_value = ""
-            if question_key in st.session_state:
-                session_value = st.session_state[question_key]
-                if session_value is not None:
-                    # Convert to string safely, handling various data types
-                    try:
-                        if isinstance(session_value, (dict, list)):
-                            current_value = json.dumps(session_value)
-                        elif isinstance(session_value, (str, int, float, bool)):
-                            current_value = str(session_value)
-                        else:
-                            # For any other type, convert to string
-                            current_value = str(session_value)
-                    except (TypeError, ValueError, AttributeError):
-                        # If conversion fails, use empty string
-                        current_value = ""
-                else:
-                    current_value = ""
-            
-            # Final safety check to ensure current_value is a string
-            if not isinstance(current_value, str):
-                current_value = ""
+            # Fallback to standard text input using safe conversion
+            current_value = safe_str_convert(st.session_state.get(question_key))
             
             st.text_input("Your answer:",
                           value=current_value,
@@ -2108,67 +2055,144 @@ def display_question(question_item, section_key, question_idx):
             shuffled_right = right_items.copy()
             r.shuffle(shuffled_right)
             
-            # Create a container for the matching UI
-            match_container = st.container()
-            
             # Initialize user's matches in session state if not already done
             match_answers_key = f"{question_key}_matches"
             if match_answers_key not in st.session_state:
                 st.session_state[match_answers_key] = {}
             
-            with match_container:
-                st.write("Match the items on the left with the correct items on the right:")
+            # Modern matching interface
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+                border: 1px solid rgba(102, 126, 234, 0.2);
+                border-radius: 16px;
+                padding: 2rem;
+                margin: 1rem 0;
+            ">
+                <h4 style="
+                    color: #667eea; 
+                    margin-bottom: 1.5rem; 
+                    text-align: center;
+                    font-size: 1.2rem;
+                ">🔗 Match the items</h4>
+            """, unsafe_allow_html=True)
+            
+            # Create a beautiful matching interface
+            for i, left_item in enumerate(left_items):
+                # Get the current selection for this dropdown from session state
+                current_selection_for_left_item = st.session_state[match_answers_key].get(left_item)
+
+                # Create a styled container for each match pair
+                st.markdown(f"""
+                <div style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(102, 126, 234, 0.2);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 1rem 0;
+                    transition: all 0.3s ease;
+                ">
+                    <div style="
+                        color: #e2e8f0;
+                        font-weight: 600;
+                        margin-bottom: 0.8rem;
+                        font-size: 1.1rem;
+                    ">
+                        <span style="
+                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            font-size: 0.8rem;
+                            margin-right: 10px;
+                        ">{i+1}</span>
+                        {html.escape(left_item)}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                # Create two columns for left and right items
-                left_col, right_col = st.columns(2)
-                
-                with left_col:
-                    for i, item in enumerate(left_items):
-                        st.markdown(f"**{i+1}.** {item}")
-                
-                with right_col:
-                    # Display shuffled right items as labels for the dropdowns
-                    # This part is mostly for visual reference if needed, actual matching is via dropdowns
-                    pass # Not strictly needed to list them again if dropdowns show options
-                
-                # Create dropdowns for matching
-                user_matches_for_ui = {} # To store selections from dropdowns in the current render
-                for i, left_item in enumerate(left_items):
-                    # Use a unique key for each dropdown based on left_item and question_key
-                    # to preserve its state across reruns if not submitted.
-                    dropdown_key = f"match_select_{question_key}_{i}"
+                # Create a more intuitive selectbox with better styling
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                with col2:
+                    # Prepare options and determine current selection index
+                    all_options = ["🔍 Choose an option..."] + [f"➤ {item}" for item in shuffled_right]
+                    current_index = 0  # Default to placeholder
                     
-                    # Get the current selection for this dropdown from session state (user's ongoing attempt)
-                    current_selection_for_left_item = st.session_state[match_answers_key].get(left_item)
-
+                    # If user has a previous selection, find its index
+                    if current_selection_for_left_item and current_selection_for_left_item in shuffled_right:
+                        target_option = f"➤ {current_selection_for_left_item}"
+                        if target_option in all_options:
+                            current_index = all_options.index(target_option)
+                    
+                    # Use a unique key that incorporates the left_item text to handle duplicates
+                    unique_dropdown_key = f"match_select_{question_key}_{i}_{hash(left_item) % 10000}"
+                    
                     selected_right_item = st.selectbox(
-                        f"Match for '{left_item}'",
-                        options=[""] + shuffled_right,  # Add a blank option
-                        index=(shuffled_right.index(current_selection_for_left_item) + 1) if current_selection_for_left_item and current_selection_for_left_item in shuffled_right else 0,
-                        key=dropdown_key,
+                        f"Select match for item {i+1}",
+                        options=all_options,
+                        index=current_index,
+                        key=unique_dropdown_key,
                         label_visibility="collapsed",
-                        disabled=is_answered 
+                        disabled=is_answered,
+                        help=f"Select the correct match for: {left_item}"
                     )
-                    if selected_right_item: # Only add to matches if something is selected
-                        user_matches_for_ui[left_item] = selected_right_item
-                
-                # Update session state with current selections from UI
-                # This happens on every rerun if a dropdown changes
-                st.session_state[match_answers_key] = user_matches_for_ui
-                
-                # Submit button for matching questions
-                # The button is active if not answered and all left items have a selection.
-                # We check user_matches_for_ui which reflects the current state of dropdowns.
-                all_items_matched_in_ui = len(user_matches_for_ui) == len(left_items)
+                    
+                    # Store the selection (remove the arrow prefix) based on widget state
+                    if selected_right_item and selected_right_item != "🔍 Choose an option...":
+                        clean_selection = selected_right_item.replace("➤ ", "")
+                        st.session_state[match_answers_key][left_item] = clean_selection
+                    elif left_item in st.session_state[match_answers_key]:
+                        # Remove the selection if user chose the placeholder
+                        del st.session_state[match_answers_key][left_item]
+            
+            # Get current user matches for submission check
+            user_matches_for_ui = st.session_state.get(match_answers_key, {})
+            all_items_matched_in_ui = len(user_matches_for_ui) == len(left_items)
+            
+            # Progress indicator
+            progress = len(user_matches_for_ui) / len(left_items) if left_items else 0
+            st.markdown(f"""
+            <div style="margin: 1.5rem 0;">
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 0.5rem;
+                ">
+                    <span style="color: #a0aec0; font-size: 0.9rem;">Progress</span>
+                    <span style="color: #667eea; font-weight: 600;">{len(user_matches_for_ui)}/{len(left_items)} matched</span>
+                </div>
+                <div style="
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    height: 8px;
+                    overflow: hidden;
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        height: 100%;
+                        width: {progress * 100}%;
+                        transition: width 0.3s ease;
+                        border-radius: 10px;
+                    "></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-                if not is_answered and all_items_matched_in_ui:
-                    if st.button("Submit Matches", key=f"submit_match_{question_key}"):
-                        # On button click, the user_matches_for_ui (from current dropdowns)
-                        # has already been stored in st.session_state[match_answers_key].
-                        # We use that value from session_state for submission.
+            # Enhanced submit button
+            if not is_answered:
+                if all_items_matched_in_ui:
+                    if st.button("✅ Submit Matches", 
+                                key=f"submit_match_{question_key}",
+                                type="primary",
+                                use_container_width=True):
+                        # Submit the matches
                         user_selections_to_submit = st.session_state.get(match_answers_key, {})
                         st.session_state[question_key] = json.dumps(user_selections_to_submit)
-                        # Ensure match_data (correct answers) is a dict before dumping and handling submission
+                        
+                        # Handle submission
                         if isinstance(match_data, dict):
                             correct_answer_json = json.dumps(match_data)
                             handle_answer_submission(question_key, correct_answer_json, "match", None)
@@ -2178,91 +2202,71 @@ def display_question(question_item, section_key, question_idx):
                             st.session_state.user_answers[question_key] = json.dumps(user_selections_to_submit)
                             st.session_state.feedback[question_key] = "Error: Could not process the correct answer data."
                         
-                        # Use a flag instead of immediate rerun for performance
                         st.session_state.match_submitted = True
-                elif not is_answered:
-                    # If not all items are matched, show a disabled-like message or a disabled button
-                    # For simplicity, we can just not show the button or show it disabled.
-                    # Here, if all_items_matched_in_ui is false, the button above is not rendered.
-                    # We can add a placeholder or a disabled button if desired.                    st.button("Submit Matches", key=f"submit_match_{question_key}_disabled", disabled=True)
-                    if not all_items_matched_in_ui and len(left_items) > 0 : # only show if there are items to match
-                        st.caption("Please select a match for all items on the left.")
+                else:
+                    # Show disabled button with helpful message
+                    st.button("🔍 Complete all matches to submit", 
+                             key=f"submit_match_{question_key}_disabled", 
+                             disabled=True,
+                             use_container_width=True,
+                             help="Please select a match for all items before submitting")
+                    
+                    # Show which items still need matching
+                    unmatched = [item for item in left_items if item not in user_matches_for_ui]
+                    if unmatched:
+                        st.info(f"💡 Still need to match: {', '.join(unmatched[:3])}" + 
+                               (f" and {len(unmatched)-3} more" if len(unmatched) > 3 else ""))
+            
+            # Close the styled container
+            st.markdown("</div>", unsafe_allow_html=True)
 
         else:
-            # This block handles cases where match_data was not a dictionary initially.
-            # Try one more time to fix the JSON format before giving up
-            if not isinstance(match_data, dict):
-                # Final attempt with more aggressive parsing
-                # st.warning("Matching question data is malformed. Attempting to fix...") # Optional warning
-                fixed_match_data = None
-                if isinstance(match_data, str):
-                    fixed_match_data = fix_json_format(match_data)
-                
-                if isinstance(fixed_match_data, dict) and fixed_match_data:
-                    # If fixed, we could try to re-render the match UI, but that's complex.
-                    # For now, just log that it was fixed and fall back.
-                    # st.info("Successfully parsed malformed match data, but UI fell back to text input for this attempt.")
-                    pass # Fall through to text area
-
-            # Fallback to text area for malformed match questions or if fixing failed
-            st.error("Unable to display matching question due to data format issues. Please answer as a JSON string or contact support.")
+            # Fallback for malformed match questions
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
+                border: 1px solid rgba(255, 193, 7, 0.3);
+                border-radius: 12px;
+                padding: 1.5rem;
+                margin: 1rem 0;
+            ">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    color: #ffc107;
+                    font-weight: 600;
+                    margin-bottom: 1rem;
+                ">
+                    <span style="font-size: 1.2rem;">⚠️</span>
+                    Match Question Format Issue
+                </div>
+                <div style="color: #e2e8f0; line-height: 1.5;">
+                    The matching question data couldn't be processed in the standard format.
+                    Please provide your answer as a JSON object mapping items to their matches.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Show example format
+            st.code('{"Item 1": "Match A", "Item 2": "Match B", "Item 3": "Match C"}', language="json")
         
-        # Ensure we have a string value for the text area
-        current_value = ""
-        if question_key in st.session_state:
-            session_value = st.session_state[question_key]
-            if session_value is not None:
-                # Convert to string safely, handling various data types
-                try:
-                    if isinstance(session_value, (dict, list)):
-                        current_value = json.dumps(session_value)
-                    elif isinstance(session_value, (str, int, float, bool)):
-                        current_value = str(session_value)
-                    else:
-                        # For any other type, convert to string
-                        current_value = str(session_value)
-                except (TypeError, ValueError, AttributeError):
-                    # If conversion fails, use empty string
-                    current_value = ""
-            else:
-                current_value = ""
+        # Enhanced fallback text area with better styling
+        current_value = safe_str_convert(st.session_state.get(question_key))
         
-        # Final safety check to ensure current_value is a string
-        if not isinstance(current_value, str):
-            current_value = ""
-        
-        st.text_area("Your answer (as JSON, e.g., {\"premise1\": \"responseA\", ...}):",
-                    value=current_value,
-                    key=question_key,
-                    on_change=handle_answer_submission,
-                    args=(question_key, str(answer) if answer is not None else "", question_type, None),
-                    disabled=is_answered
-                    )
+        st.text_area(
+            "📝 Your answer (as JSON):",
+            value=current_value,
+            key=question_key,
+            on_change=handle_answer_submission,
+            args=(question_key, str(answer) if answer is not None else "", question_type, None),
+            disabled=is_answered,
+            help="Enter your matches as a JSON object, e.g., {\"premise1\": \"responseA\", \"premise2\": \"responseB\"}"
+        )
     
     elif question_type in ["short_answer", "short answer"]:
-        # Ensure we have a string value for the text area
-        current_value = ""
-        if question_key in st.session_state:
-            session_value = st.session_state[question_key]
-            if session_value is not None:
-                # Convert to string safely, handling various data types
-                try:
-                    if isinstance(session_value, (dict, list)):
-                        current_value = json.dumps(session_value)
-                    elif isinstance(session_value, (str, int, float, bool)):
-                        current_value = str(session_value)
-                    else:
-                        # For any other type, convert to string
-                        current_value = str(session_value)
-                except (TypeError, ValueError, AttributeError):
-                    # If conversion fails, use empty string
-                    current_value = ""
-            else:
-                current_value = ""
-        
-        # Final safety check to ensure current_value is a string
-        if not isinstance(current_value, str):
-            current_value = ""
+        # Ensure we have a string value for the text area using safe conversion
+        current_value = safe_str_convert(st.session_state.get(question_key))
         
         st.text_area("Your answer:",
                     value=current_value,

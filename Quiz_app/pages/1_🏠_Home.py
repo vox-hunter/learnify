@@ -14,6 +14,254 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Apply modern CSS styling
+st.markdown("""
+<style>
+    /* Import modern fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global styling */
+    .stApp {
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        font-family: 'Inter', sans-serif;
+        color: #e2e8f0;
+    }
+    
+    /* Ensure all text is light colored */
+    .stMarkdown, .stText, p, div, span, label {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Dark theme for Streamlit elements */
+    .stSelectbox > div > div > div {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* Heading styles */
+    h1, h2, h3, h4, h5, h6 {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Streamlit specific text elements */
+    .stButton > button {
+        color: white !important;
+    }
+    
+    /* Main content container */
+    .main-container {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 20px;
+        padding: 3rem;
+        margin: 2rem auto;
+        max-width: 1000px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Hero section */
+    .hero-section {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
+        line-height: 1.2;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem;
+        color: #cbd5e0;
+        margin-bottom: 2rem;
+        font-weight: 400;
+    }
+    
+    /* Modern card styling */
+    .generation-card {
+        background: transparent;
+        border: none;
+        border-radius: 15px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: rgba(102, 126, 234, 0.1);
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 2rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
+        border-radius: 8px;
+        color: #a0aec0;
+        font-weight: 500;
+        padding: 12px 20px;
+        border: none;
+        font-size: 1rem;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* Input field styling */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > div,
+    .stTextArea > div > div > textarea {
+        border-radius: 8px;
+        border: 2px solid rgba(102, 126, 234, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+        font-weight: 400;
+        padding: 12px 16px;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stSelectbox > div > div > div:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* File uploader styling */
+    .stFileUploader {
+        background: rgba(102, 126, 234, 0.05);
+        border: 2px dashed rgba(102, 126, 234, 0.3);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stFileUploader:hover {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        font-size: 1rem;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Primary button styling */
+    .stButton[data-testid="baseButton-primary"] > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-size: 1.1rem;
+        padding: 1rem 2rem;
+    }
+    
+    /* Success/Error message styling */
+    .stSuccess {
+        background: linear-gradient(135deg, #4CAF50, #45a049);
+        color: white;
+        border-radius: 8px;
+        border: none;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+        border-radius: 8px;
+        border: none;
+    }
+    
+    .stWarning {
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        color: white;
+        border-radius: 8px;
+        border: none;
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, #2196F3, #1976D2);
+        color: white;
+        border-radius: 8px;
+        border: none;
+    }
+    
+    /* Progress bar styling */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 10px;
+    }
+    
+    /* Feature grid */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+    
+    .feature-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+    }
+    
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Limits notice styling */
+    .limits-notice {
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        text-align: center;
+        font-weight: 500;
+    }
+    
+    /* Guest mode styling */
+    .guest-mode {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        text-align: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Import loading animation utilities if available
 try:
     from loading_animation import show_loading_status
@@ -373,12 +621,21 @@ def main():
         # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
 
 
-    # Main content container
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
-      # Main title
-    st.markdown('<h1 class="main-title">What will you learn today?</h1>', unsafe_allow_html=True)    # Show status message
+    # Hero section
+    st.markdown("""
+    <div class="hero-section">
+        <h1 class="hero-title">🚀 AI Loom</h1>
+        <p class="hero-subtitle">Transform any PDF into an interactive learning experience with AI-powered courses</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Status message
     if st.session_state.get('authentication_status'):
-        st.success(f"🎉 Welcome back, {st.session_state.get('name', 'User')}! You have unlimited course generation.")
+        st.markdown("""
+        <div class="guest-mode">
+            🎉 Welcome back, <strong>{}</strong>! You have unlimited course generation.
+        </div>
+        """.format(st.session_state.get('name', 'User')), unsafe_allow_html=True)
     else:
         # Force login if limit reached
         if force_login_if_limit_reached():
@@ -387,17 +644,26 @@ def main():
         guest_count = get_guest_course_count()
         remaining = 3 - guest_count
         if remaining > 0:
-            st.info(f"🎯 Guest mode: {remaining} out of 3 free courses remaining")
+            st.markdown(f"""
+            <div class="guest-mode">
+                🎯 <strong>Guest Mode:</strong> {remaining} out of 3 free courses remaining
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.warning("🔒 You've used all 3 guest courses. Please login for unlimited access!")
+            st.markdown("""
+            <div class="limits-notice">
+                🔒 You've used all 3 guest courses. Please login for unlimited access!
+            </div>
+            """, unsafe_allow_html=True)
 
+    # Course generation section
     # Input tabs
     tab1, tab2 = st.tabs(["📁 Upload File", "🔗 URL"])
     uploaded_file = None
     pdf_url = None
     
     with tab1:
-        st.markdown("### Upload your PDF file")
+        st.subheader("📄 Upload your PDF file")
         uploaded_file = st.file_uploader(
             "Choose a PDF file",
             type=["pdf"],
@@ -449,7 +715,7 @@ def main():
                         uploaded_file = None
     
     with tab2:
-        st.markdown("### Enter PDF URL")
+        st.subheader("🔗 Enter PDF URL")
         pdf_url = st.text_input(
             "PDF URL",
             placeholder="https://example.com/document.pdf",
@@ -460,7 +726,9 @@ def main():
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
         elif pdf_url:
-            st.warning("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
+            st.info("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Generate button
     st.markdown("<br>", unsafe_allow_html=True)
@@ -495,8 +763,6 @@ def main():
     
     # Show course history in sidebar if available
     show_course_history()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_generation_progress():
     """Show course generation progress and start generation"""

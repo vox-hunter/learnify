@@ -15,23 +15,148 @@ st.set_page_config(
     initial_sidebar_state="expanded"  # Set to expanded - we'll handle collapse via CSS
 )
 
-# --- Start Loading Animation ---
-from streamlit_loading import start_background_loading, complete_loading, ensure_loading_cleanup
+# --- Simplified Loading System ---
+# Initialize loading state if not present
+if 'app_loading_complete' not in st.session_state:
+    st.session_state['app_loading_complete'] = True  # Disable loading animation completely
 
-# Check if loading was already completed (for page refreshes/navigation)
-if not st.session_state.get('app_loading_complete', False):
-    # Start loading animation in background
-    start_background_loading()
-else:
-    # Ensure loading UI is cleaned up on all pages
-    ensure_loading_cleanup()
-
-# --- Custom CSS to hide navigation links ---
+# --- Custom CSS to hide navigation links and apply modern styling ---
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    /* Global styles */
+    .stApp {
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Hide Streamlit default elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
     /* Hide the 'Course' link in the sidebar */
     a[data-testid="stSidebarNavLink"][href$="/Course"] {
         display: none;
+    }
+    
+    /* Modern sidebar styling */
+    .stSidebar > div {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Sidebar buttons */
+    .stSidebar .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        color: #e2e8f0;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+        border-radius: 12px;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .stSidebar .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+        border-color: rgba(102, 126, 234, 0.4);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Enhanced Streamlit widgets */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Success/Error/Info styling */
+    .stSuccess {
+        background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2));
+        border: 1px solid rgba(72, 187, 120, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, rgba(245, 101, 101, 0.2), rgba(229, 62, 62, 0.2));
+        border: 1px solid rgba(245, 101, 101, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, rgba(66, 153, 225, 0.2), rgba(102, 126, 234, 0.2));
+        border: 1px solid rgba(66, 153, 225, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    /* Container styling */
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Modern card styling */
+    .modern-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    .modern-card:hover {
+        border-color: rgba(102, 126, 234, 0.5);
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Text styling */
+    .modern-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientShift 3s ease infinite;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .section-header {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 1rem;
+        text-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+    }
+    
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -200,18 +325,16 @@ with st.sidebar:
                                 with st.popover("⋮", use_container_width=True):
                                     delete_key = f"delete_{course_id}"
                                     if st.button("Delete", key=delete_key, use_container_width=True):
-                                        # Use session state to track deletion to avoid double processing
-                                        if delete_key not in st.session_state:
-                                            st.session_state[delete_key] = True
-                                            success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                            if success:
-                                                st.success("Course deleted.")
-                                                # Clear the deletion flag after successful deletion
-                                                del st.session_state[delete_key]
-                                                st.rerun()
-                                            else:
-                                                st.error(msg)
-                                                del st.session_state[delete_key]
+                                        st.write(f"DEBUG: Delete button clicked for course {course_id}")
+                                        st.write(f"DEBUG: User: {st.session_state.get('username', 'Unknown')}")
+                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                        st.write(f"DEBUG: Delete result - Success: {success}, Message: {msg}")
+                                        if success:
+                                            st.success("Course deleted successfully!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Failed to delete course: {msg}")
+                                            st.rerun()
                                     
                                     share_key = f"share_{course_id}"
                                     is_public = course.get('is_public', False)
@@ -249,18 +372,16 @@ with st.sidebar:
                             with st.popover("⋮", use_container_width=True):
                                 delete_key = f"delete_{course_id}"
                                 if st.button("Delete", key=delete_key, use_container_width=True):
-                                    # Use session state to track deletion to avoid double processing
-                                    if delete_key not in st.session_state:
-                                        st.session_state[delete_key] = True
-                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                        if success:
-                                            st.success("Course deleted.")
-                                            # Clear the deletion flag after successful deletion
-                                            del st.session_state[delete_key]
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
-                                            del st.session_state[delete_key]
+                                    st.write(f"DEBUG: Delete button clicked for course {course_id}")
+                                    st.write(f"DEBUG: User: {st.session_state.get('username', 'Unknown')}")
+                                    success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                    st.write(f"DEBUG: Delete result - Success: {success}, Message: {msg}")
+                                    if success:
+                                        st.success("Course deleted successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to delete course: {msg}")
+                                        st.rerun()
                                 
                                 share_key = f"share_{course_id}"
                                 is_public = course.get('is_public', False)
@@ -296,9 +417,5 @@ with st.sidebar:
 # --- Run Page ---
 pg.run()
 
-# Complete loading after everything is initialized
-if not st.session_state.get('app_loading_complete', False):
-    complete_loading()
-
-# Mark loading as complete
+# Mark app as fully loaded
 st.session_state['app_fully_loaded'] = True

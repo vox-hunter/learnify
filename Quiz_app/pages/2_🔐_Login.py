@@ -6,12 +6,200 @@ import sys
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# Ensure loading UI is cleaned up
-try:
-    from streamlit_loading import ensure_loading_cleanup
-    ensure_loading_cleanup()
-except ImportError:
-    pass
+# Apply modern CSS styling
+st.markdown("""
+<style>
+    /* Import modern fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global styling */
+    .stApp {
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        font-family: 'Inter', sans-serif;
+        color: #e2e8f0;
+    }
+    
+    /* Ensure all text is light colored */
+    .stMarkdown, .stText, p, div, span {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Dark theme for Streamlit elements */
+    .stSelectbox > div > div > div {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stTextInput > div > div > input {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stTextArea > div > div > textarea {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* Main content container */
+    .main-container {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 2rem auto;
+        max-width: 600px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Modern card styling */
+    .auth-card {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: rgba(102, 126, 234, 0.1);
+        border-radius: 10px;
+        padding: 4px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
+        border-radius: 8px;
+        color: #667eea;
+        font-weight: 500;
+        padding: 8px 16px;
+        border: none;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* Form styling */
+    .stForm {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(15px);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Input field styling */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > div,
+    .stTextArea > div > div > textarea {
+        border-radius: 8px;
+        border: 2px solid rgba(102, 126, 234, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+        font-weight: 400;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stSelectbox > div > div > div:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Form submit button styling */
+    .stForm .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Success/Error message styling */
+    .stSuccess {
+        background: linear-gradient(135deg, #4CAF50, #45a049);
+        color: white;
+        border-radius: 8px;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+        border-radius: 8px;
+    }
+    
+    .stWarning {
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        color: white;
+        border-radius: 8px;
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, #2196F3, #1976D2);
+        color: white;
+        border-radius: 8px;
+    }
+    
+    /* Checkbox styling */
+    .stCheckbox {
+        margin: 0.5rem 0;
+    }
+    
+    /* Title styling */
+    h1, h2, h3 {
+        color: #e2e8f0;
+        font-weight: 600;
+    }
+    
+    /* Welcome section styling */
+    .welcome-section {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #e2e8f0;
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    /* Danger zone styling */
+    .danger-zone {
+        background: linear-gradient(135deg, #ff4757, #ff3838);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background: rgba(255, 71, 87, 0.1);
+        border-radius: 8px;
+        color: #ff4757;
+        font-weight: 500;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 try:
     from mongo_auth import MongoAuthManager
@@ -134,442 +322,442 @@ if not manager:
     st.error("Authentication system could not be initialized. Please check the logs.")
     st.stop()
 
-# Main container for login/registration
-container = st.container()
-
 if st.session_state.get('authentication_status'):
-    with container:
-        st.title(f"Welcome {st.session_state.get('name', st.session_state.get('username'))}!")
-        st.write("You are logged in.")
+    # Welcome section for logged-in users
+    st.markdown("""
+    <div class="welcome-section">
+        <h1>🎉 Welcome Back!</h1>
+        <h3>{}</h3>
+        <p>You are successfully logged in to AI Loom</p>
+    </div>
+    """.format(st.session_state.get('name', st.session_state.get('username', 'User'))), unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Logout"):
-                logout_user()
-        with col2:
-            if st.button("Reset Password"):
-                st.session_state['selected_tab'] = "Forgot Password"
-                logout_user()
-        
-        st.subheader("Update Your Details")
-        with st.form("update_details_form", clear_on_submit=True):
-            new_name = st.text_input("New Name", value=st.session_state.get('name', ''))
-            new_email = st.text_input("New Email", value=st.session_state.get('email', ''))
-            submitted_update = st.form_submit_button("Update Details")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🚪 Logout", use_container_width=True):
+            logout_user()
+    with col2:
+        if st.button("🔑 Reset Password", use_container_width=True):
+            st.session_state['selected_tab'] = "Forgot Password"
+            logout_user()
+    
+    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+    st.subheader("📝 Update Your Details")
+    with st.form("update_details_form", clear_on_submit=True):
+        new_name = st.text_input("New Name", value=st.session_state.get('name', ''))
+        new_email = st.text_input("New Email", value=st.session_state.get('email', ''))
+        submitted_update = st.form_submit_button("✅ Update Details")
 
-            if submitted_update:
-                updates = {}
-                if new_name and new_name != st.session_state.get('name'):
-                    updates['name'] = new_name
-                if new_email and new_email != st.session_state.get('email'):
-                    updates['email'] = new_email
-                
-                if updates:
-                    success, error_msg = manager.update_user_details(st.session_state['username'], updates)
-                    if success:
-                        st.success(f"Details updated successfully! {error_msg if error_msg else ''}")
-                        # Update session state immediately
-                        if 'name' in updates: st.session_state['name'] = updates['name']
-                        if 'email' in updates: st.session_state['email'] = updates['email']
-                        st.rerun()
-                    else:
-                        st.error(f"Failed to update details: {error_msg}")
+        if submitted_update:
+            updates = {}
+            if new_name and new_name != st.session_state.get('name'):
+                updates['name'] = new_name
+            if new_email and new_email != st.session_state.get('email'):
+                updates['email'] = new_email
+            
+            if updates:
+                success, error_msg = manager.update_user_details(st.session_state['username'], updates)
+                if success:
+                    st.success(f"Details updated successfully! {error_msg if error_msg else ''}")
+                    # Update session state immediately
+                    if 'name' in updates: st.session_state['name'] = updates['name']
+                    if 'email' in updates: st.session_state['email'] = updates['email']
+                    st.rerun()
                 else:
-                    st.info("No changes detected.")
+                    st.error(f"Failed to update details: {error_msg}")
+            else:
+                st.info("No changes detected.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Delete Account Section
+    st.markdown('<div class="danger-zone">', unsafe_allow_html=True)
+    st.subheader("🗑️ Delete Account")
+    st.warning("⚠️ **Warning**: This action cannot be undone! This will permanently delete your account and all associated courses.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    with st.expander("🔴 Delete My Account"):
+        st.markdown("""
+        **What will be deleted:**
+        - Your user account and profile
+        - All courses you've created
+        - All course progress and data
+        - All associated preferences and settings
         
-        # Delete Account Section
-        st.subheader("🗑️ Delete Account")
-        st.warning("⚠️ **Warning**: This action cannot be undone! This will permanently delete your account and all associated courses.")
+        **This action is permanent and cannot be recovered.**
+        """)
         
-        with st.expander("🔴 Delete My Account"):
-            st.markdown("""
-            **What will be deleted:**
-            - Your user account and profile
-            - All courses you've created
-            - All course progress and data
-            - All associated preferences and settings
+        with st.form("delete_account_form", clear_on_submit=False):
+            st.write("To confirm account deletion, please type your username below:")
+            confirm_username = st.text_input(
+                f"Type '{st.session_state['username']}' to confirm:",
+                placeholder="Enter your username to confirm deletion"
+            )
             
-            **This action is permanent and cannot be recovered.**
-            """)
+            delete_checkbox = st.checkbox(
+                "I understand this action is permanent and cannot be undone",
+                key="delete_confirm_checkbox"
+            )
             
-            with st.form("delete_account_form", clear_on_submit=False):
-                st.write("To confirm account deletion, please type your username below:")
-                confirm_username = st.text_input(
-                    f"Type '{st.session_state['username']}' to confirm:",
-                    placeholder="Enter your username to confirm deletion"
-                )
-                
-                delete_checkbox = st.checkbox(
-                    "I understand this action is permanent and cannot be undone",
-                    key="delete_confirm_checkbox"
-                )
-                
-                submitted_delete = st.form_submit_button(
-                    "🗑️ DELETE MY ACCOUNT PERMANENTLY",
-                    type="secondary",
-                    help="This will permanently delete your account"
-                )
+            submitted_delete = st.form_submit_button(
+                "🗑️ DELETE MY ACCOUNT PERMANENTLY",
+                type="secondary",
+                help="This will permanently delete your account"
+            )
 
-                if submitted_delete:
-                    if not delete_checkbox:
-                        st.error("❌ You must check the confirmation checkbox to proceed.")
-                    elif not confirm_username:
-                        st.error("❌ Please enter your username to confirm deletion.")
-                    elif confirm_username != st.session_state['username']:
-                        st.error(f"❌ Username confirmation does not match. You entered '{confirm_username}' but expected '{st.session_state['username']}'.")
-                    else:                        # Perform account deletion
-                        with st.spinner("Deleting account..."):
+            if submitted_delete:
+                if not delete_checkbox:
+                    st.error("❌ You must check the confirmation checkbox to proceed.")
+                elif not confirm_username:
+                    st.error("❌ Please enter your username to confirm deletion.")
+                elif confirm_username != st.session_state['username']:
+                    st.error(f"❌ Username confirmation does not match. You entered '{confirm_username}' but expected '{st.session_state['username']}'.")
+                else:                        # Perform account deletion
+                    with st.spinner("Deleting account..."):
+                        try:
+                            # Delete user courses from course manager
+                            course_mgr = get_course_manager()
+                            courses, _ = course_mgr.get_user_courses(st.session_state['username'])
+                            
+                            courses_deleted = 0
+                            if courses:
+                                # Delete each course
+                                for course in courses:
+                                    try:
+                                        if hasattr(course_mgr, 'courses_collection') and course_mgr.courses_collection is not None:
+                                            delete_result = course_mgr.courses_collection.delete_one({
+                                                "course_id": course.get("course_id"),
+                                                "creator": st.session_state['username']
+                                            })
+                                            if delete_result.deleted_count > 0:
+                                                courses_deleted += 1
+                                    except (AttributeError, TypeError):
+                                        continue  # Skip if course deletion fails
+                            
+                            # Delete user account
                             try:
-                                # Delete user courses from course manager
-                                course_mgr = get_course_manager()
-                                courses, _ = course_mgr.get_user_courses(st.session_state['username'])
-                                
-                                courses_deleted = 0
-                                if courses:
-                                    # Delete each course
-                                    for course in courses:
-                                        try:
-                                            if hasattr(course_mgr, 'courses_collection') and course_mgr.courses_collection is not None:
-                                                delete_result = course_mgr.courses_collection.delete_one({
-                                                    "course_id": course.get("course_id"),
-                                                    "creator": st.session_state['username']
-                                                })
-                                                if delete_result.deleted_count > 0:
-                                                    courses_deleted += 1
-                                        except (AttributeError, TypeError):
-                                            continue  # Skip if course deletion fails
-                                
-                                # Delete user account
-                                try:
-                                    if hasattr(manager, 'users_collection') and manager.users_collection is not None:
-                                        user_delete_result = manager.users_collection.delete_one({
-                                            "username": st.session_state['username']
-                                        })
-                                        
-                                        if user_delete_result.deleted_count > 0:
-                                            st.success(f"✅ Account deleted successfully! Removed {courses_deleted} courses.")
-                                            st.balloons()
-                                        
-                                        # Clear session and redirect
-                                        st.session_state.clear()
-                                        if cookies is not None and cookies.ready():
-                                            try:
-                                                cookies.clear()
-                                                cookies.save()
-                                            except (AttributeError, TypeError):
-                                                pass
-                                        
-                                        st.info("Redirecting to home page...")
-                                        st.rerun()
-                                    else:
-                                        st.error("❌ Failed to delete account. Please try again or contact support.")
-                                except (AttributeError, TypeError):
-                                    st.error("❌ Database connection error. Please try again.")
+                                if hasattr(manager, 'users_collection') and manager.users_collection is not None:
+                                    user_delete_result = manager.users_collection.delete_one({
+                                        "username": st.session_state['username']
+                                    })
                                     
-                            except (ConnectionError, ValueError) as e:
-                                st.error(f"❌ Error deleting account: {str(e)}")
-                                st.error("Please try again or contact support if the problem persists.")
-                            except Exception as e:  # pylint: disable=broad-except
-                                st.error(f"❌ Unexpected error: {str(e)}")
-                                st.error("Please contact support for assistance.")
-else: # Not authenticated, show login or registration
-    with container:
-        tab_names = ["Login", "Register", "Forgot Password"]
-        
-        # Determine the default index for the tabs
-        default_index = 0
-        if 'selected_tab' in st.session_state:
-            try:
-                default_index = tab_names.index(st.session_state.selected_tab)
-                # Clear the state after using it so it doesn't persist
-                del st.session_state['selected_tab']
-            except (ValueError, KeyError):
-                default_index = 0 # Default to login if tab name is invalid
-
-        login_tab, register_tab, forgot_password_tab = st.tabs(tab_names)
-
-        with login_tab:
-            st.subheader("Login to Your Account")
-            with st.form("login_form", clear_on_submit=True):
-                login_username = st.text_input("Username", key="login_uname")
-                login_password = st.text_input("Password", type="password", key="login_pw")
-                submitted_login = st.form_submit_button("Login")
-
-                if submitted_login:
-                    if not login_username or not login_password:
-                        st.warning("Please enter username and password.")
-                    else:
-                        user = manager.find_user_by_username(login_username)
-                        if user and manager.verify_password(login_password, user.get("password")):
-                            login_user(login_username, user) # This will now also set the cookie
-                            st.success("Logged in successfully!")
-                            st.rerun() # Rerun to show logged-in view
-                        else:
-                            st.error("Invalid username or password.")
-        
-        with register_tab:
-            st.subheader("Create a New Account")
-            
-            # Registration flow state management
-            if 'registration_step' not in st.session_state:
-                st.session_state.registration_step = 'details'
-            if 'registration_data' not in st.session_state:
-                st.session_state.registration_data = {}
-            if 'verification_code' not in st.session_state:
-                st.session_state.verification_code = None
-            
-            if st.session_state.registration_step == 'details':
-                # Step 1: Collect user details
-                with st.form("registration_form", clear_on_submit=False):
-                    reg_name = st.text_input("Full Name", key="reg_name", value=st.session_state.registration_data.get('name', ''))
-                    reg_username = st.text_input("Username", key="reg_uname", value=st.session_state.registration_data.get('username', ''))
-                    reg_email = st.text_input("Email", key="reg_email", value=st.session_state.registration_data.get('email', ''))
-                    reg_password = st.text_input("Password", type="password", key="reg_pw")
-                    reg_confirm_password = st.text_input("Confirm Password", type="password", key="reg_cpw")
-                      # Add mandatory checkbox for Terms & Conditions and Privacy Policy
-                    st.markdown("---")
-                    
-                    # Create the checkbox text with embedded links
-                    st.markdown("""
-                    **Legal Agreement Required:**
-                    """)
-                    terms_agreed = st.checkbox(
-                        "I agree to the Terms & Conditions and Privacy Policy",
-                        key="terms_checkbox",
-                        value=False,
-                        help="You must agree to our terms to create an account"
-                    )
-                    
-                    # Add clickable links below the checkbox
-                    st.markdown("""
-                    📋 [**Terms & Conditions**](https://ailoom.me/Terms) | 🔒 [**Privacy Policy**](https://ailoom.me/Privacy)
-                    """)
-                    
-                    # Add optional checkbox for marketing emails (default ticked)
-                    marketing_emails = st.checkbox(
-                        "I agree to receive marketing emails (optional)",
-                        key="marketing_checkbox",
-                        value=True,
-                        help="Uncheck if you don't want to receive marketing emails"
-                    )
-                    
-                    submitted_register = st.form_submit_button("Send Verification Email")
-
-                    if submitted_register:
-                        if not all([reg_name, reg_username, reg_email, reg_password, reg_confirm_password]):
-                            st.warning("Please fill all fields.")
-                        elif not terms_agreed:
-                            st.error("You must agree to the Terms & Conditions and Privacy Policy to create an account.")
-                        elif reg_password != reg_confirm_password:
-                            st.error("Passwords do not match.")
-                        else:
-                            # Check if username or email already exists
-                            if manager.find_user_by_username(reg_username):
-                                st.error("Username already exists.")
-                            elif manager.find_user_by_email(reg_email):
-                                st.error("Email already registered.")
-                            else:                                # Store registration data temporarily
-                                st.session_state.registration_data = {
-                                    'name': reg_name,
-                                    'username': reg_username,
-                                    'email': reg_email,
-                                    'password': reg_password,
-                                    'marketing_consent': marketing_emails
-                                }
-                                
-                                # Generate and send verification code
-                                verification_code = generate_verification_code()
-                                st.session_state.verification_code = verification_code
-                                
-                                # Store verification code in database
-                                success, error = manager.store_verification_code(reg_email, verification_code, "registration")
-                                if success and reg_email:
-                                    # Send email
-                                    email_success, email_message = send_verification_email(reg_email, verification_code, "registration")
-                                    if email_success:
-                                        st.success(f"Verification email sent to {reg_email}! Please check your inbox.")
-                                        st.session_state.registration_step = 'verify'
-                                        st.rerun()
-                                    else:
-                                        st.error(f"Failed to send verification email: {email_message}")
+                                    if user_delete_result.deleted_count > 0:
+                                        st.success(f"✅ Account deleted successfully! Removed {courses_deleted} courses.")
+                                        st.balloons()
+                                    
+                                    # Clear session and redirect
+                                    st.session_state.clear()
+                                    if cookies is not None and cookies.ready():
+                                        try:
+                                            cookies.clear()
+                                            cookies.save()
+                                        except (AttributeError, TypeError):
+                                            pass
+                                    
+                                    st.info("Redirecting to home page...")
+                                    st.rerun()
                                 else:
-                                    st.error(f"Failed to generate verification code: {error}")
-            
-            elif st.session_state.registration_step == 'verify':
-                # Step 2: Verify email
-                st.info(f"Please enter the verification code sent to {st.session_state.registration_data.get('email', '')}")
-                st.info("Please check your spam folder if you don't see it in your inbox.")
-                with st.form("verify_registration_form", clear_on_submit=False):
-                    entered_code = st.text_input("Enter 6-digit verification code")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        submitted_verify = st.form_submit_button("Verify & Complete Registration")
-                    with col2:
-                        resend_code = st.form_submit_button("Resend Code")
-                    
-                    if submitted_verify:
-                        if not entered_code:
-                            st.warning("Please enter the verification code.")
-                        else:
-                            # Verify the code
-                            success, error = manager.verify_code(
-                                st.session_state.registration_data['email'], 
-                                entered_code, 
-                                "registration"
+                                    st.error("❌ Failed to delete account. Please try again or contact support.")
+                            except (AttributeError, TypeError):
+                                st.error("❌ Database connection error. Please try again.")
+                                
+                        except (ConnectionError, ValueError) as e:
+                            st.error(f"❌ Error deleting account: {str(e)}")
+                            st.error("Please try again or contact support if the problem persists.")
+                        except Exception as e:  # pylint: disable=broad-except
+                            st.error(f"❌ Unexpected error: {str(e)}")
+                            st.error("Please contact support for assistance.")
+else: # Not authenticated, show login or registration
+    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+    tab_names = ["Login", "Register", "Forgot Password"]
+    
+    # Determine the default index for the tabs
+    default_index = 0
+    if 'selected_tab' in st.session_state:
+        try:
+            default_index = tab_names.index(st.session_state.selected_tab)
+            # Clear the state after using it so it doesn't persist
+            del st.session_state['selected_tab']
+        except (ValueError, KeyError):
+            default_index = 0 # Default to login if tab name is invalid
+
+    login_tab, register_tab, forgot_password_tab = st.tabs(tab_names)
+
+    with login_tab:
+        st.subheader("🔐 Login to Your Account")
+        with st.form("login_form", clear_on_submit=True):
+            login_username = st.text_input("Username", key="login_uname")
+            login_password = st.text_input("Password", type="password", key="login_pw")
+            submitted_login = st.form_submit_button("🚀 Login")
+
+            if submitted_login:
+                if not login_username or not login_password:
+                    st.warning("Please enter username and password.")
+                else:
+                    user = manager.find_user_by_username(login_username)
+                    if user and manager.verify_password(login_password, user.get("password")):
+                        login_user(login_username, user) # This will now also set the cookie
+                        st.success("Logged in successfully!")
+                        st.rerun() # Rerun to show logged-in view
+                    else:
+                        st.error("Invalid username or password.")
+    
+    with register_tab:
+        st.subheader("✨ Create a New Account")
+        
+        # Registration flow state management
+        if 'registration_step' not in st.session_state:
+            st.session_state.registration_step = 'details'
+        if 'registration_data' not in st.session_state:
+            st.session_state.registration_data = {}
+        if 'verification_code' not in st.session_state:
+            st.session_state.verification_code = None
+        
+        if st.session_state.registration_step == 'details':
+            # Step 1: Collect user details
+            with st.form("registration_form", clear_on_submit=False):
+                reg_name = st.text_input("Full Name", key="reg_name", value=st.session_state.registration_data.get('name', ''))
+                reg_username = st.text_input("Username", key="reg_uname", value=st.session_state.registration_data.get('username', ''))
+                reg_email = st.text_input("Email", key="reg_email", value=st.session_state.registration_data.get('email', ''))
+                reg_password = st.text_input("Password", type="password", key="reg_pw")
+                reg_confirm_password = st.text_input("Confirm Password", type="password", key="reg_cpw")
+                  # Add mandatory checkbox for Terms & Conditions and Privacy Policy
+                st.markdown("---")
+                
+                # Create the checkbox text with embedded links
+                st.markdown("""
+                **Legal Agreement Required:**
+                """)
+                terms_agreed = st.checkbox(
+                    "I agree to the Terms & Conditions and Privacy Policy",
+                    key="terms_checkbox",
+                    value=False,
+                    help="You must agree to our terms to create an account"
+                )
+                
+                # Add clickable links below the checkbox
+                st.markdown("""
+                📋 [**Terms & Conditions**](https://ailoom.me/Terms) | 🔒 [**Privacy Policy**](https://ailoom.me/Privacy)
+                """)
+                
+                # Add optional checkbox for marketing emails (default ticked)
+                marketing_emails = st.checkbox(
+                    "I agree to receive marketing emails (optional)",
+                    key="marketing_checkbox",
+                    value=True,
+                    help="Uncheck if you don't want to receive marketing emails"
+                )
+                
+                submitted_register = st.form_submit_button("📧 Send Verification Email")
+
+                if submitted_register:
+                    if not all([reg_name, reg_username, reg_email, reg_password, reg_confirm_password]):
+                        st.warning("Please fill all fields.")
+                    elif not terms_agreed:
+                        st.error("You must agree to the Terms & Conditions and Privacy Policy to create an account.")
+                    elif reg_password != reg_confirm_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        # Check if username or email already exists
+                        if manager.find_user_by_username(reg_username):
+                            st.error("Username already exists.")
+                        elif manager.find_user_by_email(reg_email):
+                            st.error("Email already registered.")
+                        else:                                # Store registration data temporarily
+                            st.session_state.registration_data = {
+                                'name': reg_name,
+                                'username': reg_username,
+                                'email': reg_email,
+                                'password': reg_password,
+                                'marketing_consent': marketing_emails
+                            }
+                            
+                            # Generate and send verification code
+                            verification_code = generate_verification_code()
+                            st.session_state.verification_code = verification_code
+                            
+                            # Store verification code in database
+                            success, error = manager.store_verification_code(reg_email, verification_code, "registration")
+                            if success and reg_email:
+                                # Send email
+                                email_success, email_message = send_verification_email(reg_email, verification_code, "registration")
+                                if email_success:
+                                    st.success(f"Verification email sent to {reg_email}! Please check your inbox.")
+                                    st.session_state.registration_step = 'verify'
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to send verification email: {email_message}")
+                            else:
+                                st.error(f"Failed to generate verification code: {error}")
+        
+        elif st.session_state.registration_step == 'verify':
+            # Step 2: Verify email
+            st.info(f"Please enter the verification code sent to {st.session_state.registration_data.get('email', '')}")
+            st.info("Please check your spam folder if you don't see it in your inbox.")
+            with st.form("verify_registration_form", clear_on_submit=False):
+                entered_code = st.text_input("Enter 6-digit verification code")
+                col1, col2 = st.columns(2)
+                with col1:
+                    submitted_verify = st.form_submit_button("✅ Verify & Complete Registration")
+                with col2:
+                    resend_code = st.form_submit_button("🔄 Resend Code")
+                
+                if submitted_verify:
+                    if not entered_code:
+                        st.warning("Please enter the verification code.")
+                    else:
+                        # Verify the code
+                        success, error = manager.verify_code(
+                            st.session_state.registration_data['email'], 
+                            entered_code, 
+                            "registration"
+                        )
+                        
+                        if success:                                # Create the user account
+                            user_id, reg_error = manager.add_user(
+                                st.session_state.registration_data['username'],
+                                st.session_state.registration_data['password'],
+                                st.session_state.registration_data['email'],
+                                st.session_state.registration_data['name'],
+                                st.session_state.registration_data['marketing_consent']
                             )
                             
-                            if success:                                # Create the user account
-                                user_id, reg_error = manager.add_user(
-                                    st.session_state.registration_data['username'],
-                                    st.session_state.registration_data['password'],
-                                    st.session_state.registration_data['email'],
-                                    st.session_state.registration_data['name'],
-                                    st.session_state.registration_data['marketing_consent']
-                                )
-                                
-                                if reg_error:
-                                    st.error(f"Registration failed: {reg_error}")
-                                else:
-                                    # Mark email as verified
-                                    manager.mark_email_verified(st.session_state.registration_data['email'])
-                                    
-                                    st.success(f"Account created successfully for {st.session_state.registration_data['username']}! You can now log in.")
-                                    
-                                    # Reset registration state
-                                    st.session_state.registration_step = 'details'
-                                    st.session_state.registration_data = {}
-                                    st.session_state.verification_code = None
-                                    st.rerun()
+                            if reg_error:
+                                st.error(f"Registration failed: {reg_error}")
                             else:
-                                st.error(f"Verification failed: {error}")
+                                # Mark email as verified
+                                manager.mark_email_verified(st.session_state.registration_data['email'])
+                                
+                                st.success(f"Account created successfully for {st.session_state.registration_data['username']}! You can now log in.")
+                                
+                                # Reset registration state
+                                st.session_state.registration_step = 'details'
+                                st.session_state.registration_data = {}
+                                st.session_state.verification_code = None
+                                st.rerun()
+                        else:
+                            st.error(f"Verification failed: {error}")
+                
+                if resend_code:
+                    # Generate new code and resend
+                    new_code = generate_verification_code()
+                    st.session_state.verification_code = new_code
                     
-                    if resend_code:
-                        # Generate new code and resend
-                        new_code = generate_verification_code()
-                        st.session_state.verification_code = new_code
-                        
-                        success, error = manager.store_verification_code(
+                    success, error = manager.store_verification_code(
+                        st.session_state.registration_data['email'], 
+                        new_code, 
+                        "registration"
+                    )
+                    
+                    if success:
+                        email_success, email_message = send_verification_email(
                             st.session_state.registration_data['email'], 
                             new_code, 
                             "registration"
                         )
-                        
-                        if success:
-                            email_success, email_message = send_verification_email(
-                                st.session_state.registration_data['email'], 
-                                new_code, 
-                                "registration"
-                            )
-                            if email_success:
-                                st.success("New verification code sent!")
-                                st.info("Please check your spam folder if you don't see it in your inbox.")
+                        if email_success:
+                            st.success("New verification code sent!")
+                            st.info("Please check your spam folder if you don't see it in your inbox.")
+                        else:
+                            st.error(f"Failed to resend email: {email_message}")
+                    else:
+                        st.error(f"Failed to generate new code: {error}")
+            
+            # Option to go back and change details
+            if st.button("← Change Registration Details"):
+                st.session_state.registration_step = 'details'
+                st.rerun()
+    
+    with forgot_password_tab:
+        st.subheader("🔑 Reset Your Password")
+
+        # Password reset flow state management
+        if 'reset_step' not in st.session_state:
+            st.session_state.reset_step = 'email'
+
+        if st.session_state.reset_step == 'email':
+            # Step 1: Enter email address
+            st.write("Enter your email address to receive a password reset code.")
+            with st.form("forgot_password_form"):
+                fp_email = st.text_input("Email Address", key="fp_email_input")
+                submitted_fp = st.form_submit_button("📧 Send Reset Code")
+
+                if submitted_fp:
+                    if not fp_email:
+                        st.warning("Please enter your email address.")
+                    else:
+                        user = manager.find_user_by_email(fp_email)
+                        if user:
+                            # Generate and send verification code
+                            reset_code = generate_verification_code()
+                            
+                            # Store verification code in database
+                            success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
+                            if success:
+                                # Send email
+                                email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
+                                if email_success:
+                                    st.session_state.reset_email = fp_email
+                                    st.session_state.reset_step = 'verify'
+                                    st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to send reset email: {email_message}")
                             else:
-                                st.error(f"Failed to resend email: {email_message}")
+                                st.error(f"Failed to generate reset code: {error}")
                         else:
-                            st.error(f"Failed to generate new code: {error}")
-                
-                # Option to go back and change details
-                if st.button("← Change Registration Details"):
-                    st.session_state.registration_step = 'details'
-                    st.rerun()
+                            st.error("No account found with that email address.")
         
-        with forgot_password_tab:
-            st.subheader("Reset Your Password")
+        elif st.session_state.reset_step == 'verify':
+            # Step 2: Verify code and set new password
+            st.info(f"Please enter the reset code sent to {st.session_state.get('reset_email')}")
+            
+            with st.form("verify_reset_form"):
+                entered_code = st.text_input("Enter 6-digit reset code")
+                new_password = st.text_input("New Password", type="password")
+                confirm_new_password = st.text_input("Confirm New Password", type="password")
+                
+                submitted_reset = st.form_submit_button("🔑 Reset Password")
 
-            # Password reset flow state management
-            if 'reset_step' not in st.session_state:
-                st.session_state.reset_step = 'email'
-
-            if st.session_state.reset_step == 'email':
-                # Step 1: Enter email address
-                st.write("Enter your email address to receive a password reset code.")
-                with st.form("forgot_password_form"):
-                    fp_email = st.text_input("Email Address", key="fp_email_input")
-                    submitted_fp = st.form_submit_button("Send Reset Code")
-
-                    if submitted_fp:
-                        if not fp_email:
-                            st.warning("Please enter your email address.")
-                        else:
-                            user = manager.find_user_by_email(fp_email)
-                            if user:
-                                # Generate and send verification code
-                                reset_code = generate_verification_code()
-                                
-                                # Store verification code in database
-                                success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
-                                if success:
-                                    # Send email
-                                    email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
-                                    if email_success:
-                                        st.session_state.reset_email = fp_email
-                                        st.session_state.reset_step = 'verify'
-                                        st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
+                if submitted_reset:
+                    if not all([entered_code, new_password, confirm_new_password]):
+                        st.warning("Please fill all fields.")
+                    elif new_password != confirm_new_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        # Verify the code
+                        email_to_verify = st.session_state.get('reset_email')
+                        if email_to_verify:
+                            success, error = manager.verify_code(
+                                email_to_verify, 
+                                entered_code, 
+                                "password_reset"
+                            )
+                            
+                            if success:
+                                # Find user and update password
+                                user = manager.find_user_by_email(email_to_verify)
+                                if user:
+                                    update_success, update_error = manager.update_user_password(user['username'], new_password)
+                                    if update_success:
+                                        st.success("Password reset successfully! You can now log in with your new password.")
+                                        
+                                        # Reset state
+                                        st.session_state.reset_step = 'email'
+                                        del st.session_state['reset_email']
                                         st.rerun()
                                     else:
-                                        st.error(f"Failed to send reset email: {email_message}")
+                                        st.error(f"Failed to update password: {update_error}")
                                 else:
-                                    st.error(f"Failed to generate reset code: {error}")
+                                    st.error("User account not found.")
                             else:
-                                st.error("No account found with that email address.")
-            
-            elif st.session_state.reset_step == 'verify':
-                # Step 2: Verify code and set new password
-                st.info(f"Please enter the reset code sent to {st.session_state.get('reset_email')}")
-                
-                with st.form("verify_reset_form"):
-                    entered_code = st.text_input("Enter 6-digit reset code")
-                    new_password = st.text_input("New Password", type="password")
-                    confirm_new_password = st.text_input("Confirm New Password", type="password")
-                    
-                    submitted_reset = st.form_submit_button("Reset Password")
-
-                    if submitted_reset:
-                        if not all([entered_code, new_password, confirm_new_password]):
-                            st.warning("Please fill all fields.")
-                        elif new_password != confirm_new_password:
-                            st.error("Passwords do not match.")
+                                st.error(f"Verification failed: {error}")
                         else:
-                            # Verify the code
-                            email_to_verify = st.session_state.get('reset_email')
-                            if email_to_verify:
-                                success, error = manager.verify_code(
-                                    email_to_verify, 
-                                    entered_code, 
-                                    "password_reset"
-                                )
-                                
-                                if success:
-                                    # Find user and update password
-                                    user = manager.find_user_by_email(email_to_verify)
-                                    if user:
-                                        update_success, update_error = manager.update_user_password(user['username'], new_password)
-                                        if update_success:
-                                            st.success("Password reset successfully! You can now log in with your new password.")
-                                            
-                                            # Reset state
-                                            st.session_state.reset_step = 'email'
-                                            del st.session_state['reset_email']
-                                            st.rerun()
-                                        else:
-                                            st.error(f"Failed to update password: {update_error}")
-                                    else:
-                                        st.error("User account not found.")
-                                else:
-                                    st.error(f"Verification failed: {error}")
-                            else:
-                                st.error("Session expired. Please start the password reset process again.")
+                            st.error("Session expired. Please start the password reset process again.")
 
-                if st.button("← Use Different Email"):
-                    st.session_state.reset_step = 'email'
-                    if 'reset_email' in st.session_state:
-                        del st.session_state['reset_email']
-                    st.rerun()
-
-# --- Footer or other elements outside the main auth flow ---
-st.markdown("---")
-# It's important to remove or adapt any leftover code that relied on the old authenticator's
-# specific config structure (like YAML loading for credentials directly in this file).
-# The MongoAuthManager now handles the direct interaction with the database for user data.
-# If 'authenticate.yaml' was used for other settings, that logic would need to be preserved
-# or migrated to MongoDB via manager.load_config/save_config if appropriate.
+            if st.button("← Use Different Email"):
+                st.session_state.reset_step = 'email'
+                if 'reset_email' in st.session_state:
+                    del st.session_state['reset_email']
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
