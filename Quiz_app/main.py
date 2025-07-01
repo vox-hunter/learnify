@@ -360,8 +360,6 @@ with st.sidebar:
                             col1, col2 = st.columns([0.8, 0.2])
                             with col1:
                                 if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
-                                    # Store debug info in session state so it persists
-                                    st.session_state.debug_last_click = f"Course clicked: {course_id} at {time.time()}"
                                     # Set the course ID in session state and query params
                                     st.session_state.current_course_id = course_id
                                     st.query_params.course_id = course_id
@@ -371,10 +369,7 @@ with st.sidebar:
                                 with st.popover("⋮", use_container_width=True):
                                     delete_key = f"delete_{course_id}"
                                     if st.button("Delete", key=delete_key, use_container_width=True):
-                                        st.write(f"DEBUG: Delete button clicked for course {course_id}")
-                                        st.write(f"DEBUG: User: {st.session_state.get('username', 'Unknown')}")
                                         success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                        st.write(f"DEBUG: Delete result - Success: {success}, Message: {msg}")
                                         if success:
                                             st.success("Course deleted successfully!")
                                             st.rerun()
@@ -412,7 +407,6 @@ with st.sidebar:
                         with col1:
                             if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
                                 # Store debug info in session state so it persists
-                                st.session_state.debug_last_click = f"Course clicked: {course_id} at {time.time()}"
                                 # Set the course ID in session state and query params
                                 st.session_state.current_course_id = course_id
                                 st.query_params.course_id = course_id
@@ -422,10 +416,7 @@ with st.sidebar:
                             with st.popover("⋮", use_container_width=True):
                                 delete_key = f"delete_{course_id}"
                                 if st.button("Delete", key=delete_key, use_container_width=True):
-                                    st.write(f"DEBUG: Delete button clicked for course {course_id}")
-                                    st.write(f"DEBUG: User: {st.session_state.get('username', 'Unknown')}")
                                     success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                    st.write(f"DEBUG: Delete result - Success: {success}, Message: {msg}")
                                     if success:
                                         st.success("Course deleted successfully!")
                                         st.rerun()

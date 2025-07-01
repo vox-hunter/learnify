@@ -181,6 +181,49 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
+    /* Hide cookies manager and reduce top spacing */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    iframe[title*="streamlit_cookies_manager"],
+    iframe[src*="streamlit_cookies_manager"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    div[data-testid="stAppViewContainer"] > div:first-child:empty {
+        display: none !important;
+    }
+    
+    /* Target the specific custom component container for cookies manager */
+    .stCustomComponentV1:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
+        height: 0px !important;
+        width: 0px !important;
+    }
+    
+    /* Hide empty custom component containers */
+    .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
+    /* Additional targeting for any wrapper elements */
+    div[data-testid="stVerticalBlock"] > div:first-child:empty,
+    div[data-testid="stVerticalBlock"] > div:first-child:has(iframe[src*="cookie"]) {
+        display: none !important;
+        height: 0px !important;
+    }
+    
+    /* Remove top padding/margin from main container */
+    .main .block-container {
+        padding-top: 1rem !important;
+        margin-top: 0rem !important;
+    }
+    
     /* Global styles */
     .stApp {
         background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
@@ -698,8 +741,6 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # Add padding to account for fixed header
-    st.markdown('<div style="height: 80px;"></div>', unsafe_allow_html=True)
     course_id = get_current_course_id()
     
     if course_id is None:
@@ -726,7 +767,6 @@ def main():
         display_course_completion_stats(course_data, course_id)
         return
       # Main course container with enhanced styling
-    st.markdown('<div class="course-container">', unsafe_allow_html=True)
     
     # Course title and info - handle both MongoDB and session data
     course_title = "📚 Course"  # Default title
@@ -841,8 +881,6 @@ def main():
     
     # Display all questions progressively (Seneca-style)
     display_progressive_questions(course_data, course_id)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def get_current_course_id():
     """Get the current course ID from URL params or session state"""
@@ -1259,9 +1297,65 @@ def display_course_completion_stats(course_data, course_id):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Compact home button
+    # Add specific styling for action buttons
+    st.markdown("""
+    <style>
+    /* Re-attempt button - Orange gradient */
+    div[data-testid="column"]:nth-child(1) .stButton > button {
+        background: linear-gradient(135deg, #ff8a00 0%, #e52e71 100%) !important;
+        box-shadow: 0 8px 24px rgba(255, 138, 0, 0.4) !important;
+    }
+    
+    div[data-testid="column"]:nth-child(1) .stButton > button:hover {
+        background: linear-gradient(135deg, #ff6b00 0%, #d62d72 100%) !important;
+        transform: translateY(-4px) scale(1.05) !important;
+        box-shadow: 0 16px 40px rgba(255, 138, 0, 0.6) !important;
+    }
+    
+    /* Home button - Green gradient */
+    div[data-testid="column"]:nth-child(3) .stButton > button {
+        background: linear-gradient(135deg, #48bb78 0%, #38b2ac 100%) !important;
+        box-shadow: 0 8px 24px rgba(72, 187, 120, 0.4) !important;
+    }
+    
+    div[data-testid="column"]:nth-child(3) .stButton > button:hover {
+        background: linear-gradient(135deg, #38a169 0%, #319795 100%) !important;
+        transform: translateY(-4px) scale(1.05) !important;
+        box-shadow: 0 16px 40px rgba(72, 187, 120, 0.6) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Add some spacing before the action buttons
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Action buttons - Re-attempt and Home
     col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
+    with col1:
+        if st.button("🔄 Re-attempt Course", key="reattempt_course_btn", use_container_width=True):
+            # Reset course progress while keeping course data
+            st.session_state.course_finished = False
+            
+            # Convert course_id to string for comparison
+            course_id_str = str(course_id)
+            
+            # Reset all question answers and progress
+            for key in list(st.session_state.keys()):
+                if (isinstance(key, str) and key.startswith(f"course_{course_id_str}_")) or key in ['checked_answers', 'user_answers', 'feedback', 'current_score', 'scored_correctly_keys']:
+                    del st.session_state[key]
+            
+            # Reinitialize progress tracking
+            st.session_state.checked_answers = {}
+            st.session_state.user_answers = {}
+            st.session_state.feedback = {}
+            st.session_state.current_score = 0
+            st.session_state.scored_correctly_keys = set()
+            st.session_state.start_time = time.time()
+            
+            st.success("🔄 Course reset! You can now re-attempt all questions.")
+            st.rerun()
+    
+    with col3:
         if st.button("🏠 Return to Home", key="return_home_btn", use_container_width=True):
             # Use session state to prevent double processing
             if "going_home" not in st.session_state:
