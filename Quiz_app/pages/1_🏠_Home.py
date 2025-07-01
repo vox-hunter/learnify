@@ -48,6 +48,21 @@ st.markdown("""
         color: white !important;
     }
     
+    /* Hide cookie manager component that takes up horizontal space */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    .stCustomComponentV1:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
     /* Main content container */
     .main-container {
         background: rgba(255, 255, 255, 0.08);
@@ -279,10 +294,17 @@ try:
     from local_backend import analyze_pdf_content, generate_course
     MONGO_AVAILABLE = True
 except ImportError as e:
-    # It's okay to call st.error here after set_page_config
-    st.error(f"Failed to import MongoAuthManager or MongoCourseManager. Ensure mongo_auth.py and mongo_course_manager.py are in the correct path: {e}")
+    # Don't show error immediately - just set flag
     MONGO_AVAILABLE = False
-    # Allow guest access even if Mongo is down, but authenticated features will be limited.
+    # Store error for later display if needed
+    st.session_state['mongo_import_error'] = str(e)
+    
+    # Provide fallback functions
+    def analyze_pdf_content(content):
+        return {"word_count": 1000}  # Fallback
+    
+    def generate_course(*args, **kwargs):
+        return None, "MongoDB backend not available"
 
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
@@ -293,9 +315,12 @@ if cookies is None:
         if ensure_cookie_manager():
             cookies = st.session_state.get('cookies')
         else:
-            st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
-            st.markdown("Please refresh the page or go back to the [Home page](/) to start the application properly.")
-            st.stop()
+            # Don't stop - just warn and continue without cookies
+            st.warning("Cookie manager not available. Some features may be limited.")
+            cookies = None
+    except (ImportError, Exception):
+        st.warning("Cookie manager not available. Some features may be limited.")
+        cookies = None
     except ImportError:
         st.error("Cookie manager not found in session state. Please run the app from the main entry point.")
         st.markdown("Please refresh the page or go back to the [Home page](/) to start the application properly.")
@@ -376,7 +401,7 @@ def force_login_if_limit_reached():
     if guest_count >= 3:
         st.warning("You have reached the guest limit of 3 courses. Please log in to create more.")
         st.page_link("pages/2_🔐_Login.py", label="Login / Sign Up", icon="🔐")
-        st.stop()
+        return True  # Return True to indicate limit reached, but don't stop execution
     return False
 
 # Initialize session state function
@@ -575,6 +600,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
+    # Always show basic hero section first
+    st.markdown("""
+    <div class="hero-section">
+        <h1 class="hero-title">🚀 AI Loom</h1>
+        <p class="hero-subtitle">Transform any PDF into an interactive learning experience with AI-powered courses</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Check if a course_id is provided in the URL for sharing
     shared_course_id = st.query_params.get("course_id")
     if shared_course_id:
@@ -621,14 +654,6 @@ def main():
         # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
 
 
-    # Hero section
-    st.markdown("""
-    <div class="hero-section">
-        <h1 class="hero-title">🚀 AI Loom</h1>
-        <p class="hero-subtitle">Transform any PDF into an interactive learning experience with AI-powered courses</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
     # Status message
     if st.session_state.get('authentication_status'):
         st.markdown("""
@@ -639,20 +664,22 @@ def main():
     else:
         # Force login if limit reached
         if force_login_if_limit_reached():
-            return  # Stop execution if forcing login            
-        # Show remaining courses for guest users
-        guest_count = get_guest_course_count()
-        remaining = 3 - guest_count
-        if remaining > 0:
-            st.markdown(f"""
-            <div class="guest-mode">
-                🎯 <strong>Guest Mode:</strong> {remaining} out of 3 free courses remaining
-            </div>
-            """, unsafe_allow_html=True)
+            # Don't return here - let the UI continue to render
+            pass
         else:
-            st.markdown("""
-            <div class="limits-notice">
-                🔒 You've used all 3 guest courses. Please login for unlimited access!
+            # Show remaining courses for guest users
+            guest_count = get_guest_course_count()
+            remaining = 3 - guest_count
+            if remaining > 0:
+                st.markdown(f"""
+                <div class="guest-mode">
+                    🎯 <strong>Guest Mode:</strong> {remaining} out of 3 free courses remaining
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div class="limits-notice">
+                    🔒 You've used all 3 guest courses. Please login for unlimited access!
             </div>
             """, unsafe_allow_html=True)
 
@@ -677,8 +704,6 @@ def main():
             if file_size > 10 * 1024 * 1024:
                 st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above 10MB limit)")
                 st.info("💡 **Note:** File will be automatically compressed during course generation to fit within limits.")
-            else:
-                st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")              # For large files, skip heavy analysis during upload to avoid delays
             if uploaded_file:
                 if file_size > 10 * 1024 * 1024:
                     # Large file: do quick validation only
@@ -745,7 +770,7 @@ def main():
                 # Double-check course limit before generating
                 if not check_course_limit():
                     st.error("🔐 Course limit reached. Please login to continue.")
-                    return
+                    st.rerun()  # Rerun to show the main UI again
                     
                 # Store file data in session state for progress function
                 st.session_state.current_uploaded_file = uploaded_file
@@ -836,12 +861,12 @@ def generate_and_redirect(uploaded_file, pdf_url):
                             st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
                             st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
                             st.session_state.is_generating_course = False
-                            return
+                            st.rerun()  # Rerun to show the main UI again
                         elif word_count == 0:
                             status_text.text("❌ Analysis failed: no text found")
                             st.error("❌ Could not extract text from the compressed PDF. Please try a different file.")
                             st.session_state.is_generating_course = False
-                            return
+                            st.rerun()  # Rerun to show the main UI again
                         else:
                             status_text.text(f"✅ Content validated: {word_count:,} words found")
                             progress_bar.progress(14)
@@ -850,7 +875,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
                         status_text.text("❌ Analysis failed: error reading content")
                         st.error(f"❌ Error analyzing compressed PDF: {str(e)}")
                         st.session_state.is_generating_course = False
-                        return
+                        st.rerun()  # Rerun to show the main UI again
                 
                 # Reset file pointer and generate course
                 status_text.text("🚀 Starting course generation...")
@@ -1130,8 +1155,16 @@ def smart_pdf_compression(pdf_content, target_size_mb=10):
         return pdf_content, original_size_mb, 1.0, "❌ Compression failed - using original file"
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Error in main function: {e}")
+        st.write("Debug info:", str(e))
+        # Still show basic UI
+        st.title("🧠 AI Loom")
+        st.write("There was an error loading the page. Please refresh.")
 
+# Always show footer regardless of main function issues
 # Footer with legal links
 st.markdown("""
 ---

@@ -6,6 +6,7 @@ This script handles navigation and session management for the Learnify app.
 import streamlit as st
 import os
 import sys
+import time
 
 # --- Page Config ---
 st.set_page_config(
@@ -39,6 +40,15 @@ st.markdown("""
     /* Hide the 'Course' link in the sidebar */
     a[data-testid="stSidebarNavLink"][href$="/Course"] {
         display: none;
+    }
+    
+    /* Hide Privacy Policy and Terms & Conditions from sidebar navigation */
+    a[data-testid="stSidebarNavLink"][href$="/Privacy"] {
+        display: none !important;
+    }
+    
+    a[data-testid="stSidebarNavLink"][href$="/Terms"] {
+        display: none !important;
     }
     
     /* Modern sidebar styling */
@@ -157,6 +167,34 @@ st.markdown("""
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
+    }
+    
+    /* Hide any remaining loading elements */
+    .loading-overlay {
+        display: none !important;
+    }
+    
+    /* Hide cookie manager component that takes up horizontal space */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    iframe[title*="streamlit_cookies_manager"],
+    iframe[src*="streamlit_cookies_manager"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    .stCustomComponentV1:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
+    /* Hide custom components with cookie manager */
+    .st-emotion-cache-8atqhb:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -281,6 +319,10 @@ pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:
+    # Show debug info if available
+    if 'debug_last_click' in st.session_state:
+        st.info(f"Debug: {st.session_state.debug_last_click}")
+    
     if st.session_state.get('authentication_status') and MONGO_AVAILABLE:
         st.header("Courses")
         course_manager = get_course_manager()
@@ -318,8 +360,12 @@ with st.sidebar:
                             col1, col2 = st.columns([0.8, 0.2])
                             with col1:
                                 if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                                    # Store debug info in session state so it persists
+                                    st.session_state.debug_last_click = f"Course clicked: {course_id} at {time.time()}"
+                                    # Set the course ID in session state and query params
                                     st.session_state.current_course_id = course_id
                                     st.query_params.course_id = course_id
+                                    # Navigate to the course page using string path (like old version)
                                     st.switch_page("pages/3_Course.py")
                             with col2:
                                 with st.popover("⋮", use_container_width=True):
@@ -365,8 +411,12 @@ with st.sidebar:
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
                             if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                                # Store debug info in session state so it persists
+                                st.session_state.debug_last_click = f"Course clicked: {course_id} at {time.time()}"
+                                # Set the course ID in session state and query params
                                 st.session_state.current_course_id = course_id
                                 st.query_params.course_id = course_id
+                                # Navigate to the course page using string path (like old version)
                                 st.switch_page("pages/3_Course.py")
                         with col2:
                             with st.popover("⋮", use_container_width=True):
@@ -409,10 +459,10 @@ with st.sidebar:
                 if st.button("Logout", use_container_width=True):
                     logout_user()
                 if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
-                    st.switch_page("pages/2_🔐_Login.py")
+                    st.switch_page(login_page)
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
-                st.switch_page("pages/2_🔐_Login.py")
+                st.switch_page(login_page)
 
 # --- Run Page ---
 pg.run()

@@ -198,6 +198,29 @@ st.markdown("""
         color: #ff4757;
         font-weight: 500;
     }
+    
+    /* Hide cookie manager component that takes up horizontal space */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    iframe[title*="streamlit_cookies_manager"],
+    iframe[src*="streamlit_cookies_manager"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    .stCustomComponentV1:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
+    /* Hide custom components with cookie manager */
+    .st-emotion-cache-8atqhb:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
