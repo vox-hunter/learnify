@@ -455,6 +455,56 @@ st.markdown("""
         background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
     }
     
+    /* Consistent sidebar styling (from main.py) */
+    .stSidebar > div {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
+        backdrop-filter: blur(20px) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Sidebar buttons */
+    .stSidebar .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Sidebar popover buttons (Logout, Reset Password) */
+    .stSidebar .stPopover .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar .stPopover .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Override any general button styling for sidebar popover */
+    .stSidebar [data-testid="stPopover"] .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+    }
+    
     /* Hide default sidebar */
     .css-1d391kg {
         padding-top: 1rem;
@@ -619,21 +669,10 @@ def main():
         st.switch_page("pages/3_Course.py")
         return
     
-    # Process logout flag and attempt auto-login
-    just_logged_out = st.session_state.pop('logout_just_occurred', False)
+    # The main.py already handles auto-login from cookies consistently
+    # No need for additional logout processing here
     
-    if just_logged_out:
-        st.session_state['logout_just_occurred_processed_auto_login_home'] = True # Mark that this specific reload after logout has been processed for auto-login
-    else:        # If not just logged out, clear the processed flag
-        st.session_state.pop('logout_just_occurred_processed_auto_login_home', None)
-        # Attempt auto-login only if cookies are ready and not immediately after a logout action
-        if cookies is not None:
-            try:
-                if cookies.ready():
-                    pass # auto_login_from_cookie() is in main.py
-            except Exception:
-                pass
-      # Top navigation
+    # Top navigation
     _, col2, col3 = st.columns([6, 1, 1])  # Adjusted column ratio for better spacing
     
     with col2: # Login/User status
@@ -786,8 +825,7 @@ def main():
         if st.button("🔐 Go to Login", type="primary"):
             st.switch_page("pages/2_🔐_Login.py")
     
-    # Show course history in sidebar if available
-    show_course_history()
+    # Sidebar is now handled by main.py for consistency
 
 def show_generation_progress():
     """Show course generation progress and start generation"""
@@ -998,37 +1036,6 @@ def count_total_questions(course_data):
                     total += len(subsection['questions'])
     return total
 
-def show_course_history():
-    """Show course history in sidebar"""
-    if st.session_state.course_history:
-        with st.sidebar:
-            st.markdown("### 🏠 Navigation")
-            if st.button("🏠 Home", use_container_width=True):
-                # Clear any course-specific session state when going home
-                st.session_state.current_course_id = None
-                st.rerun()
-            
-            st.markdown("### 📚 Your Courses")
-            for course in st.session_state.course_history:                # Truncate long titles
-                display_title = course['title']
-                if len(display_title) > 25:
-                    display_title = display_title[:22] + "..."
-                
-                course_key = f"course_{course['id']}"
-                if st.button(f"{display_title}", key=course_key, use_container_width=True):
-                    # Use session state to prevent double processing
-                    if course_key not in st.session_state:
-                        st.session_state[course_key] = True
-                        st.session_state.current_course_id = course['id']
-                        st.switch_page("pages/3_Course.py")
-              # Show user status
-            st.markdown("---")
-            if st.session_state.get('authentication_status'):
-                st.success(f"👤 Logged in as {st.session_state.get('name', 'User')}")
-            else:
-                guest_count = get_guest_course_count()
-                remaining = 3 - guest_count
-                st.info(f"🎯 Guest: {remaining}/3 courses remaining")
                 
 # --- PDF Compression Functions ---
 def compress_pdf(pdf_content, target_size_mb=10):

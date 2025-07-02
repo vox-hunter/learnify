@@ -47,6 +47,22 @@ try:
 except ImportError:
     MONGO_AVAILABLE = False
 
+# --- Get Cookie Manager from Session State ---
+cookies = st.session_state.get('cookies')
+if cookies is None:
+    # Try fallback initialization
+    try:
+        from cookie_fallback import ensure_cookie_manager
+        if ensure_cookie_manager():
+            cookies = st.session_state.get('cookies')
+        else:
+            # Don't stop - just warn and continue without cookies
+            st.warning("Cookie manager not available. Some features may be limited.")
+            cookies = None
+    except (ImportError, Exception):
+        st.warning("Cookie manager not available. Some features may be limited.")
+        cookies = None
+
 # Initialize session state function
 def initialize_session_state():
     """Initialize all session state variables"""
@@ -1361,9 +1377,20 @@ def display_course_completion_stats(course_data, course_id):
             if "going_home" not in st.session_state:
                 st.session_state["going_home"] = True
                 st.session_state.course_finished = False
+                
+                # Preserve authentication and essential app state when returning home
+                keys_to_preserve = [
+                    'authentication_status', 'username', 'name', 'email',  # Auth data
+                    'cookies', 'auth_manager',  # Auth infrastructure
+                    'app_loading_complete', 'app_fully_loaded',  # App state
+                    'course_history', 'logged_in', 'going_home'  # Navigation state
+                ]
+                
+                # Clear only course-related session state
                 for key in list(st.session_state.keys()):
-                    if key not in ['username', 'course_history', 'logged_in', 'going_home']:
+                    if key not in keys_to_preserve:
                         del st.session_state[key]
+                
                 initialize_session_state()
                 st.switch_page("pages/1_🏠_Home.py")
 

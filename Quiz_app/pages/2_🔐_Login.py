@@ -19,6 +19,56 @@ st.markdown("""
         color: #e2e8f0;
     }
     
+    /* Consistent sidebar styling (from main.py) */
+    .stSidebar > div {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
+        backdrop-filter: blur(20px) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Sidebar buttons */
+    .stSidebar .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Sidebar popover buttons (Logout, Reset Password) */
+    .stSidebar .stPopover .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar .stPopover .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Override any general button styling for sidebar popover */
+    .stSidebar [data-testid="stPopover"] .stButton > button {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+    }
+    
     /* Ensure all text is light colored */
     .stMarkdown, .stText, p, div, span {
         color: #e2e8f0 !important;
@@ -301,8 +351,12 @@ def login_user(username, user_data):
     st.rerun()
 
 def logout_user():
-    # List of keys to preserve
-    preserve_keys = ['cookies', 'selected_tab']
+    # List of keys to preserve during logout
+    preserve_keys = [
+        'cookies', 'selected_tab',  # UI state
+        'auth_manager',  # Auth infrastructure 
+        'app_loading_complete', 'app_fully_loaded'  # App state
+    ]
 
     # Create a new dictionary with only the preserved keys
     preserved_state = {key: st.session_state[key] for key in preserve_keys if key in st.session_state}
@@ -314,10 +368,16 @@ def logout_user():
     for key, value in preserved_state.items():
         st.session_state[key] = value
 
-    # Set authentication status to False
+    # Set authentication status to False explicitly
     st.session_state['authentication_status'] = False
+    st.session_state['username'] = None
+    st.session_state['name'] = None
+    st.session_state['email'] = None
     
-    # Flagging is handled by main.py now
+    # Set logout flag for main.py to handle
+    st.session_state['logout_just_occurred'] = True
+    
+    # Update cookies
     if cookies is not None:
         try:
             if cookies.ready():

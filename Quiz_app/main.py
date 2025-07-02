@@ -58,22 +58,52 @@ st.markdown("""
         border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    /* Sidebar buttons */
-    .stSidebar .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-        color: #e2e8f0;
-        border: 1px solid rgba(102, 126, 234, 0.2);
-        border-radius: 12px;
-        padding: 8px 16px;
-        font-weight: 500;
-        transition: all 0.3s ease;
+    /* ULTIMATE SIDEBAR BUTTON OVERRIDE - Apply to ALL buttons in sidebar */
+    .stSidebar button,
+    .stSidebar .stButton > button,
+    .stSidebar .stPopover button,
+    .stSidebar [data-testid="stPopover"] button,
+    .stSidebar .element-container button,
+    [data-testid="stSidebar"] button,
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] .stPopover button,
+    [data-testid="stSidebar"] [data-testid="stPopover"] button,
+    [data-testid="stSidebar"] .element-container button,
+    .stSidebar button[kind],
+    .stSidebar button[data-testid],
+    .stSidebar button[style],
+    [data-testid="stSidebar"] button[kind],
+    [data-testid="stSidebar"] button[data-testid],
+    [data-testid="stSidebar"] button[style] {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
     }
     
-    .stSidebar .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
-        border-color: rgba(102, 126, 234, 0.4);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    .stSidebar button:hover,
+    .stSidebar .stButton > button:hover,
+    .stSidebar .stPopover button:hover,
+    .stSidebar [data-testid="stPopover"] button:hover,
+    .stSidebar .element-container button:hover,
+    [data-testid="stSidebar"] button:hover,
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] .stPopover button:hover,
+    [data-testid="stSidebar"] [data-testid="stPopover"] button:hover,
+    [data-testid="stSidebar"] .element-container button:hover,
+    .stSidebar button[kind]:hover,
+    .stSidebar button[data-testid]:hover,
+    .stSidebar button[style]:hover,
+    [data-testid="stSidebar"] button[kind]:hover,
+    [data-testid="stSidebar"] button[data-testid]:hover,
+    [data-testid="stSidebar"] button[style]:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
     }
     
     /* Enhanced Streamlit widgets */
@@ -93,6 +123,14 @@ st.markdown("""
         background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Override default Streamlit button colors completely for main content */
+    .stMain button[kind="primary"],
+    .stMain button[data-testid*="stButton"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
     }
     
     /* Success/Error/Info styling */
@@ -196,7 +234,60 @@ st.markdown("""
     .st-emotion-cache-8atqhb:has(iframe[src*="cookie_manager"]) {
         display: none !important;
     }
+    
+    /* Force CSS re-application on sidebar buttons to prevent caching issues */
+    .stSidebar {
+        --sidebar-btn-bg: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        --sidebar-btn-border: rgba(102, 126, 234, 0.2);
+        --sidebar-btn-color: #e2e8f0;
+    }
+    
+    /* CSS variable-based styling to force consistent application */
+    .stSidebar *[role="button"],
+    .stSidebar button {
+        background: var(--sidebar-btn-bg) !important;
+        border: 1px solid var(--sidebar-btn-border) !important;
+        color: var(--sidebar-btn-color) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar *[role="button"]:hover,
+    .stSidebar button:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+        border-color: rgba(102, 126, 234, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    }
 </style>
+
+<script>
+// Force sidebar button style consistency by periodically checking and reapplying styles
+function ensureSidebarButtonConsistency() {
+    const sidebar = document.querySelector('.stSidebar');
+    if (sidebar) {
+        const buttons = sidebar.querySelectorAll('button');
+        buttons.forEach(button => {
+            // Force re-application of our custom styles
+            button.style.setProperty('background', 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1))', 'important');
+            button.style.setProperty('color', '#e2e8f0', 'important');
+            button.style.setProperty('border', '1px solid rgba(102, 126, 234, 0.2)', 'important');
+            button.style.setProperty('border-radius', '12px', 'important');
+            button.style.setProperty('font-weight', '500', 'important');
+        });
+    }
+}
+
+// Run immediately and on DOM changes
+ensureSidebarButtonConsistency();
+const observer = new MutationObserver(ensureSidebarButtonConsistency);
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Also run when Streamlit finishes loading
+window.addEventListener('load', ensureSidebarButtonConsistency);
+</script>
 """, unsafe_allow_html=True)
 
 
