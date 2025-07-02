@@ -2,6 +2,8 @@ Here are my study notes attached.
 
 Please generate a JSON-formatted interactive course from this content using the following structure and learning principles:
 
+First, analyze the content and generate an engaging, descriptive course title that captures the main topic and learning objectives.
+
 Split the content into logical sections and subsections when necessary. Subsections should be short and focused (~40–80 words) on one concept.
 
 For each section or subsection, include 0 to 3 quiz questions relevant to that exact section or subsection, depending on the complexity or relevance of the content.
@@ -14,4 +16,4 @@ Include one interleaved question per section, referencing a prior topic (but do 
 
 Always include the correct answer next to each question.
 
-Output strictly in valid JSON. No text or commentary before or after.
+Output strictly in valid JSON with the course title as a top-level field. No text or commentary before or after.

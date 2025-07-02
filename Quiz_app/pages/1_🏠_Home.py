@@ -935,10 +935,17 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 progress_bar.progress(100)
                 status_text.text("✅ Course created successfully! Processing save...")
 
-                if uploaded_file:
-                    course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
+                # Extract AI-generated course title or use fallback
+                if hasattr(course_data, 'course_title') and course_data.course_title:
+                    course_title = course_data.course_title
+                elif isinstance(course_data, dict) and 'course_title' in course_data:
+                    course_title = course_data['course_title']
                 else:
-                    course_title = "🔗 Course from URL"
+                    # Fallback to file-based naming if AI didn't provide a title
+                    if uploaded_file:
+                        course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
+                    else:
+                        course_title = "🔗 Course from URL"
 
                 generated_course_id = None  # Will store the ID if successfully saved
                 save_error_occurred = False
@@ -955,8 +962,17 @@ def generate_and_redirect(uploaded_file, pdf_url):
                             session_id = None
                             creator = st.session_state.get('username', 'unknown_user')
                         
+                        # Extract sections from course_data for saving
+                        if hasattr(course_data, 'sections'):
+                            sections_to_save = course_data.sections
+                        elif isinstance(course_data, dict) and 'sections' in course_data:
+                            sections_to_save = course_data['sections']
+                        else:
+                            # Fallback: assume course_data is already the sections list
+                            sections_to_save = course_data
+                        
                         temp_mongo_id, save_db_error = course_manager.save_course(
-                            course_data=course_data,
+                            course_data=sections_to_save,
                             course_title=course_title,
                             creator=creator,
                             is_guest=is_guest,

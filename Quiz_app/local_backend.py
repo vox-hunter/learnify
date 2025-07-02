@@ -1,8 +1,8 @@
 import logging
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field, RootModel, ValidationError
-from typing import Union, Optional, List, Dict, Any, Literal
+from pydantic import BaseModel, Field, ValidationError
+from typing import Union, Optional, List, Literal
 from dotenv import load_dotenv
 import json
 import os
@@ -52,9 +52,10 @@ class Course(BaseModel):
     course_title: str # This might not be provided by the AI with current prompts
     sections: List[Section]
 
-# New model to match the ACTUAL API response structure (a list of sections)
-class ActualApiResponse(RootModel):
-    root: List[Section] # The API response is a list of top-level sections
+# New model to match the ACTUAL API response structure (with course title)
+class ActualApiResponse(BaseModel):
+    course_title: str
+    sections: List[Section]
 
 # Configure logging
 logging.basicConfig(
@@ -334,7 +335,7 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             actual_time = time.time() - start_time
             logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
             
-            return parsed.root, None
+            return parsed, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")
             try:
