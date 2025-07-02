@@ -195,6 +195,7 @@ def _mark_section_questions_correct_recursive(section_data, section_key):
 # Apply ultra-modern CSS styling
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
     /* Hide cookies manager and reduce top spacing */
@@ -262,7 +263,7 @@ st.markdown("""
     .course-title {
         font-size: 3.5rem;
         font-weight: 800;
-        background: linear-gradient(45deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+        background: linear-gradient(45deg, #06b6d4 0%, #0ea5e9 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%);
         background-size: 300% 300%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -284,10 +285,10 @@ st.markdown("""
     .section-title {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #667eea;
+        color: #06b6d4;
         margin-bottom: 1.5rem;
         position: relative;
-        text-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
     }
     
     .section-title::after {
@@ -297,7 +298,7 @@ st.markdown("""
         left: 0;
         width: 60px;
         height: 4px;
-        background: linear-gradient(90deg, #667eea, #764ba2);
+        background: linear-gradient(90deg, #06b6d4, #0ea5e9);
         border-radius: 2px;
     }
     
@@ -314,7 +315,7 @@ st.markdown("""
     
     /* Modern pill buttons */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
         color: white;
         border: none;
         border-radius: 50px;
@@ -322,7 +323,7 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
         position: relative;
         overflow: hidden;
         text-transform: uppercase;
@@ -345,9 +346,9 @@ st.markdown("""
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+        background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
         transform: translateY(-4px) scale(1.05);
-        box-shadow: 0 16px 40px rgba(102, 126, 234, 0.6);
+        box-shadow: 0 16px 40px rgba(6, 182, 212, 0.6);
     }
     
     .stButton > button:active {
@@ -393,7 +394,7 @@ st.markdown("""
     .stat-number {
         font-size: 2rem;
         font-weight: 700;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: block;
@@ -427,28 +428,28 @@ st.markdown("""
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        background: linear-gradient(90deg, #06b6d4, #0ea5e9, #3b82f6);
         background-size: 200% 200%;
         animation: gradientShift 3s ease infinite;
     }
     
     .question-card:hover {
-        border-color: rgba(102, 126, 234, 0.5);
+        border-color: rgba(6, 182, 212, 0.5);
         background: rgba(255, 255, 255, 0.12);
         transform: translateY(-8px);
-        box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 20px 50px rgba(6, 182, 212, 0.3);
     }
     
     .question-number {
         display: inline-block;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
         color: white;
         padding: 8px 16px;
         border-radius: 20px;
         font-weight: 600;
         font-size: 0.9rem;
         margin-bottom: 1rem;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
     }
     
     .question-text {
@@ -478,8 +479,8 @@ st.markdown("""
     }
     
     .stRadio > div > label:hover {
-        background: rgba(102, 126, 234, 0.1);
-        border-color: rgba(102, 126, 234, 0.3);
+        background: rgba(6, 182, 212, 0.1);
+        border-color: rgba(6, 182, 212, 0.3);
         transform: translateX(8px);
     }
     
@@ -500,8 +501,8 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus,
     .stSelectbox > div > div > select:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+        border-color: #06b6d4;
+        box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.2);
         background: rgba(255, 255, 255, 0.12);
         outline: none;
     }
@@ -524,7 +525,7 @@ st.markdown("""
     }
     
     .stInfo {
-        background: linear-gradient(135deg, rgba(66, 153, 225, 0.2), rgba(102, 126, 234, 0.2));
+        background: linear-gradient(135deg, rgba(66, 153, 225, 0.2), rgba(6, 182, 212, 0.2));
         border: 1px solid rgba(66, 153, 225, 0.4);
         border-radius: 16px;
         backdrop-filter: blur(20px);
@@ -544,24 +545,24 @@ st.markdown("""
     
     /* Completion stats styling */
     .completion-container {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-        border: 1px solid rgba(102, 126, 234, 0.3);
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+        border: 1px solid rgba(6, 182, 212, 0.3);
         border-radius: 24px;
         padding: 3rem;
         text-align: center;
         margin: 2rem 0;
         backdrop-filter: blur(20px);
-        box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 16px 48px rgba(6, 182, 212, 0.3);
     }
     
     .completion-score {
         font-size: 4rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9, #f093fb);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 1rem 0;
-        text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+        text-shadow: 0 0 30px rgba(6, 182, 212, 0.5);
     }
     
     /* Responsive design */
@@ -708,7 +709,7 @@ def main():
             z-index: 999;
             background: rgba(13, 18, 32, 0.95);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            border-bottom: 1px solid rgba(6, 182, 212, 0.2);
             padding: 15px 20px;
         ">
             <div style="
@@ -815,7 +816,7 @@ def main():
     st.markdown(f"""
     <div class="nav-container">
         <div style="text-align: center;">
-            <div style="font-size: 1.2rem; font-weight: 600; color: #667eea; margin-bottom: 0.5rem;">
+            <div style="font-size: 1.2rem; font-weight: 600; color: #06b6d4; margin-bottom: 0.5rem;">
                 📚 {total_sections} Sections - Progressive Learning
             </div>
             <div style="color: #a0aec0; font-size: 0.9rem;">
@@ -1021,7 +1022,7 @@ def show_score_display(course_data):
             margin-top: 8px;
         ">
             <span>0</span>
-            <span style="font-weight: 600; color: #667eea;">{answered_questions}/{total_questions} Answered</span>
+            <span style="font-weight: 600; color: #06b6d4;">{answered_questions}/{total_questions} Answered</span>
             <span>{total_questions}</span>
         </div>
         """
@@ -1120,7 +1121,7 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
     <div style="margin-bottom: 1.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <span style="color: #a0aec0; font-size: 0.9rem;">Section Progress</span>
-            <span style="color: #667eea; font-weight: 600;">{current_section + 1}/{total_sections}</span>
+            <span style="color: #06b6d4; font-weight: 600;">{current_section + 1}/{total_sections}</span>
         </div>
         <div style="
             width: 100%;
@@ -1132,7 +1133,7 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
             <div style="
                 width: {progress_pct}%;
                 height: 100%;
-                background: linear-gradient(90deg, #667eea, #764ba2);
+                background: linear-gradient(90deg, #06b6d4, #0ea5e9);
                 transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
             "></div>
         </div>
@@ -1156,13 +1157,13 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
         <div style="text-align: center;">
             <div style="
                 display: inline-block;
-                background: linear-gradient(135deg, #667eea, #764ba2);
+                background: linear-gradient(135deg, #06b6d4, #0ea5e9);
                 color: white;
                 padding: 12px 24px;
                 border-radius: 25px;
                 font-weight: 600;
                 font-size: 1rem;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
             ">
                 📖 Section {current_section + 1} of {total_sections}
             </div>
@@ -1214,7 +1215,7 @@ def display_course_completion_stats(course_data, course_id):
     elif score_percentage >= 40:
         message = "Good effort! Keep practicing. 📚"
         emoji = "�"
-        color = "#667eea"
+        color = "#06b6d4"
     else:
         message = "Keep going! Every attempt counts. 🎯"
         emoji = "🔄"
@@ -1273,12 +1274,12 @@ def display_course_completion_stats(course_data, course_id):
             <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
                 <div style="font-size: 2.5rem;">{emoji}</div>
                 <div>
-                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #667eea, #764ba2, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
+                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
                     <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
                 </div>
             </div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
-                <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
+                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(118, 75, 162, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
                     <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
                     <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
                 </div>
@@ -1288,7 +1289,7 @@ def display_course_completion_stats(course_data, course_id):
                         <div class="stat-label" style="font-size: 0.85rem;">Correct</div>
                     </div>
                     <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #667eea;">{total_questions}</span>
+                        <span class="stat-number" style="font-size: 1.8rem; color: #06b6d4;">{total_questions}</span>
                         <div class="stat-label" style="font-size: 0.85rem;">Total</div>
                     </div>
                     <div class="stat-item" style="text-align: center;">
@@ -1299,7 +1300,7 @@ def display_course_completion_stats(course_data, course_id):
             </div>
             <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem; color: #667eea; font-weight: 600;">🧠 Memory Strength:</span>
+                    <span style="font-size: 1.2rem; color: #06b6d4; font-weight: 600;">🧠 Memory Strength:</span>
                     {lightning_html}
                 </div>
                 <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
@@ -1473,8 +1474,8 @@ def display_progressive_questions(course_data, course_id):
             
             st.markdown(f"""
             <div class="{'fade-in-up' if is_newly_unlocked_section else ''}" style="
-                background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
-                border: 1px solid rgba(102, 126, 234, 0.2);
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(118, 75, 162, 0.05));
+                border: 1px solid rgba(6, 182, 212, 0.2);
                 border-radius: 20px;
                 padding: 1.5rem;
                 margin: 2rem 0 1rem 0;
@@ -1482,7 +1483,7 @@ def display_progressive_questions(course_data, course_id):
                 text-align: center;
             ">
                 <h2 style="
-                    color: #667eea;
+                    color: #06b6d4;
                     margin: 0;
                     font-size: 1.6rem;
                     font-weight: 600;
@@ -1490,7 +1491,7 @@ def display_progressive_questions(course_data, course_id):
                     📚 {section_title}
                 </h2>
                 <div style="
-                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
                     color: white;
                     padding: 6px 12px;
                     border-radius: 15px;
@@ -1517,7 +1518,7 @@ def display_progressive_questions(course_data, course_id):
                 st.markdown(f"""
                 <div style="
                     background: rgba(255, 255, 255, 0.05);
-                    border-left: 4px solid #667eea;
+                    border-left: 4px solid #06b6d4;
                     border-radius: 0 12px 12px 0;
                     padding: 1.5rem;
                     margin: 1rem 0 2rem 0;
@@ -1546,7 +1547,7 @@ def display_progressive_questions(course_data, course_id):
              id="question-{i}"
              style="
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
-            border: 1px solid rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(6, 182, 212, 0.2);
             border-radius: 16px;
             padding: 2rem;
             margin: 1.5rem 0;
@@ -1554,7 +1555,7 @@ def display_progressive_questions(course_data, course_id):
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             scroll-margin-bottom: 150px;
-            {'border-color: rgba(102, 126, 234, 0.6); box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);' if is_newly_unlocked else ''}
+            {'border-color: rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);' if is_newly_unlocked else ''}
         ">
             <div style="
                 display: flex;
@@ -1563,7 +1564,7 @@ def display_progressive_questions(course_data, course_id):
                 margin-bottom: 1rem;
             ">
                 <div style="
-                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
                     color: white;
                     padding: 8px 16px;
                     border-radius: 20px;
@@ -1632,7 +1633,7 @@ def display_progressive_questions(course_data, course_id):
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
             color: white;
             padding: 12px 20px;
             border-radius: 25px;
@@ -1707,7 +1708,7 @@ def display_section_content(section_data, section_key):
         st.markdown(f"""
         <div style="
             background: rgba(255, 255, 255, 0.05);
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #06b6d4;
             border-radius: 0 12px 12px 0;
             padding: 1.5rem;
             margin: 2rem 0;
@@ -1726,7 +1727,7 @@ def display_section_content(section_data, section_key):
         <div style="
             text-align: center;
             margin: 3rem 0 2rem 0;
-            color: #667eea;
+            color: #06b6d4;
             font-size: 1.2rem;
             font-weight: 600;
         ">
@@ -1755,15 +1756,15 @@ def display_section_content(section_data, section_key):
             # Enhanced subsection styling
             st.markdown(f"""
             <div style="
-                background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-                border: 1px solid rgba(102, 126, 234, 0.3);
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+                border: 1px solid rgba(6, 182, 212, 0.3);
                 border-radius: 20px;
                 padding: 2rem;
                 margin: 2rem 0;
                 backdrop-filter: blur(20px);
             ">
                 <h3 style="
-                    color: #667eea;
+                    color: #06b6d4;
                     margin-bottom: 1.5rem;
                     font-size: 1.5rem;
                     font-weight: 600;
@@ -2184,14 +2185,14 @@ def display_question(question_item, section_key, question_idx):
             # Modern matching interface
             st.markdown("""
             <div style="
-                background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-                border: 1px solid rgba(102, 126, 234, 0.2);
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+                border: 1px solid rgba(6, 182, 212, 0.2);
                 border-radius: 16px;
                 padding: 2rem;
                 margin: 1rem 0;
             ">
                 <h4 style="
-                    color: #667eea; 
+                    color: #06b6d4; 
                     margin-bottom: 1.5rem; 
                     text-align: center;
                     font-size: 1.2rem;
@@ -2207,7 +2208,7 @@ def display_question(question_item, section_key, question_idx):
                 st.markdown(f"""
                 <div style="
                     background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(102, 126, 234, 0.2);
+                    border: 1px solid rgba(6, 182, 212, 0.2);
                     border-radius: 12px;
                     padding: 1.5rem;
                     margin: 1rem 0;
@@ -2220,7 +2221,7 @@ def display_question(question_item, section_key, question_idx):
                         font-size: 1.1rem;
                     ">
                         <span style="
-                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
                             color: white;
                             padding: 4px 8px;
                             border-radius: 6px;
@@ -2283,7 +2284,7 @@ def display_question(question_item, section_key, question_idx):
                     margin-bottom: 0.5rem;
                 ">
                     <span style="color: #a0aec0; font-size: 0.9rem;">Progress</span>
-                    <span style="color: #667eea; font-weight: 600;">{len(user_matches_for_ui)}/{len(left_items)} matched</span>
+                    <span style="color: #06b6d4; font-weight: 600;">{len(user_matches_for_ui)}/{len(left_items)} matched</span>
                 </div>
                 <div style="
                     background: rgba(255, 255, 255, 0.1);
@@ -2292,7 +2293,7 @@ def display_question(question_item, section_key, question_idx):
                     overflow: hidden;
                 ">
                     <div style="
-                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
                         height: 100%;
                         width: {progress * 100}%;
                         transition: width 0.3s ease;

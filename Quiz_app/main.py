@@ -8,6 +8,28 @@ import os
 import sys
 import time
 
+# --- Helper Functions ---
+def truncate_course_name(course_name, max_words=4):
+    """
+    Truncate course name to specified number of words, adding ellipsis if needed.
+    Returns a tuple of (truncated_name, is_truncated)
+    """
+    if not course_name:
+        return "Untitled Course", False
+    
+    words = course_name.split()
+    if len(words) <= max_words:
+        return course_name, False
+    
+    truncated = " ".join(words[:max_words]) + "..."
+    return truncated, True
+
+def escape_for_javascript(text):
+    """Escape special characters for safe JavaScript string inclusion"""
+    if not text:
+        return ""
+    return text.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r')
+
 # --- Page Config ---
 st.set_page_config(
     page_title="AI Loom",
@@ -24,11 +46,12 @@ if 'app_loading_complete' not in st.session_state:
 # --- Custom CSS to hide navigation links and apply modern styling ---
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
     /* Global styles */
     .stApp {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1d35 50%, #252947 100%);
         font-family: 'Inter', sans-serif;
     }
     
@@ -53,9 +76,9 @@ st.markdown("""
     
     /* Modern sidebar styling */
     .stSidebar > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
         backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(6, 182, 212, 0.2);
     }
     
     /* ULTIMATE SIDEBAR BUTTON OVERRIDE - Apply to ALL buttons in sidebar */
@@ -75,9 +98,9 @@ st.markdown("""
     [data-testid="stSidebar"] button[kind],
     [data-testid="stSidebar"] button[data-testid],
     [data-testid="stSidebar"] button[style] {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1)) !important;
         color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border: 1px solid rgba(6, 182, 212, 0.3) !important;
         border-radius: 12px !important;
         padding: 8px 16px !important;
         font-weight: 500 !important;
@@ -100,15 +123,15 @@ st.markdown("""
     [data-testid="stSidebar"] button[kind]:hover,
     [data-testid="stSidebar"] button[data-testid]:hover,
     [data-testid="stSidebar"] button[style]:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
+        border-color: rgba(6, 182, 212, 0.5) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3) !important;
     }
     
     /* Enhanced Streamlit widgets */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
         color: white;
         border: none;
         border-radius: 12px;
@@ -116,19 +139,19 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+        background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
     }
     
     /* Override default Streamlit button colors completely for main content */
     .stMain button[kind="primary"],
     .stMain button[data-testid*="stButton"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%) !important;
         color: white !important;
         border: none !important;
     }
@@ -149,8 +172,8 @@ st.markdown("""
     }
     
     .stInfo {
-        background: linear-gradient(135deg, rgba(66, 153, 225, 0.2), rgba(102, 126, 234, 0.2));
-        border: 1px solid rgba(66, 153, 225, 0.4);
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2));
+        border: 1px solid rgba(6, 182, 212, 0.4);
         border-radius: 12px;
         backdrop-filter: blur(20px);
     }
@@ -174,17 +197,17 @@ st.markdown("""
     }
     
     .modern-card:hover {
-        border-color: rgba(102, 126, 234, 0.5);
+        border-color: rgba(6, 182, 212, 0.5);
         background: rgba(255, 255, 255, 0.12);
         transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+        box-shadow: 0 8px 32px rgba(6, 182, 212, 0.2);
     }
     
     /* Text styling */
     .modern-title {
         font-size: 2.5rem;
         font-weight: 700;
-        background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
+        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #3b82f6);
         background-size: 200% 200%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -196,9 +219,9 @@ st.markdown("""
     .section-header {
         font-size: 1.8rem;
         font-weight: 600;
-        color: #667eea;
+        color: #06b6d4;
         margin-bottom: 1rem;
-        text-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
     }
     
     @keyframes gradientShift {
@@ -237,8 +260,8 @@ st.markdown("""
     
     /* Force CSS re-application on sidebar buttons to prevent caching issues */
     .stSidebar {
-        --sidebar-btn-bg: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-        --sidebar-btn-border: rgba(102, 126, 234, 0.2);
+        --sidebar-btn-bg: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1));
+        --sidebar-btn-border: rgba(6, 182, 212, 0.3);
         --sidebar-btn-color: #e2e8f0;
     }
     
@@ -256,37 +279,113 @@ st.markdown("""
     
     .stSidebar *[role="button"]:hover,
     .stSidebar button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
+        border-color: rgba(6, 182, 212, 0.4) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2) !important;
     }
 </style>
 
 <script>
-// Force sidebar button style consistency by periodically checking and reapplying styles
+// Store course titles for tooltip functionality
+window.courseTitles = new Map();
+
+// Force sidebar button style consistency and add tooltip functionality
 function ensureSidebarButtonConsistency() {
     const sidebar = document.querySelector('.stSidebar');
     if (sidebar) {
         const buttons = sidebar.querySelectorAll('button');
         buttons.forEach(button => {
             // Force re-application of our custom styles
-            button.style.setProperty('background', 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1))', 'important');
+            button.style.setProperty('background', 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1))', 'important');
             button.style.setProperty('color', '#e2e8f0', 'important');
-            button.style.setProperty('border', '1px solid rgba(102, 126, 234, 0.2)', 'important');
+            button.style.setProperty('border', '1px solid rgba(6, 182, 212, 0.3)', 'important');
             button.style.setProperty('border-radius', '12px', 'important');
             button.style.setProperty('font-weight', '500', 'important');
         });
     }
 }
 
+// Add custom tooltip functionality for course buttons
+function addCourseTooltips() {
+    window.courseTitles.forEach((fullTitle, buttonText) => {
+        const buttons = document.querySelectorAll('.stSidebar button');
+        buttons.forEach(button => {
+            if (button.textContent.trim() === buttonText && buttonText.includes('...')) {
+                // Remove any existing tooltip
+                const existingTooltip = button.parentElement.querySelector('.custom-course-tooltip');
+                if (existingTooltip) {
+                    existingTooltip.remove();
+                }
+                
+                // Create tooltip element
+                const tooltip = document.createElement('div');
+                tooltip.className = 'custom-course-tooltip';
+                tooltip.textContent = fullTitle;
+                tooltip.style.cssText = `
+                    position: absolute;
+                    bottom: 110%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    white-space: nowrap;
+                    z-index: 9999;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s ease, visibility 0.3s ease;
+                    pointer-events: none;
+                    max-width: 300px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                `;
+                
+                // Add arrow
+                const arrow = document.createElement('div');
+                arrow.style.cssText = `
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    border: 5px solid transparent;
+                    border-top-color: rgba(0, 0, 0, 0.9);
+                `;
+                tooltip.appendChild(arrow);
+                
+                // Make button container relative positioned
+                button.parentElement.style.position = 'relative';
+                button.parentElement.appendChild(tooltip);
+                
+                // Add hover events
+                button.addEventListener('mouseenter', () => {
+                    tooltip.style.opacity = '1';
+                    tooltip.style.visibility = 'visible';
+                });
+                
+                button.addEventListener('mouseleave', () => {
+                    tooltip.style.opacity = '0';
+                    tooltip.style.visibility = 'hidden';
+                });
+            }
+        });
+    });
+}
+
+// Combined function to run all enhancements
+function enhanceSidebar() {
+    ensureSidebarButtonConsistency();
+    addCourseTooltips();
+}
+
 // Run immediately and on DOM changes
-ensureSidebarButtonConsistency();
-const observer = new MutationObserver(ensureSidebarButtonConsistency);
+enhanceSidebar();
+const observer = new MutationObserver(enhanceSidebar);
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Also run when Streamlit finishes loading
-window.addEventListener('load', ensureSidebarButtonConsistency);
+window.addEventListener('load', enhanceSidebar);
 </script>
 """, unsafe_allow_html=True)
 
@@ -447,10 +546,24 @@ with st.sidebar:
 
                             course_id = str(course_id_val)
                             course_title = course.get('title', 'Untitled Course')
+                            truncated_title, is_truncated = truncate_course_name(course_title)
+                            
+                            # Register course title for tooltip if truncated
+                            if is_truncated:
+                                escaped_truncated = escape_for_javascript(truncated_title)
+                                escaped_full = escape_for_javascript(course_title)
+                                st.markdown(f"""
+                                <script>
+                                if (typeof window.courseTitles === 'undefined') {{
+                                    window.courseTitles = new Map();
+                                }}
+                                window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
+                                </script>
+                                """, unsafe_allow_html=True)
                             
                             col1, col2 = st.columns([0.8, 0.2])
                             with col1:
-                                if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                                if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
                                     # Set the course ID in session state and query params
                                     st.session_state.current_course_id = course_id
                                     st.query_params.course_id = course_id
@@ -493,10 +606,24 @@ with st.sidebar:
 
                         course_id = str(course_id_val)
                         course_title = course.get('title', 'Untitled Course')
+                        truncated_title, is_truncated = truncate_course_name(course_title)
+                        
+                        # Register course title for tooltip if truncated
+                        if is_truncated:
+                            escaped_truncated = escape_for_javascript(truncated_title)
+                            escaped_full = escape_for_javascript(course_title)
+                            st.markdown(f"""
+                            <script>
+                            if (typeof window.courseTitles === 'undefined') {{
+                                window.courseTitles = new Map();
+                            }}
+                            window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
+                            </script>
+                            """, unsafe_allow_html=True)
                         
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
-                            if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                            if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
                                 # Store debug info in session state so it persists
                                 # Set the course ID in session state and query params
                                 st.session_state.current_course_id = course_id
