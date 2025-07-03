@@ -15,17 +15,19 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- Google Analytics ---
-st.markdown("""
+import streamlit.components.v1 as components
+
+# Google Analytics implementation
+components.html("""
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-B30T0B78LK');
 </script>
-""", unsafe_allow_html=True)
+""", height=0)
 
 # Apply modern CSS styling
 st.markdown("""
