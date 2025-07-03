@@ -17,9 +17,23 @@ if cookies is None:
     except (ImportError, RuntimeError, ValueError):
         cookies = None
 
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
 # Custom CSS for styling
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
     /* Hide cookie manager component that takes up horizontal space */
     iframe[title*="cookie_manager"], 
     iframe[src*="cookie_manager"],
@@ -43,55 +57,7 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Consistent sidebar styling (from main.py) */
-    .stSidebar > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
-        backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    /* Sidebar buttons */
-    .stSidebar .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Sidebar popover buttons (Logout, Reset Password) */
-    .stSidebar .stPopover .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stPopover .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Override any general button styling for sidebar popover */
-    .stSidebar [data-testid="stPopover"] .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-    }
+    /* Sidebar styling delegated to main.py */
     
     .main {
         max-width: 800px;
@@ -104,7 +70,7 @@ st.markdown("""
     }
     
     h1 {
-        color: #667eea;
+        color: #06b6d4;
         text-align: center;
         margin-bottom: 2rem;
     }

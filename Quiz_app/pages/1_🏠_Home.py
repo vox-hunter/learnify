@@ -14,9 +14,23 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
 # Apply modern CSS styling
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
     /* Import modern fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
@@ -43,8 +57,9 @@ st.markdown("""
         color: #e2e8f0 !important;
     }
     
-    /* Streamlit specific text elements */
-    .stButton > button {
+    /* Streamlit specific text elements - only for main content */
+    .main .stButton > button,
+    .stMain .stButton > button {
         color: white !important;
     }
     
@@ -84,7 +99,7 @@ st.markdown("""
     .hero-title {
         font-size: 3.5rem;
         font-weight: 700;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 1rem;
@@ -110,7 +125,7 @@ st.markdown("""
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(102, 126, 234, 0.1);
+        background: rgba(6, 182, 212, 0.1);
         border-radius: 10px;
         padding: 4px;
         margin-bottom: 2rem;
@@ -127,9 +142,9 @@ st.markdown("""
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: white !important;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
     }
     
     /* Input field styling */
@@ -137,7 +152,7 @@ st.markdown("""
     .stSelectbox > div > div > div,
     .stTextArea > div > div > textarea {
         border-radius: 8px;
-        border: 2px solid rgba(102, 126, 234, 0.2);
+        border: 2px solid rgba(6, 182, 212, 0.2);
         background: rgba(255, 255, 255, 0.1);
         color: #e2e8f0;
         font-weight: 400;
@@ -147,14 +162,14 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > div:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        border-color: #06b6d4;
+        box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
     }
     
     /* File uploader styling */
     .stFileUploader {
-        background: rgba(102, 126, 234, 0.05);
-        border: 2px dashed rgba(102, 126, 234, 0.3);
+        background: rgba(6, 182, 212, 0.05);
+        border: 2px dashed rgba(6, 182, 212, 0.3);
         border-radius: 12px;
         padding: 2rem;
         text-align: center;
@@ -162,31 +177,34 @@ st.markdown("""
     }
     
     .stFileUploader:hover {
-        border-color: #667eea;
-        background: rgba(102, 126, 234, 0.1);
+        border-color: #06b6d4;
+        background: rgba(6, 182, 212, 0.1);
     }
     
-    /* Button styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Button styling - only for main content area, not sidebar */
+    .main .stButton > button,
+    .stMain .stButton > button {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
         color: white;
         border: none;
         border-radius: 8px;
         padding: 0.75rem 1.5rem;
         font-weight: 500;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
         font-size: 1rem;
     }
     
-    .stButton > button:hover {
+    .main .stButton > button:hover,
+    .stMain .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
     }
     
-    /* Primary button styling */
-    .stButton[data-testid="baseButton-primary"] > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Primary button styling - only for main content area */
+    .main .stButton[data-testid="baseButton-primary"] > button,
+    .stMain .stButton[data-testid="baseButton-primary"] > button {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
         font-size: 1.1rem;
         padding: 1rem 2rem;
     }
@@ -222,7 +240,7 @@ st.markdown("""
     
     /* Progress bar styling */
     .stProgress > div > div > div > div {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         border-radius: 10px;
     }
     
@@ -246,7 +264,7 @@ st.markdown("""
     
     .feature-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+        box-shadow: 0 10px 25px rgba(6, 182, 212, 0.2);
     }
     
     .feature-icon {
@@ -267,8 +285,8 @@ st.markdown("""
     
     /* Guest mode styling */
     .guest-mode {
-        background: rgba(102, 126, 234, 0.1);
-        border: 1px solid rgba(102, 126, 234, 0.3);
+        background: rgba(6, 182, 212, 0.1);
+        border: 1px solid rgba(6, 182, 212, 0.3);
         border-radius: 12px;
         padding: 1rem;
         margin: 1rem 0;
@@ -455,58 +473,12 @@ st.markdown("""
         background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
     }
     
-    /* Consistent sidebar styling (from main.py) */
-    .stSidebar > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
-        backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    /* Sidebar buttons */
-    .stSidebar .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Sidebar popover buttons (Logout, Reset Password) */
-    .stSidebar .stPopover .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stPopover .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Override any general button styling for sidebar popover */
-    .stSidebar [data-testid="stPopover"] .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-    }
+    /* Sidebar styling delegated to main.py */
     
     /* Hide default sidebar */
     .css-1d391kg {
+        padding-top: 1rem;
+    }
         padding-top: 1rem;
     }
     
@@ -527,24 +499,26 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         margin-bottom: 2rem;
     }
-      /* Pill button styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
+      /* Pill button styling - only for main content area */
+    .main .stButton > button,
+    .stMain .stButton > button {
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: white;
         border: none;
         border-radius: 50px;
         padding: 12px 30px;
         font-weight: 600;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
         width: 100%;
         font-size: 1rem;
     }
     
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #7a00cc, #5c0099);
+    .main .stButton > button:hover,
+    .stMain .stButton > button:hover {
+        background: linear-gradient(135deg, #0891b2, #0e7490);
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.4);
+        box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
     }
     
     /* Input styling */

@@ -27,6 +27,19 @@ def safe_str_convert(value):
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
     FILL_IN_BLANKS_AVAILABLE = True
@@ -545,7 +558,7 @@ st.markdown("""
     
     /* Completion stats styling */
     .completion-container {
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
         border: 1px solid rgba(6, 182, 212, 0.3);
         border-radius: 24px;
         padding: 3rem;
@@ -1279,7 +1292,7 @@ def display_course_completion_stats(course_data, course_id):
                 </div>
             </div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
-                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(118, 75, 162, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
+                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
                     <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
                     <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
                 </div>
@@ -1474,7 +1487,7 @@ def display_progressive_questions(course_data, course_id):
             
             st.markdown(f"""
             <div class="{'fade-in-up' if is_newly_unlocked_section else ''}" style="
-                background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(118, 75, 162, 0.05));
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(8, 145, 178, 0.05));
                 border: 1px solid rgba(6, 182, 212, 0.2);
                 border-radius: 20px;
                 padding: 1.5rem;
@@ -1756,7 +1769,7 @@ def display_section_content(section_data, section_key):
             # Enhanced subsection styling
             st.markdown(f"""
             <div style="
-                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
                 border: 1px solid rgba(6, 182, 212, 0.3);
                 border-radius: 20px;
                 padding: 2rem;
@@ -2185,7 +2198,7 @@ def display_question(question_item, section_key, question_idx):
             # Modern matching interface
             st.markdown("""
             <div style="
-                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(118, 75, 162, 0.1));
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
                 border: 1px solid rgba(6, 182, 212, 0.2);
                 border-radius: 16px;
                 padding: 2rem;

@@ -43,6 +43,19 @@ st.set_page_config(
 if 'app_loading_complete' not in st.session_state:
     st.session_state['app_loading_complete'] = True  # Disable loading animation completely
 
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
 # --- Custom CSS to hide navigation links and apply modern styling ---
 st.markdown("""
 <style>

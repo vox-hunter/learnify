@@ -6,9 +6,23 @@ import sys
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
 # Apply modern CSS styling
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
     /* Import modern fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
@@ -19,55 +33,7 @@ st.markdown("""
         color: #e2e8f0;
     }
     
-    /* Consistent sidebar styling (from main.py) */
-    .stSidebar > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
-        backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    /* Sidebar buttons */
-    .stSidebar .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Sidebar popover buttons (Logout, Reset Password) */
-    .stSidebar .stPopover .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar .stPopover .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
-        border-color: rgba(102, 126, 234, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
-    }
-    
-    /* Override any general button styling for sidebar popover */
-    .stSidebar [data-testid="stPopover"] .stButton > button {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-    }
+    /* Sidebar styling delegated to main.py */
     
     /* Ensure all text is light colored */
     .stMarkdown, .stText, p, div, span {
@@ -114,7 +80,7 @@ st.markdown("""
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(102, 126, 234, 0.1);
+        background: rgba(6, 182, 212, 0.1);
         border-radius: 10px;
         padding: 4px;
     }
@@ -122,16 +88,16 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        color: #667eea;
+        color: #06b6d4;
         font-weight: 500;
         padding: 8px 16px;
         border: none;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: white !important;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
     }
     
     /* Form styling */
@@ -140,7 +106,7 @@ st.markdown("""
         backdrop-filter: blur(15px);
         border-radius: 12px;
         padding: 1.5rem;
-        border: 1px solid rgba(102, 126, 234, 0.2);
+        border: 1px solid rgba(6, 182, 212, 0.2);
     }
     
     /* Input field styling */
@@ -148,7 +114,7 @@ st.markdown("""
     .stSelectbox > div > div > div,
     .stTextArea > div > div > textarea {
         border-radius: 8px;
-        border: 2px solid rgba(102, 126, 234, 0.2);
+        border: 2px solid rgba(6, 182, 212, 0.2);
         background: rgba(255, 255, 255, 0.1);
         color: #e2e8f0;
         font-weight: 400;
@@ -157,31 +123,31 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > div:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        border-color: #06b6d4;
+        box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
     }
     
     /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
         color: white;
         border: none;
         border-radius: 8px;
         padding: 0.5rem 1rem;
         font-weight: 500;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
     }
     
     /* Form submit button styling */
     .stForm .stButton > button {
         width: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
     }
     
     /* Success/Error message styling */
