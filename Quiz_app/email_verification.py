@@ -149,10 +149,8 @@ def send_verification_email(email: str, code: int, purpose: str = "registration"
         tuple: (success: bool, message: str)
     """
     try:
-        st.write(f"🐛 DEBUG: Starting email send for {email} with code {code}")
         html_template = load_verification_template()
         html_content = html_template.replace("{code}", str(code))
-        st.write(f"🐛 DEBUG: HTML template loaded and code replaced")
         
         # Create clear, spam-filter-friendly subject lines
         if purpose == "password_reset":
@@ -180,15 +178,11 @@ This is an automated security email.
             """.strip()
         }
 
-        st.write(f"🐛 DEBUG: About to send email with params: {params['to']} - {params['subject']}")
         email_response = resend.Emails.send(params)
-        st.write(f"🐛 DEBUG: Email sent successfully with response: {email_response}")
         return True, f"Verification email sent successfully. ID: {email_response.get('id', 'unknown')}"        
     except (ValueError, KeyError, ConnectionError) as e:
-        st.write(f"🐛 DEBUG: Email send failed with specific error: {str(e)}")
         return False, f"Failed to send verification email: {str(e)}"
     except Exception as e:  # pylint: disable=broad-except
-        st.write(f"🐛 DEBUG: Email send failed with unexpected error: {str(e)}")
         return False, f"Unexpected error sending verification email: {str(e)}"
 
 def verify_email_code(entered_code: str, stored_code: int):

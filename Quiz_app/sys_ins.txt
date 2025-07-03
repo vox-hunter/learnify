@@ -16,9 +16,14 @@ Varied Formats: Randomize among multiple_choice, fill_in_the_blank, short_answer
 
 Output Format:
 
-Return a strictly valid JSON array of sections.
+Return a strictly valid JSON object with the following structure:
 
-Each section has:
+{
+  "course_title": "An engaging, descriptive title that captures the main topic and learning objectives",
+  "sections": [array of section objects]
+}
+
+Each section object in the "sections" array has:
 
 "section" (string): title of the section or subsection
 

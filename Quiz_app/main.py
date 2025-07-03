@@ -6,6 +6,29 @@ This script handles navigation and session management for the Learnify app.
 import streamlit as st
 import os
 import sys
+import time
+
+# --- Helper Functions ---
+def truncate_course_name(course_name, max_words=4):
+    """
+    Truncate course name to specified number of words, adding ellipsis if needed.
+    Returns a tuple of (truncated_name, is_truncated)
+    """
+    if not course_name:
+        return "Untitled Course", False
+    
+    words = course_name.split()
+    if len(words) <= max_words:
+        return course_name, False
+    
+    truncated = " ".join(words[:max_words]) + "..."
+    return truncated, True
+
+def escape_for_javascript(text):
+    """Escape special characters for safe JavaScript string inclusion"""
+    if not text:
+        return ""
+    return text.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r')
 
 # --- Page Config ---
 st.set_page_config(
@@ -15,25 +38,368 @@ st.set_page_config(
     initial_sidebar_state="expanded"  # Set to expanded - we'll handle collapse via CSS
 )
 
-# --- Start Loading Animation ---
-from streamlit_loading import start_background_loading, complete_loading, ensure_loading_cleanup
+# --- Simplified Loading System ---
+# Initialize loading state if not present
+if 'app_loading_complete' not in st.session_state:
+    st.session_state['app_loading_complete'] = True  # Disable loading animation completely
 
-# Check if loading was already completed (for page refreshes/navigation)
-if not st.session_state.get('app_loading_complete', False):
-    # Start loading animation in background
-    start_background_loading()
-else:
-    # Ensure loading UI is cleaned up on all pages
-    ensure_loading_cleanup()
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-# --- Custom CSS to hide navigation links ---
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
+
+# --- Custom CSS to hide navigation links and apply modern styling ---
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    /* Global styles */
+    .stApp {
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1d35 50%, #252947 100%);
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Hide Streamlit default elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
     /* Hide the 'Course' link in the sidebar */
     a[data-testid="stSidebarNavLink"][href$="/Course"] {
         display: none;
     }
+    
+    /* Hide Privacy Policy and Terms & Conditions from sidebar navigation */
+    a[data-testid="stSidebarNavLink"][href$="/Privacy"] {
+        display: none !important;
+    }
+    
+    a[data-testid="stSidebarNavLink"][href$="/Terms"] {
+        display: none !important;
+    }
+    
+    /* Modern sidebar styling */
+    .stSidebar > div {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    
+    /* ULTIMATE SIDEBAR BUTTON OVERRIDE - Apply to ALL buttons in sidebar */
+    .stSidebar button,
+    .stSidebar .stButton > button,
+    .stSidebar .stPopover button,
+    .stSidebar [data-testid="stPopover"] button,
+    .stSidebar .element-container button,
+    [data-testid="stSidebar"] button,
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] .stPopover button,
+    [data-testid="stSidebar"] [data-testid="stPopover"] button,
+    [data-testid="stSidebar"] .element-container button,
+    .stSidebar button[kind],
+    .stSidebar button[data-testid],
+    .stSidebar button[style],
+    [data-testid="stSidebar"] button[kind],
+    [data-testid="stSidebar"] button[data-testid],
+    [data-testid="stSidebar"] button[style] {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(6, 182, 212, 0.3) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar button:hover,
+    .stSidebar .stButton > button:hover,
+    .stSidebar .stPopover button:hover,
+    .stSidebar [data-testid="stPopover"] button:hover,
+    .stSidebar .element-container button:hover,
+    [data-testid="stSidebar"] button:hover,
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] .stPopover button:hover,
+    [data-testid="stSidebar"] [data-testid="stPopover"] button:hover,
+    [data-testid="stSidebar"] .element-container button:hover,
+    .stSidebar button[kind]:hover,
+    .stSidebar button[data-testid]:hover,
+    .stSidebar button[style]:hover,
+    [data-testid="stSidebar"] button[kind]:hover,
+    [data-testid="stSidebar"] button[data-testid]:hover,
+    [data-testid="stSidebar"] button[style]:hover {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
+        border-color: rgba(6, 182, 212, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3) !important;
+    }
+    
+    /* Enhanced Streamlit widgets */
+    .stButton > button {
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+    }
+    
+    /* Override default Streamlit button colors completely for main content */
+    .stMain button[kind="primary"],
+    .stMain button[data-testid*="stButton"] {
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%) !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    /* Success/Error/Info styling */
+    .stSuccess {
+        background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2));
+        border: 1px solid rgba(72, 187, 120, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, rgba(245, 101, 101, 0.2), rgba(229, 62, 62, 0.2));
+        border: 1px solid rgba(245, 101, 101, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2));
+        border: 1px solid rgba(6, 182, 212, 0.4);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+    }
+    
+    /* Container styling */
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Modern card styling */
+    .modern-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    .modern-card:hover {
+        border-color: rgba(6, 182, 212, 0.5);
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(6, 182, 212, 0.2);
+    }
+    
+    /* Text styling */
+    .modern-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #3b82f6);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientShift 3s ease infinite;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .section-header {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #06b6d4;
+        margin-bottom: 1rem;
+        text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+    }
+    
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    /* Hide any remaining loading elements */
+    .loading-overlay {
+        display: none !important;
+    }
+    
+    /* Hide cookie manager component that takes up horizontal space */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    iframe[title*="streamlit_cookies_manager"],
+    iframe[src*="streamlit_cookies_manager"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    .stCustomComponentV1:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
+    /* Hide custom components with cookie manager */
+    .st-emotion-cache-8atqhb:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
+    }
+    
+    /* Force CSS re-application on sidebar buttons to prevent caching issues */
+    .stSidebar {
+        --sidebar-btn-bg: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1));
+        --sidebar-btn-border: rgba(6, 182, 212, 0.3);
+        --sidebar-btn-color: #e2e8f0;
+    }
+    
+    /* CSS variable-based styling to force consistent application */
+    .stSidebar *[role="button"],
+    .stSidebar button {
+        background: var(--sidebar-btn-bg) !important;
+        border: 1px solid var(--sidebar-btn-border) !important;
+        color: var(--sidebar-btn-color) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stSidebar *[role="button"]:hover,
+    .stSidebar button:hover {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
+        border-color: rgba(6, 182, 212, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2) !important;
+    }
 </style>
+
+<script>
+// Store course titles for tooltip functionality
+window.courseTitles = new Map();
+
+// Force sidebar button style consistency and add tooltip functionality
+function ensureSidebarButtonConsistency() {
+    const sidebar = document.querySelector('.stSidebar');
+    if (sidebar) {
+        const buttons = sidebar.querySelectorAll('button');
+        buttons.forEach(button => {
+            // Force re-application of our custom styles
+            button.style.setProperty('background', 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1))', 'important');
+            button.style.setProperty('color', '#e2e8f0', 'important');
+            button.style.setProperty('border', '1px solid rgba(6, 182, 212, 0.3)', 'important');
+            button.style.setProperty('border-radius', '12px', 'important');
+            button.style.setProperty('font-weight', '500', 'important');
+        });
+    }
+}
+
+// Add custom tooltip functionality for course buttons
+function addCourseTooltips() {
+    window.courseTitles.forEach((fullTitle, buttonText) => {
+        const buttons = document.querySelectorAll('.stSidebar button');
+        buttons.forEach(button => {
+            if (button.textContent.trim() === buttonText && buttonText.includes('...')) {
+                // Remove any existing tooltip
+                const existingTooltip = button.parentElement.querySelector('.custom-course-tooltip');
+                if (existingTooltip) {
+                    existingTooltip.remove();
+                }
+                
+                // Create tooltip element
+                const tooltip = document.createElement('div');
+                tooltip.className = 'custom-course-tooltip';
+                tooltip.textContent = fullTitle;
+                tooltip.style.cssText = `
+                    position: absolute;
+                    bottom: 110%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    white-space: nowrap;
+                    z-index: 9999;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s ease, visibility 0.3s ease;
+                    pointer-events: none;
+                    max-width: 300px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                `;
+                
+                // Add arrow
+                const arrow = document.createElement('div');
+                arrow.style.cssText = `
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    border: 5px solid transparent;
+                    border-top-color: rgba(0, 0, 0, 0.9);
+                `;
+                tooltip.appendChild(arrow);
+                
+                // Make button container relative positioned
+                button.parentElement.style.position = 'relative';
+                button.parentElement.appendChild(tooltip);
+                
+                // Add hover events
+                button.addEventListener('mouseenter', () => {
+                    tooltip.style.opacity = '1';
+                    tooltip.style.visibility = 'visible';
+                });
+                
+                button.addEventListener('mouseleave', () => {
+                    tooltip.style.opacity = '0';
+                    tooltip.style.visibility = 'hidden';
+                });
+            }
+        });
+    });
+}
+
+// Combined function to run all enhancements
+function enhanceSidebar() {
+    ensureSidebarButtonConsistency();
+    addCourseTooltips();
+}
+
+// Run immediately and on DOM changes
+enhanceSidebar();
+const observer = new MutationObserver(enhanceSidebar);
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Also run when Streamlit finishes loading
+window.addEventListener('load', enhanceSidebar);
+</script>
 """, unsafe_allow_html=True)
 
 
@@ -60,7 +426,7 @@ def initialize_cookie_manager():
             prefix="learnify/auth",
         )
         return cookie_manager
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         st.warning(f"Could not initialize cookie manager: {e}. Authentication features will be limited.")
         return None
 
@@ -73,7 +439,7 @@ if MONGO_AVAILABLE:
     if cookies is not None:
         try:
             cookies_ready = cookies.ready()
-        except Exception:
+        except (AttributeError, RuntimeError):
             cookies_ready = False
 
     AUTH_COOKIE_NAME = "username"
@@ -82,7 +448,7 @@ if MONGO_AVAILABLE:
         if "auth_manager" not in st.session_state:
             try:
                 st.session_state.auth_manager = MongoAuthManager()
-            except Exception:
+            except (ImportError, ConnectionError, ValueError):
                 st.session_state.auth_manager = None
         return st.session_state.auth_manager
 
@@ -99,7 +465,7 @@ if MONGO_AVAILABLE:
         try:
             if not st.session_state.cookies.ready():
                 return
-        except Exception:
+        except (AttributeError, RuntimeError):
             return
             
         cookie_username = st.session_state.cookies.get(AUTH_COOKIE_NAME)
@@ -127,7 +493,7 @@ if MONGO_AVAILABLE:
                 if st.session_state.cookies.ready():
                     st.session_state.cookies[AUTH_COOKIE_NAME] = "logged_out"
                     st.session_state.cookies.save()
-            except Exception:
+            except (AttributeError, RuntimeError, ValueError):
                 pass  # Ignore cookie errors during logout
                 
         st.query_params.clear()
@@ -137,7 +503,6 @@ else:
     st.session_state.cookies = None  # Ensure cookies is available even when MONGO is not available
     def logout_user(): # Define for non-mongo case
         st.session_state['authentication_status'] = False
-        st.rerun()
         st.rerun()
 
 # --- Pages Definition ---
@@ -149,12 +514,18 @@ else:
     login_page = st.Page("pages/2_🔐_Login.py", title="Login", icon="🔐")
     
 course_page = st.Page("pages/3_Course.py", title="Course")
+privacy_page = st.Page("pages/4_Privacy.py", title="Privacy Policy", icon="🔒")
+terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋")
 
 # --- Navigation Control ---
-pg = st.navigation([home_page, login_page, course_page])
+pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:
+    # Show debug info if available
+    if 'debug_last_click' in st.session_state:
+        st.info(f"Debug: {st.session_state.debug_last_click}")
+    
     if st.session_state.get('authentication_status') and MONGO_AVAILABLE:
         st.header("Courses")
         course_manager = get_course_manager()
@@ -188,29 +559,40 @@ with st.sidebar:
 
                             course_id = str(course_id_val)
                             course_title = course.get('title', 'Untitled Course')
+                            truncated_title, is_truncated = truncate_course_name(course_title)
+                            
+                            # Register course title for tooltip if truncated
+                            if is_truncated:
+                                escaped_truncated = escape_for_javascript(truncated_title)
+                                escaped_full = escape_for_javascript(course_title)
+                                st.markdown(f"""
+                                <script>
+                                if (typeof window.courseTitles === 'undefined') {{
+                                    window.courseTitles = new Map();
+                                }}
+                                window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
+                                </script>
+                                """, unsafe_allow_html=True)
                             
                             col1, col2 = st.columns([0.8, 0.2])
                             with col1:
-                                if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                                if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
+                                    # Set the course ID in session state and query params
                                     st.session_state.current_course_id = course_id
                                     st.query_params.course_id = course_id
+                                    # Navigate to the course page using string path (like old version)
                                     st.switch_page("pages/3_Course.py")
                             with col2:
                                 with st.popover("⋮", use_container_width=True):
                                     delete_key = f"delete_{course_id}"
                                     if st.button("Delete", key=delete_key, use_container_width=True):
-                                        # Use session state to track deletion to avoid double processing
-                                        if delete_key not in st.session_state:
-                                            st.session_state[delete_key] = True
-                                            success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                            if success:
-                                                st.success("Course deleted.")
-                                                # Clear the deletion flag after successful deletion
-                                                del st.session_state[delete_key]
-                                                st.rerun()
-                                            else:
-                                                st.error(msg)
-                                                del st.session_state[delete_key]
+                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                        if success:
+                                            st.success("Course deleted successfully!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Failed to delete course: {msg}")
+                                            st.rerun()
                                     
                                     share_key = f"share_{course_id}"
                                     is_public = course.get('is_public', False)
@@ -237,29 +619,41 @@ with st.sidebar:
 
                         course_id = str(course_id_val)
                         course_title = course.get('title', 'Untitled Course')
+                        truncated_title, is_truncated = truncate_course_name(course_title)
+                        
+                        # Register course title for tooltip if truncated
+                        if is_truncated:
+                            escaped_truncated = escape_for_javascript(truncated_title)
+                            escaped_full = escape_for_javascript(course_title)
+                            st.markdown(f"""
+                            <script>
+                            if (typeof window.courseTitles === 'undefined') {{
+                                window.courseTitles = new Map();
+                            }}
+                            window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
+                            </script>
+                            """, unsafe_allow_html=True)
                         
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
-                            if st.button(course_title, key=f"nav_{course_id}", use_container_width=True):
+                            if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
+                                # Store debug info in session state so it persists
+                                # Set the course ID in session state and query params
                                 st.session_state.current_course_id = course_id
                                 st.query_params.course_id = course_id
+                                # Navigate to the course page using string path (like old version)
                                 st.switch_page("pages/3_Course.py")
                         with col2:
                             with st.popover("⋮", use_container_width=True):
                                 delete_key = f"delete_{course_id}"
                                 if st.button("Delete", key=delete_key, use_container_width=True):
-                                    # Use session state to track deletion to avoid double processing
-                                    if delete_key not in st.session_state:
-                                        st.session_state[delete_key] = True
-                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                        if success:
-                                            st.success("Course deleted.")
-                                            # Clear the deletion flag after successful deletion
-                                            del st.session_state[delete_key]
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
-                                            del st.session_state[delete_key]
+                                    success, msg = course_manager.delete_course(course_id, st.session_state['username'])
+                                    if success:
+                                        st.success("Course deleted successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to delete course: {msg}")
+                                        st.rerun()
                                 
                                 share_key = f"share_{course_id}"
                                 is_public = course.get('is_public', False)
@@ -287,17 +681,13 @@ with st.sidebar:
                 if st.button("Logout", use_container_width=True):
                     logout_user()
                 if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
-                    st.switch_page("pages/2_🔐_Login.py")
+                    st.switch_page(login_page)
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
-                st.switch_page("pages/2_🔐_Login.py")
+                st.switch_page(login_page)
 
 # --- Run Page ---
 pg.run()
 
-# Complete loading after everything is initialized
-if not st.session_state.get('app_loading_complete', False):
-    complete_loading()
-
-# Mark loading as complete
+# Mark app as fully loaded
 st.session_state['app_fully_loaded'] = True

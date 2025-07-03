@@ -107,10 +107,16 @@ def complete_loading():
     This should be called after all app initialization is done.
     """
     
+    # Mark loading as complete first to prevent re-entry
+    st.session_state['app_loading_complete'] = True
+    
     # Clear loading overlay
     if 'loading_container' in st.session_state:
-        st.session_state['loading_container'].empty()
-        del st.session_state['loading_container']
+        try:
+            st.session_state['loading_container'].empty()
+            del st.session_state['loading_container']
+        except (KeyError, AttributeError, RuntimeError):
+            pass  # Ignore errors if container is already gone
     
     # Expand sidebar and restore normal layout
     st.markdown("""
@@ -132,8 +138,9 @@ def complete_loading():
             transition: margin-left 0.5s ease !important;
         }
         
-        /* Remove loading overlay */
+        /* Remove loading overlay completely */
         .loading-overlay {
+            display: none !important;
             opacity: 0 !important;
             visibility: hidden !important;
             pointer-events: none !important;
@@ -156,6 +163,13 @@ def complete_loading():
     components.html("""
     <script>
         function expandSidebar() {
+            // Remove any loading overlays
+            var loadingOverlays = document.querySelectorAll('.loading-overlay');
+            loadingOverlays.forEach(function(overlay) {
+                overlay.style.display = 'none';
+                overlay.remove();
+            });
+            
             // Multiple attempts to expand sidebar
             setTimeout(function() {
                 // Method 1: Look for expand button
@@ -180,15 +194,13 @@ def complete_loading():
             }, 100);
             
             // Repeat after delay to ensure it sticks
-            setTimeout(expandSidebar, 1000);
+            setTimeout(expandSidebar, 500);
         }
         
         expandSidebar();
     </script>
     """, height=0)
     
-    # Mark loading as complete
-    st.session_state['app_loading_complete'] = True
     st.session_state['sidebar_should_be_expanded'] = True
 
 def ensure_loading_cleanup():

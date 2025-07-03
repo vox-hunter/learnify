@@ -5,17 +5,40 @@ import os # Add os import
 import random
 import time
 import datetime
+import html
+
+def safe_str_convert(value):
+    """Safely convert any value to string for Streamlit text widgets"""
+    if value is None:
+        return ""
+    try:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, indent=2)
+        elif isinstance(value, (str, int, float, bool)):
+            return str(value)
+        else:
+            # For any other type, convert to string
+            return str(value)
+    except (TypeError, ValueError, AttributeError):
+        # If conversion fails, use empty string
+        return ""
 
 # Add the parent directory (Quiz app) to sys.path to allow imports from it
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Ensure loading UI is cleaned up
-try:
-    from streamlit_loading import ensure_loading_cleanup
-    ensure_loading_cleanup()
-except ImportError:
-    pass
+# --- Google Analytics ---
+st.markdown("""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B30T0B78LK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B30T0B78LK');
+</script>
+""", unsafe_allow_html=True)
 
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
@@ -37,11 +60,26 @@ try:
 except ImportError:
     MONGO_AVAILABLE = False
 
+# --- Get Cookie Manager from Session State ---
+cookies = st.session_state.get('cookies')
+if cookies is None:
+    # Try fallback initialization
+    try:
+        from cookie_fallback import ensure_cookie_manager
+        if ensure_cookie_manager():
+            cookies = st.session_state.get('cookies')
+        else:
+            # Don't stop - just warn and continue without cookies
+            st.warning("Cookie manager not available. Some features may be limited.")
+            cookies = None
+    except (ImportError, Exception):
+        st.warning("Cookie manager not available. Some features may be limited.")
+        cookies = None
+
 # Initialize session state function
 def initialize_session_state():
     """Initialize all session state variables"""
-    if "current_section_index" not in st.session_state:  
-        st.session_state.current_section_index = 0
+    # Remove current_section_index since we're using progressive display
     if "user_answers" not in st.session_state:
         st.session_state.user_answers = {}
     if "checked_answers" not in st.session_state:
@@ -66,7 +104,6 @@ def initialize_session_state():
 def reset_course_session_state():
     """Reset course-specific session state when starting a new course"""
     # Reset course progress data
-    st.session_state.current_section_index = 0
     st.session_state.user_answers = {}
     st.session_state.checked_answers = {}
     st.session_state.current_score = 0
@@ -100,7 +137,7 @@ def is_localhost():
         local_ip = socket.gethostbyname(hostname)
         
         return server_address == local_ip
-    except Exception:
+    except (AttributeError, ImportError, ConnectionError):
         # If any error occurs, assume it's not localhost for safety
         return False
 
@@ -168,145 +205,401 @@ def _mark_section_questions_correct_recursive(section_data, section_key):
             subsection_key = f"{section_key}_sub_{sub_idx}"
             _mark_section_questions_correct_recursive(subsection, subsection_key)
 
-# Apply modern CSS styling
+# Apply ultra-modern CSS styling
 st.markdown("""
 <style>
+    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    /* Hide cookies manager and reduce top spacing */
+    iframe[title*="cookie_manager"], 
+    iframe[src*="cookie_manager"],
+    iframe[title*="streamlit_cookies_manager"],
+    iframe[src*="streamlit_cookies_manager"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+    
+    /* Hide any empty custom components that might be taking space */
+    div[data-testid="stAppViewContainer"] > div:first-child:empty {
+        display: none !important;
+    }
+    
+    /* Target the specific custom component container for cookies manager */
+    .stCustomComponentV1:has(iframe[src*="cookie_manager"]) {
+        display: none !important;
+        height: 0px !important;
+        width: 0px !important;
+    }
+    
+    /* Hide empty custom component containers */
+    .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+        display: none !important;
+    }
+    
+    /* Additional targeting for any wrapper elements */
+    div[data-testid="stVerticalBlock"] > div:first-child:empty,
+    div[data-testid="stVerticalBlock"] > div:first-child:has(iframe[src*="cookie"]) {
+        display: none !important;
+        height: 0px !important;
+    }
+    
+    /* Remove top padding/margin from main container */
+    .main .block-container {
+        padding-top: 1rem !important;
+        margin-top: 0rem !important;
+    }
+    
     /* Global styles */
     .stApp {
-        background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        font-family: 'Inter', sans-serif;
     }
+    
+    /* Hide Streamlit default elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     
     /* Course container */
     .course-container {
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 1rem;
+        padding: 2rem 1rem;
     }
     
-    /* Course title */
+    /* Course title with animated gradient */
     .course-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
+        font-size: 3.5rem;
+        font-weight: 800;
+        background: linear-gradient(45deg, #06b6d4 0%, #0ea5e9 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%);
+        background-size: 300% 300%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 1rem;
+        background-clip: text;
+        margin-bottom: 2rem;
         text-align: center;
+        animation: gradientShift 8s ease infinite;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
     }
     
-    /* Section title */
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    /* Section title with glow effect */
     .section-title {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #9d00ff;
-        margin-bottom: 1rem;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #06b6d4;
+        margin-bottom: 1.5rem;
+        position: relative;
+        text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
     }
     
-    /* Navigation buttons */
-    .nav-buttons {
-        display: flex;
-        justify-content: space-between;
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, #06b6d4, #0ea5e9);
+        border-radius: 2px;
+    }
+    
+    /* Navigation container */
+    .nav-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 1.5rem;
         margin: 2rem 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
     
-    /* Pill button styling */
+    /* Modern pill buttons */
     .stButton > button {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
+        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
         color: white;
         border: none;
         border-radius: 50px;
-        padding: 12px 30px;
+        padding: 16px 32px;
         font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
+        font-size: 0.95rem;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+        position: relative;
+        overflow: hidden;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .stButton > button:hover::before {
+        left: 100%;
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #7a00cc, #5c0099);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.4);
+        background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
+        transform: translateY(-4px) scale(1.05);
+        box-shadow: 0 16px 40px rgba(6, 182, 212, 0.6);
+    }
+    
+    .stButton > button:active {
+        transform: translateY(-2px) scale(1.02);
     }
     
     .stButton > button:disabled {
-        background: #444;
+        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
         transform: none;
-        box-shadow: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        opacity: 0.6;
     }
     
-    /* Score display */
-    .score-container {
-        background: linear-gradient(135deg, rgba(157, 0, 255, 0.1), rgba(255, 107, 107, 0.1));
-        border-radius: 20px;
-        padding: 1.5rem;
-        text-align: center;
-        margin: 2rem 0;
-        border: 1px solid rgba(157, 0, 255, 0.3);
-    }
-    
-    .score-container h3 {
-        color: #9d00ff;
-        margin-bottom: 0.5rem;
-    }
-    
-    .score-container h2 {
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2rem;
-        margin: 0;
-    }
-    
-    /* Question container styling */
-    .question-container {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(157, 0, 255, 0.3);
+    /* Enhanced progress bar */
+    .progress-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 20px;
         padding: 2rem;
-        margin: 1.5rem 0;
-        transition: all 0.3s ease;
+        margin: 2rem 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
     
-    .question-container:hover {
-        border-color: rgba(255, 107, 107, 0.5);
-        background: rgba(255, 255, 255, 0.05);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(157, 0, 255, 0.2);
+    .progress-stats {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
     
-    /* Radio button styling */
-    .stRadio > div {
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 15px;
+    .stat-item {
+        text-align: center;
         padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        flex: 1;
+        min-width: 120px;
     }
     
-    /* Text inputs */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea {
-        background: rgba(255, 255, 255, 0.05);
-        border: 2px solid #9d00ff;
-        border-radius: 15px;
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: block;
+    }
+    
+    .stat-label {
+        color: #a0aec0;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.5rem;
+    }
+    
+    /* Question card styling */
+    .question-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin: 2rem 0;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .question-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #06b6d4, #0ea5e9, #3b82f6);
+        background-size: 200% 200%;
+        animation: gradientShift 3s ease infinite;
+    }
+    
+    .question-card:hover {
+        border-color: rgba(6, 182, 212, 0.5);
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-8px);
+        box-shadow: 0 20px 50px rgba(6, 182, 212, 0.3);
+    }
+    
+    .question-number {
+        display: inline-block;
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
         color: white;
-        padding: 15px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+    
+    .question-text {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: #e2e8f0;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Enhanced form controls */
+    .stRadio > div {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    .stRadio > div > label {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .stRadio > div > label:hover {
+        background: rgba(6, 182, 212, 0.1);
+        border-color: rgba(6, 182, 212, 0.3);
+        transform: translateX(8px);
+    }
+    
+    /* Text inputs with modern styling */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select {
+        background: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        color: #e2e8f0;
+        padding: 16px 20px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
     }
     
     .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #ff6b6b;
-        box-shadow: 0 0 15px rgba(157, 0, 255, 0.3);
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > select:focus {
+        border-color: #06b6d4;
+        box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.2);
+        background: rgba(255, 255, 255, 0.12);
+        outline: none;
     }
     
-    /* Success and error messages */
+    /* Enhanced feedback messages */
     .stSuccess {
-        background: rgba(0, 255, 0, 0.1);
-        border: 1px solid #00ff00;
-        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2));
+        border: 1px solid rgba(72, 187, 120, 0.4);
+        border-radius: 16px;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 8px 24px rgba(72, 187, 120, 0.2);
     }
     
     .stError {
-        background: rgba(255, 0, 0, 0.1);
-        border: 1px solid #ff0000;
-        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(245, 101, 101, 0.2), rgba(229, 62, 62, 0.2));
+        border: 1px solid rgba(245, 101, 101, 0.4);
+        border-radius: 16px;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 8px 24px rgba(245, 101, 101, 0.2);
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, rgba(66, 153, 225, 0.2), rgba(6, 182, 212, 0.2));
+        border: 1px solid rgba(66, 153, 225, 0.4);
+        border-radius: 16px;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 8px 24px rgba(66, 153, 225, 0.2);
+    }
+    
+    /* Admin controls styling */
+    .admin-section {
+        background: linear-gradient(135deg, rgba(237, 137, 54, 0.1), rgba(245, 166, 35, 0.1));
+        border: 1px solid rgba(237, 137, 54, 0.3);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 2rem 0;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 8px 32px rgba(237, 137, 54, 0.2);
+    }
+    
+    /* Completion stats styling */
+    .completion-container {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        border-radius: 24px;
+        padding: 3rem;
+        text-align: center;
+        margin: 2rem 0;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 16px 48px rgba(6, 182, 212, 0.3);
+    }
+    
+    .completion-score {
+        font-size: 4rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #06b6d4, #0ea5e9, #f093fb);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 1rem 0;
+        text-shadow: 0 0 30px rgba(6, 182, 212, 0.5);
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .course-title {
+            font-size: 2.5rem;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+        }
+        
+        .question-card {
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        
+        .progress-stats {
+            flex-direction: column;
+        }
+        
+        .nav-container {
+            padding: 1rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -383,8 +676,127 @@ def main():
     if st.session_state.get('course_finished', False):
         display_course_completion_stats(course_data, course_id)
         return
-      # Main course container
-    st.markdown('<div class="course-container">', unsafe_allow_html=True)
+    
+    # Calculate progress for the sticky header
+    all_questions_for_progress = []
+    for section_idx, section_data in enumerate(course_data):
+        is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+        if is_pydantic_model:
+            questions = getattr(section_data, "quiz", [])
+        else:
+            questions = section_data.get('quiz', section_data.get('questions', []))
+        
+        if questions:
+            for q_idx, _ in enumerate(questions):
+                question_key = f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
+                all_questions_for_progress.append(question_key)
+    
+    total_questions_count = len(all_questions_for_progress)
+    answered_questions = sum(1 for q_key in all_questions_for_progress if q_key in st.session_state and st.session_state[q_key])
+    progress_percentage = (answered_questions / total_questions_count) * 100 if total_questions_count > 0 else 0
+    
+    # Create a sticky header using a placeholder that we'll update
+    header_placeholder = st.empty()
+    with header_placeholder.container():
+        st.markdown(f"""
+        <style>
+        /* Hide sidebar for course experience */
+        .css-1d391kg {{display: none;}}
+        .css-1rs6os {{display: none;}}
+        .stSidebar {{display: none !important;}}
+        section[data-testid="stSidebar"] {{display: none !important;}}
+        
+        /* Adjust main content area */
+        .main .block-container {{
+            padding-left: 1rem;
+            padding-right: 1rem;
+            max-width: none;
+        }}
+        </style>
+        
+        <div style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            background: rgba(13, 18, 32, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+            padding: 15px 20px;
+        ">
+            <div style="
+                width: 100%; 
+                height: 20px; 
+                background: rgba(255, 255, 255, 0.1); 
+                border-radius: 20px; 
+                border: 1px solid rgba(255, 255, 255, 0.2); 
+                display: flex; 
+                overflow: hidden; 
+                box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px inset; 
+                position: relative;
+            ">
+                <div style="
+                    width: {progress_percentage}%; 
+                    background: linear-gradient(90deg, rgb(72, 187, 120), rgb(56, 178, 172)); 
+                    height: 100%; 
+                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+                    box-shadow: rgba(72, 187, 120, 0.5) 0px 0px 10px;
+                "></div>
+                <div style="
+                    width: 0%; 
+                    background: linear-gradient(90deg, rgb(245, 101, 101), rgb(229, 62, 62)); 
+                    height: 100%; 
+                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+                    box-shadow: rgba(245, 101, 101, 0.5) 0px 0px 10px;
+                "></div>
+                <div style="
+                    width: {100 - progress_percentage}%; 
+                    background: rgba(255, 255, 255, 0.1); 
+                    height: 100%; 
+                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                "></div>
+            </div>
+            <div style="
+                display: flex; 
+                justify-content: space-between; 
+                font-size: 0.8rem; 
+                color: rgb(160, 174, 192); 
+                margin-top: 8px;
+            ">
+                <span>0</span>
+                <span style="font-weight: 600; color: rgb(102, 126, 234);">{answered_questions}/{total_questions_count} Answered</span>
+                <span>{total_questions_count}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    course_id = get_current_course_id()
+    
+    if course_id is None:
+        st.error("❌ No course selected. Please go back to home and generate a course.")
+        if st.button("🏠 Go to Home"):
+            st.switch_page("app_pages/1_🏠_Home.py")
+        return
+    
+    # Check if this is a new course (different from the last one)
+    if st.session_state.get('last_course_id') != course_id:
+        reset_course_session_state()
+        st.session_state.last_course_id = course_id
+    
+    # Load course data (now with caching)
+    course_data = load_course_data(course_id)
+    
+    if not course_data:
+        st.error("❌ Course not found. It may have been deleted.")
+        if st.button("🏠 Go to Home"):
+            st.switch_page("app_pages/1_🏠_Home.py")
+        return
+
+    if st.session_state.get('course_finished', False):
+        display_course_completion_stats(course_data, course_id)
+        return
+      # Main course container with enhanced styling
     
     # Course title and info - handle both MongoDB and session data
     course_title = "📚 Course"  # Default title
@@ -408,45 +820,85 @@ def main():
         except (ValueError, TypeError):
             pass
     
-    st.markdown(f'<h1 class="course-title">{course_title}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="course-title">{html.escape(course_title)}</h1>', unsafe_allow_html=True)
     
-    # Course metadata
+    # Enhanced course metadata with modern styling
     total_sections = len(course_data)
-    current_section = st.session_state.get('current_section_index', 0)
-    st.markdown(f"**📚 Section {current_section + 1} of {total_sections}**")
     
-    # Score display
-    show_score_display(course_data)
+    # Create a modern info card for course metadata
+    st.markdown(f"""
+    <div class="nav-container">
+        <div style="text-align: center;">
+            <div style="font-size: 1.2rem; font-weight: 600; color: #06b6d4; margin-bottom: 0.5rem;">
+                📚 {total_sections} Sections - Progressive Learning
+            </div>
+            <div style="color: #a0aec0; font-size: 0.9rem;">
+                Complete sections to unlock the next ones
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Admin controls (enabled on localhost or for admin users)
+    # Admin controls with enhanced styling (enabled on localhost or for admin users)
     if is_admin_user():
-        st.markdown("---")
+        st.markdown("""
+        <div class="admin-section">
+            <h3 style="color: #f6ad55; margin-bottom: 1rem; font-weight: 700;">
+                🔧 Admin Controls
+            </h3>
+        """, unsafe_allow_html=True)
         
         # Show localhost indicator
         if is_localhost():
-            st.markdown("### 🔧 Admin Controls (Localhost Mode)")
             st.info("💻 Admin features are enabled because you're running on localhost")
-        else:
-            st.markdown("### 🔧 Admin Controls")
         
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
-            if st.button("✅ Mark Current Section Complete", key="admin_mark_section"):
-                success = mark_all_section_questions_correct(course_data, current_section, course_id)
-                if success:
-                    st.success(f"✅ Marked all questions in Section {current_section + 1} as correct!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to mark section complete")
+            if st.button("✅ Mark Next Question Complete", key="admin_mark_question"):
+                # Flatten questions to find next incomplete one
+                all_questions = []
+                for section_idx, section_data in enumerate(course_data):
+                    is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+                    if is_pydantic_model:
+                        questions = getattr(section_data, "quiz", [])
+                    else:
+                        questions = section_data.get('quiz', section_data.get('questions', []))
+                    
+                    if questions:
+                        for q_idx, _ in enumerate(questions):
+                            question_key = f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
+                            all_questions.append(question_key)
+                
+                # Find first unanswered question
+                found_incomplete = False
+                for question_key in all_questions:
+                    if question_key not in st.session_state or not st.session_state[question_key]:
+                        st.session_state[question_key] = True
+                        st.success("✅ Marked next question as complete!")
+                        found_incomplete = True
+                        st.rerun()
+                
+                if not found_incomplete:
+                    st.info("All questions are already complete!")
         
         with col2:
-            if st.button("✅ Mark All Sections Complete", key="admin_mark_all"):
-                for section_idx in range(len(course_data)):
-                    mark_all_section_questions_correct(course_data, section_idx, course_id)
+            if st.button("✅ Mark All Questions Complete", key="admin_mark_all"):
+                # Flatten questions and mark all as complete
+                for section_idx, section_data in enumerate(course_data):
+                    is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+                    if is_pydantic_model:
+                        questions = getattr(section_data, "quiz", [])
+                    else:
+                        questions = section_data.get('quiz', section_data.get('questions', []))
+                    
+                    if questions:
+                        for q_idx, _ in enumerate(questions):
+                            question_key = f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
+                            st.session_state[question_key] = True
                 
                 st.session_state.course_finished = True
-                st.success("✅ Marked all sections as complete and finished the course!")
+                st.success("✅ Marked all questions as complete and finished the course!")
                 st.rerun()
         
         with col3:
@@ -455,15 +907,10 @@ def main():
                 st.success("✅ Course progress reset!")
                 st.rerun()
         
-        st.markdown("---")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Course navigation
-    show_course_navigation(course_data, course_id)
-    
-    # Display current section
-    display_current_section(course_data, course_id)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Display all questions progressively (Seneca-style)
+    display_progressive_questions(course_data, course_id)
 
 def get_current_course_id():
     """Get the current course ID from URL params or session state"""
@@ -530,7 +977,7 @@ def load_course_data(course_id):
         return None
 
 def show_score_display(course_data):
-    """Display color-coded progress bar showing correct (green) and incorrect (red) answers"""
+    """Display modern color-coded progress bar only"""
     total_questions = count_total_questions(course_data)
     
     if total_questions > 0:
@@ -545,58 +992,62 @@ def show_score_display(course_data):
         incorrect_pct = (incorrect_answers / total_questions) * 100
         unanswered_pct = (unanswered_questions / total_questions) * 100
         
-        # Create color-coded progress bar using HTML and CSS
+        # Enhanced progress bar with gradient and glow effects
         progress_html = f"""
         <div style="
             width: 100%;
-            height: 25px;
-            background-color: #4a148c;
-            border-radius: 12px;
-            border: 1px solid #6a1b9a;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex;
             overflow: hidden;
-            margin: 10px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
         ">
             <div style="
                 width: {correct_pct}%;
-                background: linear-gradient(90deg, #28a745, #20c997);
+                background: linear-gradient(90deg, #48bb78, #38b2ac);
                 height: 100%;
-                transition: width 0.3s ease;
+                transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+                box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
             "></div>
             <div style="
                 width: {incorrect_pct}%;
-                background: linear-gradient(90deg, #dc3545, #e74c3c);
+                background: linear-gradient(90deg, #f56565, #e53e3e);
                 height: 100%;
-                transition: width 0.3s ease;
+                transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+                box-shadow: 0 0 10px rgba(245, 101, 101, 0.5);
             "></div>
             <div style="
                 width: {unanswered_pct}%;
-                background-color: #4a148c;
+                background: rgba(255, 255, 255, 0.1);
                 height: 100%;
-                transition: width 0.3s ease;
+                transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
             "></div>
+        </div>
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #a0aec0;
+            margin-top: 8px;
+        ">
+            <span>0</span>
+            <span style="font-weight: 600; color: #06b6d4;">{answered_questions}/{total_questions} Answered</span>
+            <span>{total_questions}</span>
         </div>
         """
         
         st.markdown(progress_html, unsafe_allow_html=True)
     else:
-        # Show empty progress bar if no questions
+        # Show empty state with modern styling
         st.markdown("""
-        <div style="
-            width: 100%;
-            height: 25px;
-            background-color: #4a148c;
-            border-radius: 12px;
-            border: 1px solid #6a1b9a;
-            margin: 10px 0;
-        "></div>
-        <div style="
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-        ">No questions available</div>
+        <div style="text-align: center; padding: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📚</div>
+            <div style="color: #a0aec0; font-size: 1.1rem;">No questions available in this course</div>
+        </div>
         """, unsafe_allow_html=True)
 
 def count_total_questions(course_data):
@@ -672,10 +1123,35 @@ def _check_section_questions_answered(section_data, section_key):
     
     return True
 
-def show_course_navigation(course_data, course_id=None):
-    """Show section navigation"""
+def show_course_navigation(course_data, course_id=None):  # course_id kept for API compatibility
+    """Show enhanced section navigation with modern styling"""
     total_sections = len(course_data)
     current_section = st.session_state.get('current_section_index', 0)
+    
+    # Progress indicator
+    progress_pct = (current_section / max(total_sections - 1, 1)) * 100
+    st.markdown(f"""
+    <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="color: #a0aec0; font-size: 0.9rem;">Section Progress</span>
+            <span style="color: #06b6d4; font-weight: 600;">{current_section + 1}/{total_sections}</span>
+        </div>
+        <div style="
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        ">
+            <div style="
+                width: {progress_pct}%;
+                height: 100%;
+                background: linear-gradient(90deg, #06b6d4, #0ea5e9);
+                transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+            "></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -689,34 +1165,29 @@ def show_course_navigation(course_data, course_id=None):
             st.button("⬅️ Previous Section", disabled=True, key="prev_section_btn_disabled")
     
     with col2:
-        st.markdown(f"**Section {current_section + 1} of {total_sections}**")
+        # Section indicator with enhanced styling
+        st.markdown(f"""
+        <div style="text-align: center;">
+            <div style="
+                display: inline-block;
+                background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 25px;
+                font-weight: 600;
+                font-size: 1rem;
+                box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+            ">
+                📖 Section {current_section + 1} of {total_sections}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
         all_answered = are_all_questions_in_section_answered(course_data, current_section)
         
-        # Temporary debug to see why button is disabled
-        if not all_answered:
-            with st.expander("🔍 Debug: Why is Next Section disabled?"):
-                course_id = st.session_state.get('current_course_id', 'unknown')
-                section_key = f"course_{course_id}_sec_{current_section}"
-                st.write(f"**Section:** {current_section} (displayed as Section {current_section + 1})")
-                st.write(f"**Section key:** {section_key}")
-                st.write(f"**All checked answers:** {list(st.session_state.get('checked_answers', {}).keys())}")
-                
-                # Show expected vs actual
-                section_data = course_data[current_section]
-                is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
-                if is_pydantic_model:
-                    questions = getattr(section_data, "quiz", [])
-                else:
-                    questions = section_data.get('quiz', section_data.get('questions', []))
-                
-                if questions:
-                    st.write(f"**Expected question keys:**")
-                    for i, _ in enumerate(questions):
-                        expected_key = f"{section_key}_q_{i}"
-                        is_answered = expected_key in st.session_state.get('checked_answers', {})
-                        st.write(f"- {expected_key} → {'✅' if is_answered else '❌'}")
+        # Debug expander with modern styling
+        
         
         if current_section < total_sections - 1:
             if st.button("Next Section ➡️", key="next_section_btn", disabled=not all_answered):
@@ -729,12 +1200,11 @@ def show_course_navigation(course_data, course_id=None):
                 st.rerun()
 
 def display_course_completion_stats(course_data, course_id):
-    """Displays the course completion statistics."""
+    """Displays compact course completion statistics optimized for no-scroll experience."""
     
     st.markdown('<div class="course-container">', unsafe_allow_html=True)
-    st.markdown('<h1 class="course-title">Course Completed!</h1>', unsafe_allow_html=True)
-
-    # --- Score Percentage ---
+    
+    # --- Enhanced Score Display (Compact) ---
     total_questions = count_total_questions(course_data)
     correct_answers = st.session_state.get('current_score', 0)
     score_percentage = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
@@ -742,28 +1212,31 @@ def display_course_completion_stats(course_data, course_id):
     if score_percentage >= 95:
         st.balloons()
 
-    # Message based on score
+    # Message based on score with emojis
     if score_percentage == 100:
-        message = "🎉 Perfect Score! You're a master! 🎉"
+        message = "Perfect Score! Master level! 🥇"
+        emoji = "🎉"
+        color = "#ffd700"
     elif score_percentage >= 95:
-        message = "🎊 Outstanding! You've nearly perfected it! 🎊"
+        message = "Outstanding! Nearly perfect! 🥈"
+        emoji = "🌟"
+        color = "#c0c0c0"
     elif score_percentage >= 70:
-        message = "👍 Great job! You have a solid understanding."
+        message = "Great job! Solid understanding. 🥉"
+        emoji = "👍"
+        color = "#cd7f32"
     elif score_percentage >= 40:
-        message = "🙂 Good effort. A little more practice will make a big difference."
+        message = "Good effort! Keep practicing. 📚"
+        emoji = "�"
+        color = "#06b6d4"
     else:
-        message = "💪 Keep practicing! Every attempt is a step forward."
+        message = "Keep going! Every attempt counts. 🎯"
+        emoji = "🔄"
+        color = "#f56565"
 
-    # Animation for score
-    st.markdown(f"""
-    <div class="score-container">
-        <h3>Your Score</h3>
-        <h2 style="font-size: 3rem;">{score_percentage:.2f}%</h2>
-        <p style="font-size: 1.2rem;">{message}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # --- Memory Strength ---
+    # Get memory strength data first
+    memory_strength = 0
+    show_memory_tip = False
     if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
         course_manager = get_course_manager()
         course_doc, _ = course_manager.get_course(course_id)
@@ -795,30 +1268,413 @@ def display_course_completion_stats(course_data, course_id):
                 time_spent = time.time() - st.session_state.start_time
                 course_manager.update_course_memory_strength(course_id, new_strength, time_spent)
                 memory_strength = new_strength
+            
+            show_memory_tip = memory_strength < 5
 
-            st.markdown("<h3>Memory Strength</h3>", unsafe_allow_html=True)
-            lit_icons = "⚡" * memory_strength
-            unlit_icons = "⚪" * (5 - memory_strength)
-            st.markdown(f"<div style='font-size: 2rem;'>{lit_icons}{unlit_icons}</div>", unsafe_allow_html=True)
-
-            if memory_strength < 5:
-                st.info("Re-attempt this course after 24 hours to increase your memory strength!")
-
+    # Compact completion display with all info in one section
+    # Build lightning icons first
+    lightning_icons = []
+    for i in range(5):
+        if i < memory_strength:
+            lightning_icons.append('<span style="font-size: 1.5rem; color: #ffd700; text-shadow: 0 0 8px #ffd700; margin: 0 2px;">⚡</span>')
+        else:
+            lightning_icons.append('<span style="font-size: 1.5rem; color: #4a5568; margin: 0 2px;">⚪</span>')
+    
+    lightning_html = ''.join(lightning_icons)
+    
+    completion_html = f"""<div class="completion-container">
+        <div style="text-align: center; padding: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="font-size: 2.5rem;">{emoji}</div>
+                <div>
+                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
+                    <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
+                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
+                    <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
+                    <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
+                </div>
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #48bb78;">{correct_answers}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Correct</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #06b6d4;">{total_questions}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Total</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center;">
+                        <span class="stat-number" style="font-size: 1.8rem; color: #f56565;">{total_questions - correct_answers}</span>
+                        <div class="stat-label" style="font-size: 0.85rem;">Missed</div>
+                    </div>
+                </div>
+            </div>
+            <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem; color: #06b6d4; font-weight: 600;">🧠 Memory Strength:</span>
+                    {lightning_html}
+                </div>
+                <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
+                    Level {memory_strength}/5 • {"Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"}
+                </div>
+            </div>
+        </div>
+    </div>"""
+    
+    st.markdown(completion_html, unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("Go back to Home"):
-        # Use session state to prevent double processing
-        if "going_home" not in st.session_state:
-            st.session_state["going_home"] = True
+    # Add specific styling for action buttons
+    st.markdown("""
+    <style>
+    /* Re-attempt button - Orange gradient */
+    div[data-testid="column"]:nth-child(1) .stButton > button {
+        background: linear-gradient(135deg, #ff8a00 0%, #e52e71 100%) !important;
+        box-shadow: 0 8px 24px rgba(255, 138, 0, 0.4) !important;
+    }
+    
+    div[data-testid="column"]:nth-child(1) .stButton > button:hover {
+        background: linear-gradient(135deg, #ff6b00 0%, #d62d72 100%) !important;
+        transform: translateY(-4px) scale(1.05) !important;
+        box-shadow: 0 16px 40px rgba(255, 138, 0, 0.6) !important;
+    }
+    
+    /* Home button - Green gradient */
+    div[data-testid="column"]:nth-child(3) .stButton > button {
+        background: linear-gradient(135deg, #48bb78 0%, #38b2ac 100%) !important;
+        box-shadow: 0 8px 24px rgba(72, 187, 120, 0.4) !important;
+    }
+    
+    div[data-testid="column"]:nth-child(3) .stButton > button:hover {
+        background: linear-gradient(135deg, #38a169 0%, #319795 100%) !important;
+        transform: translateY(-4px) scale(1.05) !important;
+        box-shadow: 0 16px 40px rgba(72, 187, 120, 0.6) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Add some spacing before the action buttons
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Action buttons - Re-attempt and Home
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if st.button("🔄 Re-attempt Course", key="reattempt_course_btn", use_container_width=True):
+            # Reset course progress while keeping course data
             st.session_state.course_finished = False
+            
+            # Convert course_id to string for comparison
+            course_id_str = str(course_id)
+            
+            # Reset all question answers and progress
             for key in list(st.session_state.keys()):
-                if key not in ['username', 'course_history', 'logged_in', 'going_home']:
+                if (isinstance(key, str) and key.startswith(f"course_{course_id_str}_")) or key in ['checked_answers', 'user_answers', 'feedback', 'current_score', 'scored_correctly_keys']:
                     del st.session_state[key]
-            initialize_session_state()
-            st.switch_page("pages/1_🏠_Home.py")
+            
+            # Reinitialize progress tracking
+            st.session_state.checked_answers = {}
+            st.session_state.user_answers = {}
+            st.session_state.feedback = {}
+            st.session_state.current_score = 0
+            st.session_state.scored_correctly_keys = set()
+            st.session_state.start_time = time.time()
+            
+            st.success("🔄 Course reset! You can now re-attempt all questions.")
+            st.rerun()
+    
+    with col3:
+        if st.button("🏠 Return to Home", key="return_home_btn", use_container_width=True):
+            # Use session state to prevent double processing
+            if "going_home" not in st.session_state:
+                st.session_state["going_home"] = True
+                st.session_state.course_finished = False
+                
+                # Preserve authentication and essential app state when returning home
+                keys_to_preserve = [
+                    'authentication_status', 'username', 'name', 'email',  # Auth data
+                    'cookies', 'auth_manager',  # Auth infrastructure
+                    'app_loading_complete', 'app_fully_loaded',  # App state
+                    'course_history', 'logged_in', 'going_home'  # Navigation state
+                ]
+                
+                # Clear only course-related session state
+                for key in list(st.session_state.keys()):
+                    if key not in keys_to_preserve:
+                        del st.session_state[key]
+                
+                initialize_session_state()
+                st.switch_page("pages/1_🏠_Home.py")
+
+def display_progressive_questions(course_data, course_id):
+    """Display questions progressively one by one (Seneca-style)"""
+    if not course_data:
+        return
+    
+    # Flatten all questions from all sections with their metadata
+    all_questions = []
+    for section_idx, section_data in enumerate(course_data):
+        # Check if section_data is a Pydantic model
+        is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+        
+        if is_pydantic_model:
+            section_title = getattr(section_data, "section_title", f'Section {section_idx + 1}')
+            questions = getattr(section_data, "quiz", [])
+        else:
+            section_title = section_data.get('section_title', section_data.get('section', f'Section {section_idx + 1}'))
+            questions = section_data.get('quiz', section_data.get('questions', []))
+        
+        if questions:
+            for q_idx, question in enumerate(questions):
+                all_questions.append({
+                    'section_idx': section_idx,
+                    'section_title': section_title,
+                    'question_idx': q_idx,
+                    'question': question,
+                    'key': f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
+                })
+    
+    total_questions = len(all_questions)
+    if total_questions == 0:
+        st.info("No questions found in this course.")
+        return
+    
+    # Determine how many questions to show based on progress
+    questions_to_show = 1  # Always show at least the first question
+    
+    # Track the previous number of questions shown for auto-scroll detection
+    prev_questions_shown_key = f"prev_questions_shown_{course_id}"
+    prev_questions_shown = st.session_state.get(prev_questions_shown_key, 1)
+    
+    # Check each question to see if it's answered
+    for i in range(total_questions):
+        if i == 0:
+            continue  # First question is always shown
+        
+        # Check if previous question is answered
+        prev_question_key = all_questions[i - 1]['key']
+        if prev_question_key in st.session_state and st.session_state[prev_question_key]:
+            questions_to_show = i + 1
+        else:
+            break
+    
+    # Detect if a new question has appeared (for progress tracking only)
+    new_question_appeared = questions_to_show > prev_questions_shown
+    if new_question_appeared:
+        st.session_state[prev_questions_shown_key] = questions_to_show
+    
+    # Display questions with section headers when needed
+    current_section = None
+    
+    for i in range(questions_to_show):
+        question_info = all_questions[i]
+        section_idx = question_info['section_idx']
+        section_title = question_info['section_title']
+        question = question_info['question']
+        question_key = question_info['key']
+        
+        # Show section header when we enter a new section
+        if current_section != section_idx:
+            current_section = section_idx
+            total_sections = len(course_data)
+            
+            # Check if this is a newly unlocked section
+            is_newly_unlocked_section = f"section_{section_idx}_shown" not in st.session_state
+            if is_newly_unlocked_section:
+                st.session_state[f"section_{section_idx}_shown"] = True
+            
+            st.markdown(f"""
+            <div class="{'fade-in-up' if is_newly_unlocked_section else ''}" style="
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(8, 145, 178, 0.05));
+                border: 1px solid rgba(6, 182, 212, 0.2);
+                border-radius: 20px;
+                padding: 1.5rem;
+                margin: 2rem 0 1rem 0;
+                backdrop-filter: blur(10px);
+                text-align: center;
+            ">
+                <h2 style="
+                    color: #06b6d4;
+                    margin: 0;
+                    font-size: 1.6rem;
+                    font-weight: 600;
+                ">
+                    📚 {section_title}
+                </h2>
+                <div style="
+                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 15px;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    display: inline-block;
+                    margin-top: 0.5rem;
+                ">
+                    Section {section_idx + 1} of {total_sections}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Display section explanation
+            section_data = course_data[section_idx]
+            is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+            
+            if is_pydantic_model:
+                explanation = getattr(section_data, "explanation", "")
+            else:
+                explanation = section_data.get('explanation', '')
+            
+            if explanation:
+                st.markdown(f"""
+                <div style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border-left: 4px solid #06b6d4;
+                    border-radius: 0 12px 12px 0;
+                    padding: 1.5rem;
+                    margin: 1rem 0 2rem 0;
+                    backdrop-filter: blur(10px);
+                    font-size: 1.1rem;
+                    line-height: 1.6;
+                    color: #e2e8f0;
+        ">
+            💡 {html.escape(explanation)}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Check if this is a newly unlocked question
+        is_newly_unlocked = (i == questions_to_show - 1 and 
+                           i > 0 and 
+                           f"question_{i}_shown" not in st.session_state)
+        
+        if is_newly_unlocked:
+            st.session_state[f"question_{i}_shown"] = True
+        
+        # Display question with enhanced styling
+        is_answered = question_key in st.session_state and st.session_state[question_key]
+        
+        st.markdown(f"""
+        <div class="{'fade-in-up glow-animation' if is_newly_unlocked else ''}" 
+             id="question-{i}"
+             style="
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            scroll-margin-bottom: 150px;
+            {'border-color: rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);' if is_newly_unlocked else ''}
+        ">
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 1rem;
+            ">
+                <div style="
+                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                ">
+                    Question {i + 1} of {total_questions}
+                </div>
+                <div style="
+                    color: {'#10b981' if is_answered else '#6b7280'};
+                    font-size: 1.2rem;
+                ">
+                    {'✅ Completed' if is_answered else '📝 In Progress'}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Display the actual question content
+        display_question(question, f"course_{course_id}_sec_{section_idx}", question_info['question_idx'])
+        
+        # Close the question container
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Check if we need to scroll to a specific question (manual scroll only)
+    scroll_target = st.session_state.get(f"scroll_to_question_{course_id}")
+    if scroll_target is not None:
+        # Clear the scroll flag
+        del st.session_state[f"scroll_to_question_{course_id}"]
+        # Add a simple scroll indicator
+        st.info(f"📍 Scrolled to Question {scroll_target + 1}")
+
+    # Calculate completion for course finished check (without displaying progress)
+    completed_questions = sum(1 for i in range(questions_to_show) if all_questions[i]['key'] in st.session_state and st.session_state[all_questions[i]['key']])
+    
+    # Check if course is finished
+    if completed_questions == total_questions:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2));
+            border: 1px solid rgba(72, 187, 120, 0.4);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+            backdrop-filter: blur(20px);
+        ">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+            <h2 style="color: #48bb78; margin-bottom: 1rem;">Congratulations!</h2>
+            <div style="color: #e2e8f0; font-size: 1.2rem;">
+                You have completed all sections of this course!
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Mark course as finished
+        if not st.session_state.get('course_finished', False):
+            st.session_state.course_finished = True
+            st.rerun()
+    else:
+        # Add floating progress indicator and manual scroll button for incomplete courses
+        current_question_number = questions_to_show
+        
+        # Simplified floating indicator
+        st.markdown(f"""
+        <div style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        ">
+            <span>📍</span>
+            <span>Question {current_question_number} of {total_questions}</span>
+        </div>
+        
+        <style>
+            /* Global smooth scrolling */
+            html {{
+                scroll-behavior: smooth;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def display_current_section(course_data, course_id):
-    """Display the current section content"""
+    """Display the current section content with modern styling"""
     current_section_index = st.session_state.get('current_section_index', 0)
     
     if current_section_index >= len(course_data):
@@ -827,7 +1683,8 @@ def display_current_section(course_data, course_id):
     
     current_section = course_data[current_section_index]
     section_key = f"course_{course_id}_sec_{current_section_index}"
-      # Display section title
+    
+    # Display section title with enhanced styling
     # Check if current_section is a Pydantic model (it has __dict__ but no get method)
     is_pydantic_model = hasattr(current_section, '__dict__') and not hasattr(current_section, 'get')
     
@@ -838,13 +1695,13 @@ def display_current_section(course_data, course_id):
         # For dictionaries, use get method
         section_title = current_section.get('section_title', current_section.get('section', f'Section {current_section_index + 1}'))
     
-    st.markdown(f'<h2 class="section-title">{section_title}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="section-title">{html.escape(section_title)}</h2>', unsafe_allow_html=True)
     
     # Display section content
     display_section_content(current_section, section_key)
 
 def display_section_content(section_data, section_key):
-    """Display section content including explanation and questions"""
+    """Display section content including explanation and questions with modern styling"""
     # Check if section_data is a Pydantic model (it has __dict__ but no get method)
     is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
     
@@ -859,13 +1716,38 @@ def display_section_content(section_data, section_key):
         questions = section_data.get('quiz', section_data.get('questions', []))
         subsections = section_data.get('subsections', [])
     
-    # Display explanation
+    # Display explanation with modern styling
     if explanation:
-        st.markdown(f"**{explanation}**")
+        st.markdown(f"""
+        <div style="
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #06b6d4;
+            border-radius: 0 12px 12px 0;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            backdrop-filter: blur(10px);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+        ">
+            💡 {html.escape(explanation)}
+        </div>
+        """, unsafe_allow_html=True)
     
     # Display questions
     if questions:
-        st.markdown("---")
+        st.markdown("""
+        <div style="
+            text-align: center;
+            margin: 3rem 0 2rem 0;
+            color: #06b6d4;
+            font-size: 1.2rem;
+            font-weight: 600;
+        ">
+            📝 Questions
+        </div>
+        """, unsafe_allow_html=True)
+        
         for idx, question_item in enumerate(questions):
             display_question(question_item, section_key, idx)
     
@@ -884,13 +1766,33 @@ def display_section_content(section_data, section_key):
                 # For dictionaries, use get method
                 sub_title = subsection.get('section_title', subsection.get('section', f'Subsection {sub_idx + 1}'))
             
-            st.markdown(f"### {sub_title}")
+            # Enhanced subsection styling
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
+                border: 1px solid rgba(6, 182, 212, 0.3);
+                border-radius: 20px;
+                padding: 2rem;
+                margin: 2rem 0;
+                backdrop-filter: blur(20px);
+            ">
+                <h3 style="
+                    color: #06b6d4;
+                    margin-bottom: 1.5rem;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                ">
+                    🔸 {html.escape(sub_title)}
+                </h3>
+            """, unsafe_allow_html=True)
             
             # Display subsection content recursively
             display_section_content(subsection, subsection_key)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
 
 def display_question(question_item, section_key, question_idx):
-    """Display a single question using the proper logic from frontend.py"""
+    """Display a single question with modern card styling"""
     import re  # Import for this function only
     # Check if question_item is a Pydantic model
     is_pydantic_model = hasattr(question_item, '__dict__') and not hasattr(question_item, 'get')
@@ -911,15 +1813,25 @@ def display_question(question_item, section_key, question_idx):
         answer = question_item.get('answer', None)
     
     question_key = f"{section_key}_q_{question_idx}"
-    is_answered = st.session_state.checked_answers.get(question_key, False)    # Store question text in session state for AI validation
+    is_answered = st.session_state.checked_answers.get(question_key, False)
+    
+    # Store question text in session state for AI validation
     st.session_state[f"{question_key}_question"] = question_text_full
+
+    # Question number and type with modern styling
+    type_display = question_type.replace('_', ' ').title()
+    st.markdown(f"""
+    <div class="question-number">
+        Question {question_idx+1} • {type_display}
+    </div>
+    """, unsafe_allow_html=True)
 
     # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
     if question_type not in ["fill_in_the_blank", "fill in the blank"]:
-        st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**: {question_text_full}")
-    elif question_type in ["fill_in_the_blank", "fill in the blank"]:
-        # For fill-in-the-blank, we still want the question number and type, but not the text itself here.
-        st.markdown(f"**{question_idx+1}. ({question_type.replace('_', ' ').title()})**:")
+        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
+    else:
+        # For fill-in-the-blank, display the question text in the card as well
+        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices
@@ -931,16 +1843,17 @@ def display_question(question_item, section_key, question_idx):
         if options is not None:
             if not options:
                 st.error("Multiple choice question has no options provided.")
-                return
-            st.radio(
-                "Your choice:", options, 
-                key=question_key, 
-                label_visibility="collapsed",
-                on_change=handle_answer_submission,
-                args=(question_key, answer, question_type, None),
-                disabled=is_answered,
-                index=None
-            )
+                # Don't return here, let the function continue to close the div properly
+            else:
+                st.radio(
+                    "Your choice:", options, 
+                    key=question_key, 
+                    label_visibility="collapsed",
+                    on_change=handle_answer_submission,
+                    args=(question_key, answer, question_type, None),
+                    disabled=is_answered,
+                    index=None
+                )
         else:
             st.warning(f"Multiple choice question '{question_text_full}': No options provided.")
             
@@ -950,26 +1863,50 @@ def display_question(question_item, section_key, question_idx):
         component_instance_key = f"fitb_{question_key}" # Key for the custom component's state        # Store question text in session state for AI validation (if applicable, though not used by FITB directly)
         st.session_state[f"{question_key}_question"] = question_text_full
         
-        # Display question number only (not type for fill-in-the-blank to avoid duplication)
-        st.markdown(f"**{question_idx+1}.**")
-        
         if not question_text_full or not correct_answer_for_blank:
             st.warning(f"Fill in the blank question (key: {question_key}) is missing full text or the correct answer. Using standard input.")
-            # Fallback to standard text input, which uses question_key for its state
+            # Fallback to standard text input using safe conversion
+            current_value = safe_str_convert(st.session_state.get(question_key))
+            
             st.text_input("Your answer:",
+                          value=current_value,
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None),
+                          args=(question_key, str(correct_answer_for_blank) if correct_answer_for_blank is not None else "", question_type, None),
                           disabled=is_answered
                           )
         # Check if the question_text_full contains underscores (e.g., '___')
         elif not re.search(r'_{3,}', question_text_full):
             st.warning(f"Question text for fill-in-the-blank (key: {question_key}) does not contain '___'. Using standard input. Question: '{question_text_full}'")
             # Fallback to standard text input
+            current_value = ""
+            if question_key in st.session_state:
+                session_value = st.session_state[question_key]
+                if session_value is not None:
+                    # Convert to string safely, handling various data types
+                    try:
+                        if isinstance(session_value, (dict, list)):
+                            current_value = json.dumps(session_value)
+                        elif isinstance(session_value, (str, int, float, bool)):
+                            current_value = str(session_value)
+                        else:
+                            # For any other type, convert to string
+                            current_value = str(session_value)
+                    except (TypeError, ValueError, AttributeError):
+                        # If conversion fails, use empty string
+                        current_value = ""
+                else:
+                    current_value = ""
+            
+            # Final safety check to ensure current_value is a string
+            if not isinstance(current_value, str):
+                current_value = ""
+            
             st.text_input("Your answer:",
+                          value=current_value,
                           key=question_key,
                           on_change=handle_answer_submission,
-                          args=(question_key, correct_answer_for_blank, question_type, None),
+                          args=(question_key, str(correct_answer_for_blank) if correct_answer_for_blank is not None else "", question_type, None),
                           disabled=is_answered
                           )
         else:
@@ -1067,14 +2004,14 @@ def display_question(question_item, section_key, question_idx):
                 is_give_up_action = False
                 is_completed_wrong = False
                 is_correct_action = False
-                is_wrong_action = False
+                # is_wrong_action = False  # Unused variable
             elif user_input is None:
                 current_answer = ""
                 action = ""
                 is_give_up_action = False
                 is_completed_wrong = False
                 is_correct_action = False
-                is_wrong_action = False
+                # is_wrong_action = False  # Unused variable
             else:
                 st.warning(f"⚠️ Unexpected input type: {type(user_input)}, value: {user_input}")
                 current_answer = str(user_input) if user_input is not None else ""
@@ -1082,7 +2019,7 @@ def display_question(question_item, section_key, question_idx):
                 is_give_up_action = False
                 is_completed_wrong = False
                 is_correct_action = False
-                is_wrong_action = False
+                # is_wrong_action = False  # Unused variable
             
             # Real-time checking as user types or on specific actions
             if current_answer is not None and isinstance(current_answer, str):
@@ -1118,9 +2055,10 @@ def display_question(question_item, section_key, question_idx):
                     st.session_state.feedback[question_key] = "Correct! 🎉"
                     st.session_state.fitb_answered = True
                     
-                    # IMPORTANT: Also mark in checked_answers for navigation system
+                    # IMPORTANT: Mark in all necessary session state locations for navigation system
                     st.session_state.checked_answers[question_key] = True
                     st.session_state.user_answers[question_key] = current_answer
+                    st.session_state[question_key] = True  # Add this for progressive question system
                     
                     # Update score tracking
                     if question_key not in st.session_state.scored_correctly_keys:
@@ -1144,9 +2082,10 @@ def display_question(question_item, section_key, question_idx):
                     st.session_state.feedback[question_key] = f"The correct answer is: {answer}"
                     st.session_state.fitb_answered = True
                     
-                    # IMPORTANT: Also mark in checked_answers for navigation system
+                    # IMPORTANT: Mark in all necessary session state locations for navigation system
                     st.session_state.checked_answers[question_key] = True
                     st.session_state.user_answers[question_key] = current_answer
+                    st.session_state[question_key] = True  # Add this for progressive question system
                     
                     st.rerun()  # Rerun to update UI and disable component              # Display feedback for fill-in-the-blank questions
             answer_data = st.session_state.answers.get(question_key, {})
@@ -1186,7 +2125,7 @@ def display_question(question_item, section_key, question_idx):
                 if match_dict:
                     match_data = match_dict
                     st.success("Successfully converted match data format.")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError) as e:
                 st.error(f"Error processing match data: {e}")
                 st.json(match_data)  # Show the problematic data
         
@@ -1251,69 +2190,146 @@ def display_question(question_item, section_key, question_idx):
             shuffled_right = right_items.copy()
             r.shuffle(shuffled_right)
             
-            # Create a container for the matching UI
-            match_container = st.container()
-            
             # Initialize user's matches in session state if not already done
             match_answers_key = f"{question_key}_matches"
             if match_answers_key not in st.session_state:
                 st.session_state[match_answers_key] = {}
             
-            with match_container:
-                st.write("Match the items on the left with the correct items on the right:")
+            # Modern matching interface
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
+                border: 1px solid rgba(6, 182, 212, 0.2);
+                border-radius: 16px;
+                padding: 2rem;
+                margin: 1rem 0;
+            ">
+                <h4 style="
+                    color: #06b6d4; 
+                    margin-bottom: 1.5rem; 
+                    text-align: center;
+                    font-size: 1.2rem;
+                ">🔗 Match the items</h4>
+            """, unsafe_allow_html=True)
+            
+            # Create a beautiful matching interface
+            for i, left_item in enumerate(left_items):
+                # Get the current selection for this dropdown from session state
+                current_selection_for_left_item = st.session_state[match_answers_key].get(left_item)
+
+                # Create a styled container for each match pair
+                st.markdown(f"""
+                <div style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(6, 182, 212, 0.2);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 1rem 0;
+                    transition: all 0.3s ease;
+                ">
+                    <div style="
+                        color: #e2e8f0;
+                        font-weight: 600;
+                        margin-bottom: 0.8rem;
+                        font-size: 1.1rem;
+                    ">
+                        <span style="
+                            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            font-size: 0.8rem;
+                            margin-right: 10px;
+                        ">{i+1}</span>
+                        {html.escape(left_item)}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                # Create two columns for left and right items
-                left_col, right_col = st.columns(2)
-                
-                with left_col:
-                    for i, item in enumerate(left_items):
-                        st.markdown(f"**{i+1}.** {item}")
-                
-                with right_col:
-                    # Display shuffled right items as labels for the dropdowns
-                    # This part is mostly for visual reference if needed, actual matching is via dropdowns
-                    pass # Not strictly needed to list them again if dropdowns show options
-                
-                # Create dropdowns for matching
-                user_matches_for_ui = {} # To store selections from dropdowns in the current render
-                for i, left_item in enumerate(left_items):
-                    # Use a unique key for each dropdown based on left_item and question_key
-                    # to preserve its state across reruns if not submitted.
-                    dropdown_key = f"match_select_{question_key}_{i}"
+                # Create a more intuitive selectbox with better styling
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                with col2:
+                    # Prepare options and determine current selection index
+                    all_options = ["🔍 Choose an option..."] + [f"➤ {item}" for item in shuffled_right]
+                    current_index = 0  # Default to placeholder
                     
-                    # Get the current selection for this dropdown from session state (user's ongoing attempt)
-                    current_selection_for_left_item = st.session_state[match_answers_key].get(left_item)
-
+                    # If user has a previous selection, find its index
+                    if current_selection_for_left_item and current_selection_for_left_item in shuffled_right:
+                        target_option = f"➤ {current_selection_for_left_item}"
+                        if target_option in all_options:
+                            current_index = all_options.index(target_option)
+                    
+                    # Use a unique key that incorporates the left_item text to handle duplicates
+                    unique_dropdown_key = f"match_select_{question_key}_{i}_{hash(left_item) % 10000}"
+                    
                     selected_right_item = st.selectbox(
-                        f"Match for '{left_item}'",
-                        options=[""] + shuffled_right,  # Add a blank option
-                        index=(shuffled_right.index(current_selection_for_left_item) + 1) if current_selection_for_left_item and current_selection_for_left_item in shuffled_right else 0,
-                        key=dropdown_key,
+                        f"Select match for item {i+1}",
+                        options=all_options,
+                        index=current_index,
+                        key=unique_dropdown_key,
                         label_visibility="collapsed",
-                        disabled=is_answered 
+                        disabled=is_answered,
+                        help=f"Select the correct match for: {left_item}"
                     )
-                    if selected_right_item: # Only add to matches if something is selected
-                        user_matches_for_ui[left_item] = selected_right_item
-                
-                # Update session state with current selections from UI
-                # This happens on every rerun if a dropdown changes
-                st.session_state[match_answers_key] = user_matches_for_ui
-                
-                # Submit button for matching questions
-                # The button is active if not answered and all left items have a selection.
-                # We check user_matches_for_ui which reflects the current state of dropdowns.
-                all_items_matched_in_ui = len(user_matches_for_ui) == len(left_items)
+                    
+                    # Store the selection (remove the arrow prefix) based on widget state
+                    if selected_right_item and selected_right_item != "🔍 Choose an option...":
+                        clean_selection = selected_right_item.replace("➤ ", "")
+                        st.session_state[match_answers_key][left_item] = clean_selection
+                    elif left_item in st.session_state[match_answers_key]:
+                        # Remove the selection if user chose the placeholder
+                        del st.session_state[match_answers_key][left_item]
+            
+            # Get current user matches for submission check
+            user_matches_for_ui = st.session_state.get(match_answers_key, {})
+            all_items_matched_in_ui = len(user_matches_for_ui) == len(left_items)
+            
+            # Progress indicator
+            progress = len(user_matches_for_ui) / len(left_items) if left_items else 0
+            st.markdown(f"""
+            <div style="margin: 1.5rem 0;">
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 0.5rem;
+                ">
+                    <span style="color: #a0aec0; font-size: 0.9rem;">Progress</span>
+                    <span style="color: #06b6d4; font-weight: 600;">{len(user_matches_for_ui)}/{len(left_items)} matched</span>
+                </div>
+                <div style="
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    height: 8px;
+                    overflow: hidden;
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                        height: 100%;
+                        width: {progress * 100}%;
+                        transition: width 0.3s ease;
+                        border-radius: 10px;
+                    "></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-                if not is_answered and all_items_matched_in_ui:
-                    if st.button("Submit Matches", key=f"submit_match_{question_key}"):
-                        # On button click, the user_matches_for_ui (from current dropdowns)
-                        # has already been stored in st.session_state[match_answers_key].
-                        # We use that value from session_state for submission.
+            # Enhanced submit button
+            if not is_answered:
+                if all_items_matched_in_ui:
+                    if st.button("✅ Submit Matches", 
+                                key=f"submit_match_{question_key}",
+                                type="primary",
+                                use_container_width=True):
+                        # Submit the matches
                         user_selections_to_submit = st.session_state.get(match_answers_key, {})
                         st.session_state[question_key] = json.dumps(user_selections_to_submit)
-                        # Ensure match_data (correct answers) is a dict before dumping and handling submission
-                        if isinstance(correct_answer, dict):
-                            correct_answer_json = json.dumps(correct_answer)
+                        
+                        # Handle submission
+                        if isinstance(match_data, dict):
+                            correct_answer_json = json.dumps(match_data)
                             handle_answer_submission(question_key, correct_answer_json, "match", None)
                         else:
                             st.error("Internal error: Correct answer data for matching is not in the expected dictionary format.")
@@ -1321,46 +2337,77 @@ def display_question(question_item, section_key, question_idx):
                             st.session_state.user_answers[question_key] = json.dumps(user_selections_to_submit)
                             st.session_state.feedback[question_key] = "Error: Could not process the correct answer data."
                         
-                        # Use a flag instead of immediate rerun for performance
                         st.session_state.match_submitted = True
-                elif not is_answered:
-                    # If not all items are matched, show a disabled-like message or a disabled button
-                    # For simplicity, we can just not show the button or show it disabled.
-                    # Here, if all_items_matched_in_ui is false, the button above is not rendered.
-                    # We can add a placeholder or a disabled button if desired.                    st.button("Submit Matches", key=f"submit_match_{question_key}_disabled", disabled=True)
-                    if not all_items_matched_in_ui and len(left_items) > 0 : # only show if there are items to match
-                        st.caption("Please select a match for all items on the left.")
+                else:
+                    # Show disabled button with helpful message
+                    st.button("🔍 Complete all matches to submit", 
+                             key=f"submit_match_{question_key}_disabled", 
+                             disabled=True,
+                             use_container_width=True,
+                             help="Please select a match for all items before submitting")
+                    
+                    # Show which items still need matching
+                    unmatched = [item for item in left_items if item not in user_matches_for_ui]
+                    if unmatched:
+                        st.info(f"💡 Still need to match: {', '.join(unmatched[:3])}" + 
+                               (f" and {len(unmatched)-3} more" if len(unmatched) > 3 else ""))
+            
+            # Close the styled container
+            st.markdown("</div>", unsafe_allow_html=True)
 
         else:
-            # This block handles cases where match_data was not a dictionary initially.
-            # Try one more time to fix the JSON format before giving up
-            if not isinstance(match_data, dict):
-                # Final attempt with more aggressive parsing
-                # st.warning("Matching question data is malformed. Attempting to fix...") # Optional warning
-                fixed_match_data = None
-                if isinstance(match_data, str):
-                    fixed_match_data = fix_json_format(match_data)
-                
-                if isinstance(fixed_match_data, dict) and fixed_match_data:
-                    # If fixed, we could try to re-render the match UI, but that's complex.
-                    # For now, just log that it was fixed and fall back.
-                    # st.info("Successfully parsed malformed match data, but UI fell back to text input for this attempt.")
-                    pass # Fall through to text area
-
-            # Fallback to text area for malformed match questions or if fixing failed
-            st.error("Unable to display matching question due to data format issues. Please answer as a JSON string or contact support.")
-            st.text_area("Your answer (as JSON, e.g., {\\\"premise1\\\": \\\"responseA\\\", ...}):",
-                        key=question_key,
-                        on_change=handle_answer_submission,
-                        args=(question_key, answer, question_type, None), # answer here is the original, possibly malformed, answer
-                        disabled=is_answered
-                        )
+            # Fallback for malformed match questions
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
+                border: 1px solid rgba(255, 193, 7, 0.3);
+                border-radius: 12px;
+                padding: 1.5rem;
+                margin: 1rem 0;
+            ">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    color: #ffc107;
+                    font-weight: 600;
+                    margin-bottom: 1rem;
+                ">
+                    <span style="font-size: 1.2rem;">⚠️</span>
+                    Match Question Format Issue
+                </div>
+                <div style="color: #e2e8f0; line-height: 1.5;">
+                    The matching question data couldn't be processed in the standard format.
+                    Please provide your answer as a JSON object mapping items to their matches.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Show example format
+            st.code('{"Item 1": "Match A", "Item 2": "Match B", "Item 3": "Match C"}', language="json")
+        
+        # Enhanced fallback text area with better styling
+        current_value = safe_str_convert(st.session_state.get(question_key))
+        
+        st.text_area(
+            "📝 Your answer (as JSON):",
+            value=current_value,
+            key=question_key,
+            on_change=handle_answer_submission,
+            args=(question_key, str(answer) if answer is not None else "", question_type, None),
+            disabled=is_answered,
+            help="Enter your matches as a JSON object, e.g., {\"premise1\": \"responseA\", \"premise2\": \"responseB\"}"
+        )
     
     elif question_type in ["short_answer", "short answer"]:
+        # Ensure we have a string value for the text area using safe conversion
+        current_value = safe_str_convert(st.session_state.get(question_key))
+        
         st.text_area("Your answer:",
+                    value=current_value,
                     key=question_key,
                     on_change=handle_answer_submission,
-                    args=(question_key, answer, question_type, None),
+                    args=(question_key, str(answer) if answer is not None else "", question_type, None),
                     disabled=is_answered
                     )
     elif question_type in ["true_false", "true false", "true or false"]:
@@ -1492,7 +2539,7 @@ def fix_json_format(data_str):
                 pass    
     return None
 
-def handle_answer_submission(question_key, correct_answer, question_type, selected_match_key=None, submitted_answer=None):
+def handle_answer_submission(question_key, correct_answer, question_type, selected_match_key=None, submitted_answer=None):  # selected_match_key and submitted_answer kept for API compatibility
     # Initialize session state for answer tracking if not already present
     if "answers" not in st.session_state:
         st.session_state.answers = {}
@@ -1569,7 +2616,7 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
                 else:
                     feedback_message = f"Your answer: {user_answer}, Expected: {display_answer} (AI validation unavailable)"
                 
-        except Exception as e:
+        except (ImportError, AttributeError, ConnectionError, TypeError, ValueError) as e:
             # Fallback to simple string comparison if AI validation fails
             is_correct_locally = is_answer_correct(user_answer, correct_answer, question_type)
             display_answer = correct_answer[0] if isinstance(correct_answer, list) else correct_answer
@@ -1616,7 +2663,7 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
             except json.JSONDecodeError:
                 is_correct_locally = False
                 feedback_message = "Error processing your selections: the answer format was unexpected. Please ensure your selections are valid."
-            except Exception as e: # Catch any other unexpected error during match processing
+            except (TypeError, ValueError, KeyError) as e: # Catch any other unexpected error during match processing
                 is_correct_locally = False
                 feedback_message = f"An unexpected error occurred while checking your match answer: {str(e)}"
         else:
@@ -1658,7 +2705,7 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
         # Prepend "Incorrect." to this detailed message.
         st.session_state.feedback[question_key] = f"Incorrect. {feedback_message}"
 
-def is_answer_correct(user_answer, correct_answer, question_type=None):
+def is_answer_correct(user_answer, correct_answer, question_type=None):  # question_type kept for API compatibility
     """Check if user answer matches any acceptable answer"""
     user_clean = str(user_answer).strip().lower()
     
