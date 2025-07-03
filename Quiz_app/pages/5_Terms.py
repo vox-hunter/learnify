@@ -17,14 +17,10 @@ if cookies is None:
     except (ImportError, RuntimeError, ValueError):
         cookies = None
 
-# Custom CSS for stylingerms and Conditions Page for AI Loom
-"""
-import streamlit as st
-
 # Custom CSS for styling
 st.markdown("""
 <style>
-    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
+    /* Cache buster: 2025-07-02 - Force CSS reload */
     /* Hide cookie manager component that takes up horizontal space */
     iframe[title*="cookie_manager"], 
     iframe[src*="cookie_manager"],
