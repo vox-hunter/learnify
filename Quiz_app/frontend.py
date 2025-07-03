@@ -14,17 +14,6 @@ try:
 except ImportError:
     MONGO_AVAILABLE = False
 
-# Import loading animation utilities if available
-try:
-    from loading_animation import show_loading_status
-    from streamlit_loading import ensure_loading_cleanup
-    
-    # Ensure loading UI is cleaned up
-    ensure_loading_cleanup()
-except ImportError:
-    def show_loading_status(message, progress=None):
-        pass  # Fallback if loading animation is not available
-
 
 
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
