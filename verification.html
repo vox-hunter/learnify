@@ -1,122 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Loom Email Verification</title>
-    <style>
-        /* Reset styles */
-        body, table, td, p, a, span, div { margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-        table { border-collapse: collapse; }
-        img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
-        
-        /* Email styles */
-        .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-        .header { background: linear-gradient(135deg, #6b46c1 0%, #9333ea 100%); padding: 40px 30px; text-align: center; }
-        .header h1 { color: #ffffff; font-size: 32px; font-weight: bold; margin: 0; }
-        .header p { color: #e0e7ff; font-size: 16px; margin: 10px 0 0 0; }
-        
-        .content { padding: 40px 30px; }
-        .content h2 { color: #1f2937; font-size: 24px; text-align: center; margin: 0 0 20px 0; }
-        .content p { color: #6b7280; font-size: 16px; line-height: 24px; margin: 0 0 20px 0; text-align: center; }
-        
-        .code-container { text-align: center; margin: 30px 0; }
-        .code-box { 
-            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-            border: 2px solid #6b46c1;
-            border-radius: 12px;
-            padding: 25px;
-            display: inline-block;
-            margin: 0 auto;
-        }
-        .verification-code { 
-            font-size: 36px; 
-            font-weight: bold; 
-            color: #6b46c1; 
-            letter-spacing: 6px; 
-            font-family: 'Courier New', Courier, monospace;
-        }
-        
-        .footer { background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb; }
-        .footer p { color: #9ca3af; font-size: 14px; line-height: 20px; margin: 0; }
-        
-        .security-notice { 
-            background-color: #fef3c7; 
-            border-left: 4px solid #f59e0b; 
-            padding: 15px; 
-            margin: 20px 0; 
-            border-radius: 0 8px 8px 0;
-        }
-        .security-notice p { color: #92400e; font-size: 14px; text-align: left; margin: 0; }
-        
-        /* Mobile responsive */
-        @media screen and (max-width: 600px) {
-            .email-container { width: 100% !important; }
-            .header { padding: 30px 20px !important; }
-            .header h1 { font-size: 28px !important; }
-            .content { padding: 30px 20px !important; }
-            .verification-code { font-size: 28px !important; letter-spacing: 4px !important; }
-            .code-box { padding: 20px !important; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify Your Email</title>
 </head>
+<body style="margin:0; padding:0; background:#f4f4f4; font-family:Arial, sans-serif;">
 
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: Arial, Helvetica, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                <div class="email-container">
-                    <!-- Header -->
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                        <tr>
-                            <td class="header">
-                                <h1>🧠 AI Loom</h1>
-                                <p>Smart Learning Platform</p>
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <!-- Content -->
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                        <tr>
-                            <td class="content">
-                                <h2>Email Verification Required</h2>
-                                
-                                <p>Welcome to AI Loom! To complete your account setup, please verify your email address using the code below:</p>
-                                
-                                <div class="code-container">
-                                    <div class="code-box">
-                                        <div class="verification-code">{code}</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="security-notice">
-                                    <p><strong>🔒 Security Notice:</strong> This verification code will expire in <strong>10 minutes</strong>. For your security, never share this code with anyone.</p>
-                                </div>
-                                
-                                <p>If you didn't create an account with AI Loom, please ignore this email and no action is required.</p>
-                                
-                                <p>Need help? Contact our support team or visit our help center.</p>
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <!-- Footer -->
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                        <tr>
-                            <td class="footer">
-                                <p>
-                                    © 2025 AI Loom. All rights reserved.<br>
-                                    This is an automated security email. Please do not reply.<br>
-                                    <strong>AI Loom</strong> - Empowering Education with AI
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4; padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:#6b46c1; padding:30px; text-align:center;">
+              <h1 style="color:#fff; font-size:24px; margin:0;">AI Loom</h1>
+              <p style="color:#e0e7ff; margin:5px 0 0;">Smart Learning Platform</p>
             </td>
-        </tr>
-    </table>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:30px; text-align:center;">
+              <h2 style="color:#1f2937; margin-bottom:20px;">Verify Your Email</h2>
+              <p style="color:#4b5563; margin-bottom:30px;">Use the code below to complete your signup. This code expires in 10 minutes.</p>
+
+              <div style="display:inline-block; background:#f3f4f6; border:2px solid #6b46c1; padding:20px 30px; border-radius:8px;">
+                <span style="font-size:28px; color:#6b46c1; font-weight:bold; letter-spacing:5px; font-family:'Courier New', monospace;">{code}</span>
+              </div>
+
+              <p style="color:#6b7280; margin-top:30px; font-size:14px;">If you didn’t sign up for AI Loom, you can safely ignore this email.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb; padding:20px; text-align:center; font-size:12px; color:#9ca3af;">
+              <p style="margin:0;">AI Loom, Bangkok, Thailand</p>
+              <p style="margin:5px 0;">This is an automated email – please don’t reply.</p>
+              <p style="margin:5px 0;"><a href="https://ai-loom.com/unsubscribe" style="color:#9ca3af; text-decoration:underline;">Unsubscribe</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>

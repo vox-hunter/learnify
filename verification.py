@@ -11,7 +11,7 @@ def verify_email(email: str, code: int):
     html_content = html_template.replace("{code}", str(code))
     
     params: resend.Emails.SendParams = {
-    "from": "AI Loom <verification@updates.voxhunter.dev>",
+    "from": "AI Loom <verification@ailoom.me>",
     "to": [email],
     "subject": f"AI Loom Verification Code: {code}",
     "html": html_content
