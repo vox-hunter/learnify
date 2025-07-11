@@ -80,4 +80,4 @@ uritemplate==4.1.1
 urllib3==2.4.0
 watchdog==6.0.0
 websockets==15.0.1
-resend==2.4.0
+resend==2.11.0
