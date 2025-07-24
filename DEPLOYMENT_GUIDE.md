@@ -4,18 +4,47 @@ This guide provides specific instructions for deploying the routing fix across d
 
 ## Quick Fix for Common Platforms
 
+### ⚡ Immediate Fix for Render
+**Option 1**: Use working query parameter URLs:
+- Privacy Policy: `https://yourapp.onrender.com/?page=privacy`
+- Terms & Conditions: `https://yourapp.onrender.com/?page=terms`
+- Course Page: `https://yourapp.onrender.com/?page=course`
+- Login: `https://yourapp.onrender.com/?page=login`
+
+**Option 2**: Add `render.yaml` configuration file (provided in repo)
+
 ### Streamlit Cloud
 Since server configuration isn't available, use query parameters instead:
 - Share links as: `https://yourapp.streamlit.app/?page=privacy`
-- The JavaScript will detect and route appropriately
+- The application will detect and route appropriately
+
+### Render
+Add a `render.yaml` file (provided in repo):
+```yaml
+services:
+  - type: web
+    name: learnify
+    env: python
+    redirects:
+      - source: /privacy
+        destination: /?page=privacy
+        type: 301
+      - source: /terms
+        destination: /?page=terms
+        type: 301
+```
+
+**Alternative for Render**: Use query parameter URLs directly:
+- `https://yourapp.onrender.com/?page=privacy`
+- `https://yourapp.onrender.com/?page=terms`
 
 ### Heroku
 Add a `_redirects` file or use nginx buildpack:
 ```
-/privacy /
-/terms /
-/course /
-/login /
+/privacy /?page=privacy 301
+/terms /?page=terms 301
+/course /?page=course 301
+/login /?page=login 301
 ```
 
 ### Vercel
@@ -23,10 +52,10 @@ Create `vercel.json`:
 ```json
 {
   "rewrites": [
-    { "source": "/privacy", "destination": "/" },
-    { "source": "/terms", "destination": "/" },
-    { "source": "/course", "destination": "/" },
-    { "source": "/login", "destination": "/" }
+    { "source": "/privacy", "destination": "/?page=privacy" },
+    { "source": "/terms", "destination": "/?page=terms" },
+    { "source": "/course", "destination": "/?page=course" },
+    { "source": "/login", "destination": "/?page=login" }
   ]
 }
 ```
@@ -34,10 +63,10 @@ Create `vercel.json`:
 ### Netlify
 Create `_redirects` file:
 ```
-/privacy / 200
-/terms / 200
-/course / 200
-/login / 200
+/privacy /?page=privacy 301
+/terms /?page=terms 301
+/course /?page=course 301
+/login /?page=login 301
 ```
 
 ### Docker

@@ -507,82 +507,65 @@ terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋"
 # --- Navigation Control ---
 pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
-# --- Handle Direct URL Routing ---
-# Note: For production deployments, server-side configuration is required.
-# See streamlit_rewrite.conf (nginx) or .htaccess (Apache) for proper routing.
+# --- Streamlit-Native Multipage Routing ---
+# This implementation works with hosting platforms like Render, Streamlit Cloud, etc.
+# without requiring server-side configuration.
 
-# Display routing information for development
+# Handle page routing via query parameters (works with all hosting platforms)
+page_param = st.query_params.get('page')
+if page_param:
+    page_routes = {
+        'privacy': privacy_page,
+        'terms': terms_page,
+        'course': course_page,
+        'login': login_page
+    }
+    
+    target_page = page_routes.get(page_param.lower())
+    if target_page:
+        st.switch_page(target_page)
+
+# Display helpful routing information for sharing links
 if st.query_params.get('show_routing_info'):
     st.info("""
-    🔧 **Routing Information**
+    🔧 **Multipage Routing Information**
     
-    **Current Status**: Direct URL routing requires server-side configuration for production.
+    **✅ Working Routes** (use these for sharing):
+    - Privacy Policy: `?page=privacy`
+    - Terms & Conditions: `?page=terms`
+    - Course Page: `?page=course`
+    - Login: `?page=login`
     
-    **For Development**: Use internal navigation (buttons work correctly).
+    **🔧 Direct URL Support**: For `/privacy` style URLs, server configuration is required.
+    See `DEPLOYMENT_GUIDE.md` for platform-specific instructions.
     
-    **For Production**: Configure your web server using the provided configuration files:
-    - `streamlit_rewrite.conf` for Nginx
-    - `.htaccess` for Apache
-    
-    These ensure that URLs like `/privacy` and `/terms` serve the main Streamlit application.
+    **📱 Share URLs**: Use query parameter format for reliable cross-platform sharing.
     """)
 
-# Enhanced client-side routing for supported scenarios
-st.markdown("""
-<script>
-// Client-side routing helper for Streamlit multipage apps
-(function() {
-    // Handle URL-based routing when the main app is already loaded
-    const currentPath = window.location.pathname.toLowerCase();
+# Add navigation helper links in development mode
+if st.query_params.get('dev_mode'):
+    st.write("**Quick Navigation Links (Development):**")
+    col1, col2, col3, col4 = st.columns(4)
     
-    // Route mapping for direct navigation
-    const routes = {
-        '/privacy': 'Privacy',
-        '/terms': 'Terms', 
-        '/course': 'Course',
-        '/login': 'Login'
-    };
+    with col1:
+        if st.button("Privacy Policy"):
+            st.query_params.page = 'privacy'
+            st.rerun()
     
-    // Check if we're on a route that should be handled
-    const targetPage = routes[currentPath];
-    if (targetPage) {
-        // Set a query parameter to indicate routing intent
-        const params = new URLSearchParams(window.location.search);
-        if (!params.get('_route_to')) {
-            params.set('_route_to', targetPage);
-            
-            // Update URL and trigger navigation
-            const newUrl = '/' + '?' + params.toString();
-            window.history.replaceState({}, '', newUrl);
-            
-            // Trigger page refresh to let Streamlit handle the routing
-            setTimeout(() => {
-                window.location.reload();
-            }, 100);
-        }
-    }
-})();
-</script>
-""", unsafe_allow_html=True)
-
-# Handle routing parameter
-route_to = st.query_params.get('_route_to')
-if route_to:
-    # Map route names to pages
-    route_pages = {
-        'Privacy': privacy_page,
-        'Terms': terms_page,
-        'Course': course_page, 
-        'Login': login_page
-    }
+    with col2:
+        if st.button("Terms & Conditions"):
+            st.query_params.page = 'terms'
+            st.rerun()
     
-    # Clean up the routing parameter
-    if '_route_to' in st.query_params:
-        del st.query_params['_route_to']
+    with col3:
+        if st.button("Course Page"):
+            st.query_params.page = 'course'
+            st.rerun()
     
-    # Navigate to the target page
-    if route_to in route_pages:
-        st.switch_page(route_pages[route_to])
+    with col4:
+        if st.button("Login"):
+            st.query_params.page = 'login'
+            st.rerun()
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:

@@ -1,21 +1,45 @@
-# Streamlit Multipage Routing Fix
+# Streamlit Multipage Routing Fix - WORKING SOLUTION
 
-This fix addresses the issue where direct URL access to specific pages (like `/privacy`, `/terms`, etc.) in a Streamlit multipage application doesn't work and redirects to the homepage.
+This fix provides a **working solution** for direct URL access to specific pages (like `/privacy`, `/terms`, etc.) in a Streamlit multipage application.
 
-## Problem
+## ✅ Working Solution
 
-Streamlit multipage applications are Single Page Applications (SPAs) under the hood. While internal navigation (clicking buttons) works correctly, direct URL access fails because:
+**For immediate fix on Render and other platforms**, use these URLs:
+- Privacy Policy: `https://yourapp.onrender.com/?page=privacy`  
+- Terms & Conditions: `https://yourapp.onrender.com/?page=terms`
+- Course Page: `https://yourapp.onrender.com/?page=course`
+- Login: `https://yourapp.onrender.com/?page=login`
 
-1. When a user types `example.com/privacy` in the browser, the browser requests that specific path from the server
-2. The server doesn't have a route handler for `/privacy`, so Streamlit shows a "Page not found" dialog
-3. The application redirects to the homepage instead of the intended page
+**These URLs work immediately** without any server configuration changes.
+
+## Problem Solved
+
+The original issue was that Streamlit multipage applications couldn't handle direct URL access to specific pages. Users would get "Page not found" errors when typing URLs like `example.com/privacy` directly in the browser.
 
 ## Solution Overview
 
-This issue requires **both client-side and server-side solutions**:
+This fix provides **two approaches**:
 
-- **Client-side**: Enhanced JavaScript routing in the Streamlit app
-- **Server-side**: Web server configuration to serve the main app for all routes
+1. **✅ Query Parameter Routing** (Works immediately on all platforms)
+2. **🔧 Server-side URL Rewriting** (For prettier URLs with platform configuration)
+
+### Approach 1: Query Parameter Routing (RECOMMENDED)
+
+The application now handles URLs like:
+- `/?page=privacy` → Privacy Policy page
+- `/?page=terms` → Terms & Conditions page  
+- `/?page=course` → Course page
+- `/?page=login` → Login page
+
+**Advantages**:
+- ✅ Works on all hosting platforms (Render, Streamlit Cloud, Vercel, etc.)
+- ✅ No server configuration required
+- ✅ Reliable and consistent
+- ✅ Easy to share and bookmark
+
+### Approach 2: Server-side URL Rewriting (Optional)
+
+For prettier URLs like `/privacy`, see platform-specific configurations in `DEPLOYMENT_GUIDE.md`.
 
 ## Screenshots
 
