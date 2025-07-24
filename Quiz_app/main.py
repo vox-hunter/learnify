@@ -507,68 +507,82 @@ terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋"
 # --- Navigation Control ---
 pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
-# --- Handle Direct URL Routing with JavaScript ---
+# --- Handle Direct URL Routing ---
+# Note: For production deployments, server-side configuration is required.
+# See streamlit_rewrite.conf (nginx) or .htaccess (Apache) for proper routing.
+
+# Display routing information for development
+if st.query_params.get('show_routing_info'):
+    st.info("""
+    🔧 **Routing Information**
+    
+    **Current Status**: Direct URL routing requires server-side configuration for production.
+    
+    **For Development**: Use internal navigation (buttons work correctly).
+    
+    **For Production**: Configure your web server using the provided configuration files:
+    - `streamlit_rewrite.conf` for Nginx
+    - `.htaccess` for Apache
+    
+    These ensure that URLs like `/privacy` and `/terms` serve the main Streamlit application.
+    """)
+
+# Enhanced client-side routing for supported scenarios
 st.markdown("""
 <script>
-// Enhanced URL routing for direct page access
+// Client-side routing helper for Streamlit multipage apps
 (function() {
-    // Get current path and normalize it
-    const path = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    // Handle URL-based routing when the main app is already loaded
+    const currentPath = window.location.pathname.toLowerCase();
     
-    // Define route mapping for direct URL access
-    const routeMapping = {
+    // Route mapping for direct navigation
+    const routes = {
         '/privacy': 'Privacy',
-        '/privacy.html': 'Privacy',
-        '/terms': 'Terms',
-        '/terms.html': 'Terms',
+        '/terms': 'Terms', 
         '/course': 'Course',
         '/login': 'Login'
     };
     
-    // Check if we need to route and haven't already routed
-    const urlParams = new URLSearchParams(window.location.search);
-    const alreadyRouted = urlParams.get('_routed');
-    const targetRoute = routeMapping[path];
-    
-    if (targetRoute && !alreadyRouted) {
-        // Add routing parameter to prevent loops
-        urlParams.set('_routed', 'true');
-        urlParams.set('_page', targetRoute);
-        
-        // Update URL with parameters
-        const newUrl = window.location.pathname + '?' + urlParams.toString();
-        window.history.replaceState({}, '', newUrl);
-        
-        // Trigger Streamlit rerun by dispatching custom event
-        setTimeout(() => {
-            window.location.reload();
-        }, 100);
+    // Check if we're on a route that should be handled
+    const targetPage = routes[currentPath];
+    if (targetPage) {
+        // Set a query parameter to indicate routing intent
+        const params = new URLSearchParams(window.location.search);
+        if (!params.get('_route_to')) {
+            params.set('_route_to', targetPage);
+            
+            // Update URL and trigger navigation
+            const newUrl = '/' + '?' + params.toString();
+            window.history.replaceState({}, '', newUrl);
+            
+            // Trigger page refresh to let Streamlit handle the routing
+            setTimeout(() => {
+                window.location.reload();
+            }, 100);
+        }
     }
 })();
 </script>
 """, unsafe_allow_html=True)
 
-# Check if we were routed and need to navigate
-if st.query_params.get('_routed') == 'true':
-    target_page = st.query_params.get('_page')
-    if target_page:
-        # Map page names to page objects
-        page_mapping = {
-            'Privacy': privacy_page,
-            'Terms': terms_page,
-            'Course': course_page,
-            'Login': login_page
-        }
-        
-        # Clean up routing params to avoid loops
-        if '_routed' in st.query_params:
-            del st.query_params['_routed']
-        if '_page' in st.query_params:
-            del st.query_params['_page']
-        
-        # Navigate to the target page
-        if target_page in page_mapping:
-            st.switch_page(page_mapping[target_page])
+# Handle routing parameter
+route_to = st.query_params.get('_route_to')
+if route_to:
+    # Map route names to pages
+    route_pages = {
+        'Privacy': privacy_page,
+        'Terms': terms_page,
+        'Course': course_page, 
+        'Login': login_page
+    }
+    
+    # Clean up the routing parameter
+    if '_route_to' in st.query_params:
+        del st.query_params['_route_to']
+    
+    # Navigate to the target page
+    if route_to in route_pages:
+        st.switch_page(route_pages[route_to])
 
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:

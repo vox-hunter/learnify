@@ -7,47 +7,66 @@ This fix addresses the issue where direct URL access to specific pages (like `/p
 Streamlit multipage applications are Single Page Applications (SPAs) under the hood. While internal navigation (clicking buttons) works correctly, direct URL access fails because:
 
 1. When a user types `example.com/privacy` in the browser, the browser requests that specific path from the server
-2. The server doesn't have a route handler for `/privacy`, so it either returns 404 or serves the default page
-3. The Streamlit app doesn't detect that it should navigate to the privacy page
+2. The server doesn't have a route handler for `/privacy`, so Streamlit shows a "Page not found" dialog
+3. The application redirects to the homepage instead of the intended page
 
-## Solution
+## Solution Overview
 
-This fix implements both client-side and server-side solutions:
+This issue requires **both client-side and server-side solutions**:
 
-### Client-Side Solution (JavaScript)
+- **Client-side**: Enhanced JavaScript routing in the Streamlit app
+- **Server-side**: Web server configuration to serve the main app for all routes
 
-The main application (`main.py`) now includes JavaScript code that:
+## Screenshots
 
-1. Detects when someone accesses a direct URL like `/privacy` or `/terms`
-2. Adds query parameters to indicate routing is needed
-3. Triggers Streamlit to navigate to the correct page
+### Before Fix - Internal Navigation Works
+![Working internal navigation](https://github.com/user-attachments/assets/1e8807a8-fb28-437a-ab71-c0968d6363d0)
+*Internal navigation (clicking Privacy Policy button) works correctly*
 
-### Server-Side Configuration
+### Before Fix - Direct URL Access Fails  
+![Direct URL access fails](https://github.com/user-attachments/assets/f5747e62-5219-41a7-a62e-bac42a70e179)
+*Direct URL access shows "Page not found" and redirects to homepage*
 
-For production deployments, included configuration files for common web servers:
-
-- `streamlit_rewrite.conf` - Nginx configuration 
-- `.htaccess` - Apache configuration
-
-These ensure that direct URL access serves the main Streamlit application.
+### After Fix - Application Loads Correctly
+![Application working](https://github.com/user-attachments/assets/6ffbed3e-7cbd-49b8-b515-2c5054e6a326)
+*Main application loads correctly and is ready for routing fixes*
 
 ## Implementation Details
 
-### Modified Files
+### Client-Side Solution
 
-1. **`Quiz_app/main.py`** - Added URL routing logic before `pg.run()`
+Modified `Quiz_app/main.py` to include:
 
-### Added Files
+1. **URL Detection**: JavaScript detects when someone accesses a direct URL
+2. **Route Mapping**: Maps paths like `/privacy` to corresponding page names  
+3. **Query Parameters**: Uses `_route_to` parameter for navigation
+4. **Page Navigation**: Python code detects parameters and calls `st.switch_page()`
 
-1. **`streamlit_rewrite.conf`** - Nginx rewrite rules
-2. **`.htaccess`** - Apache rewrite rules
+### Server-Side Configuration
 
-### How It Works
+#### For Production Deployments
 
-1. **JavaScript Detection**: When the page loads, JavaScript checks the current URL path
-2. **Route Mapping**: Maps paths like `/privacy` to corresponding page names
-3. **Query Parameters**: Sets `_routed=true` and `_page=Privacy` parameters
-4. **Streamlit Navigation**: Python code detects these parameters and calls `st.switch_page()`
+**Nginx** (`streamlit_rewrite.conf`):
+```nginx
+location / {
+    try_files $uri $uri/ @streamlit;
+    
+    location ~ ^/(privacy|terms|course|login)/?$ {
+        try_files @streamlit @streamlit;
+    }
+}
+
+location @streamlit {
+    proxy_pass http://localhost:8501;
+    # ... proxy configuration
+}
+```
+
+**Apache** (`.htaccess`):
+```apache
+RewriteEngine On
+RewriteRule ^(privacy|terms|course|login)/?$ / [L,QSA]
+```
 
 ## Supported Routes
 
@@ -56,32 +75,42 @@ These ensure that direct URL access serves the main Streamlit application.
 - `/course` → Course page
 - `/login` → Login page
 
-## Testing
+## Testing Results
 
-The solution has been tested and verified to work correctly:
+✅ **Internal Navigation**: Works perfectly (clicking buttons)  
+✅ **Client-side Detection**: JavaScript correctly detects direct URLs  
+❌ **Direct URL Access**: Requires server-side configuration  
+✅ **Development Mode**: Works with enhanced JavaScript routing  
 
-```bash
-# Test basic functionality
-curl "http://localhost:8501/?_routed=true&_page=Privacy"
-curl "http://localhost:8501/?_routed=true&_page=Terms"
-```
-
-## Deployment
+## Deployment Instructions
 
 ### For Development
-No additional configuration needed - the JavaScript solution handles routing automatically.
+The enhanced client-side solution provides improved routing behavior during development.
 
 ### For Production
 
 #### Nginx
-Add the configuration from `streamlit_rewrite.conf` to your nginx site configuration.
+1. Add the configuration from `streamlit_rewrite.conf` to your nginx site configuration
+2. Reload nginx: `sudo nginx -s reload`
 
 #### Apache  
-Place the `.htaccess` file in your web root directory.
+1. Place the `.htaccess` file in your web root directory
+2. Ensure mod_rewrite is enabled: `sudo a2enmod rewrite`
 
 #### Docker/Cloud Platforms
-The JavaScript solution should work without additional configuration on most platforms.
+1. Use the provided configuration files as templates
+2. Ensure your reverse proxy or load balancer routes all paths to the Streamlit application
+
+#### Streamlit Cloud
+Contact Streamlit support to configure custom routing, or use URL parameters (e.g., `?page=privacy`) instead of path-based routing.
 
 ## Browser Compatibility
 
-The JavaScript solution works in all modern browsers and gracefully degrades in older browsers by falling back to default Streamlit behavior.
+The JavaScript solution works in all modern browsers and gracefully degrades in older browsers.
+
+## Additional Notes
+
+- Server-side configuration is **essential** for production deployments
+- The client-side solution provides enhanced development experience
+- Internal navigation always works regardless of server configuration
+- Consider using query parameters for deployments where server configuration isn't possible
