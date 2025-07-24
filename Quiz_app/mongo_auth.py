@@ -67,7 +67,7 @@ class MongoAuthManager:
         # Check hashed password. Using .encode('utf-8') for both.
         return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-    def add_user(self, username, password, email, name, marketing_consent=False):
+    def add_user(self, username, password, email, name, marketing_consent=False, google_id=None, google_linked=False):
         if not self._ensure_connection():
             return None, "Database connection error."
         if self.users_collection.find_one({"username": username}):
@@ -75,16 +75,20 @@ class MongoAuthManager:
         if self.users_collection.find_one({"email": email}):
             return None, "Email already registered."
         
-        hashed_pw = self.hash_password(password)
+        # If password is provided, hash it. For Google OAuth users, password might be None initially
+        hashed_pw = self.hash_password(password) if password else None
+        
         try:
             user_data = {
                 "username": username,
                 "password": hashed_pw,
                 "email": email,
                 "name": name,
-                "email_verified": False,  # Optional: for email verification flow
-                "marketing_consent": marketing_consent,  # Store marketing consent
-                "created_at": datetime.utcnow().isoformat()  # Add creation timestamp
+                "email_verified": google_linked,  # Google accounts are pre-verified
+                "marketing_consent": marketing_consent,
+                "created_at": datetime.utcnow().isoformat(),
+                "google_id": google_id,  # Store Google ID for linking
+                "google_linked": google_linked  # Flag to indicate if account is linked to Google
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
@@ -118,6 +122,139 @@ class MongoAuthManager:
         except Exception as e:
             st.error(f"Unexpected error finding user by email: {e}")
             return None
+
+    def find_user_by_google_id(self, google_id):
+        """Find user by Google ID."""
+        if not self._ensure_connection():
+            return None
+        try:
+            return self.users_collection.find_one({"google_id": google_id})
+        except pymongo_errors.PyMongoError as e:
+            st.error(f"MongoDB error finding user by Google ID: {e}")
+            return None
+        except Exception as e:
+            st.error(f"Unexpected error finding user by Google ID: {e}")
+            return None
+
+    def link_google_account(self, username, google_id):
+        """Link a Google account to an existing user."""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        # Check if Google ID is already linked to another account
+        existing_google_user = self.find_user_by_google_id(google_id)
+        if existing_google_user and existing_google_user['username'] != username:
+            return False, "This Google account is already linked to another user."
+        
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {
+                    "$set": {
+                        "google_id": google_id,
+                        "google_linked": True,
+                        "email_verified": True  # Google accounts are verified
+                    }
+                }
+            )
+            if result.modified_count > 0:
+                return True, None
+            else:
+                return False, "User not found or account already linked."
+        except pymongo_errors.PyMongoError as e:
+            st.error(f"MongoDB error linking Google account: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error linking Google account: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def unlink_google_account(self, username):
+        """Unlink Google account from user."""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {
+                    "$unset": {"google_id": ""},
+                    "$set": {"google_linked": False}
+                }
+            )
+            if result.modified_count > 0:
+                return True, None
+            else:
+                return False, "User not found or Google account not linked."
+        except pymongo_errors.PyMongoError as e:
+            st.error(f"MongoDB error unlinking Google account: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            st.error(f"Unexpected error unlinking Google account: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def create_google_user(self, google_user_info, base_username, marketing_consent=False):
+        """
+        Create a new user from Google OAuth information.
+        
+        Args:
+            google_user_info: Dictionary containing Google user data
+            base_username: Base username to use (will be made unique if needed)
+            marketing_consent: Whether user consented to marketing emails
+            
+        Returns:
+            tuple: (user_id, error_message, final_username)
+        """
+        if not self._ensure_connection():
+            return None, "Database connection error.", None
+        
+        email = google_user_info.get('email')
+        name = google_user_info.get('name')
+        google_id = google_user_info.get('google_id')
+        
+        if not email or not google_id:
+            return None, "Invalid Google user information.", None
+        
+        # Check if email already exists
+        if self.users_collection.find_one({"email": email}):
+            return None, "Email already registered.", None
+        
+        # Make username unique if needed
+        final_username = self._generate_unique_username(base_username)
+        
+        try:
+            user_data = {
+                "username": final_username,
+                "password": None,  # No password for Google OAuth users initially
+                "email": email,
+                "name": name,
+                "email_verified": True,  # Google accounts are pre-verified
+                "marketing_consent": marketing_consent,
+                "created_at": datetime.utcnow().isoformat(),
+                "google_id": google_id,
+                "google_linked": True
+            }
+            result = self.users_collection.insert_one(user_data)
+            return result.inserted_id, None, final_username
+        except pymongo_errors.PyMongoError as e:
+            st.error(f"MongoDB error creating Google user: {e}")
+            return None, f"Database error: {e}", None
+        except Exception as e:
+            st.error(f"Unexpected error creating Google user: {e}")
+            return None, f"An unexpected error occurred: {e}", None
+
+    def _generate_unique_username(self, base_username):
+        """Generate a unique username by appending numbers if needed."""
+        if not self._ensure_connection():
+            return base_username
+        
+        original_username = base_username
+        counter = 1
+        
+        while self.users_collection.find_one({"username": base_username}):
+            base_username = f"{original_username}{counter}"
+            counter += 1
+        
+        return base_username
 
     def update_user_password(self, username, new_password):
         if not self._ensure_connection():
