@@ -507,6 +507,69 @@ terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋"
 # --- Navigation Control ---
 pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
+# --- Handle Direct URL Routing with JavaScript ---
+st.markdown("""
+<script>
+// Enhanced URL routing for direct page access
+(function() {
+    // Get current path and normalize it
+    const path = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    
+    // Define route mapping for direct URL access
+    const routeMapping = {
+        '/privacy': 'Privacy',
+        '/privacy.html': 'Privacy',
+        '/terms': 'Terms',
+        '/terms.html': 'Terms',
+        '/course': 'Course',
+        '/login': 'Login'
+    };
+    
+    // Check if we need to route and haven't already routed
+    const urlParams = new URLSearchParams(window.location.search);
+    const alreadyRouted = urlParams.get('_routed');
+    const targetRoute = routeMapping[path];
+    
+    if (targetRoute && !alreadyRouted) {
+        // Add routing parameter to prevent loops
+        urlParams.set('_routed', 'true');
+        urlParams.set('_page', targetRoute);
+        
+        // Update URL with parameters
+        const newUrl = window.location.pathname + '?' + urlParams.toString();
+        window.history.replaceState({}, '', newUrl);
+        
+        // Trigger Streamlit rerun by dispatching custom event
+        setTimeout(() => {
+            window.location.reload();
+        }, 100);
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
+
+# Check if we were routed and need to navigate
+if st.query_params.get('_routed') == 'true':
+    target_page = st.query_params.get('_page')
+    if target_page:
+        # Map page names to page objects
+        page_mapping = {
+            'Privacy': privacy_page,
+            'Terms': terms_page,
+            'Course': course_page,
+            'Login': login_page
+        }
+        
+        # Clean up routing params to avoid loops
+        if '_routed' in st.query_params:
+            del st.query_params['_routed']
+        if '_page' in st.query_params:
+            del st.query_params['_page']
+        
+        # Navigate to the target page
+        if target_page in page_mapping:
+            st.switch_page(page_mapping[target_page])
+
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:
     # Show debug info if available
