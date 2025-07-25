@@ -58,12 +58,10 @@ Learnify now supports Google OAuth as an optional authentication method alongsid
    **Name**: Learnify OAuth Client
 
    **Authorized JavaScript origins**:
-   - `http://localhost:8501` (for local development)
-   - `https://yourdomain.com` (for production)
+   - `https://learnify-pr-17.onrender.com` (for current deployment)
 
    **Authorized redirect URIs**:
-   - `http://localhost:8501` (for local development)
-   - `https://yourdomain.com` (for production)
+   - `https://learnify-pr-17.onrender.com` (for current deployment)
    
    **Note**: Remove any `urn:ietf:wg:oauth:2.0:oob` entries as they are not needed for web applications.
 
