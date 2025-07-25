@@ -238,6 +238,15 @@ except ImportError as e:
     # It's okay to call st.error here after set_page_config
     st.error(f"Failed to import required modules: {e}")
     MONGO_AVAILABLE = False
+    
+    # Define fallback functions to prevent NameError
+    def is_google_oauth_configured():
+        return False
+    
+    def show_google_oauth_interface():
+        st.error("Google OAuth is not available due to import errors.")
+        return None
+    
     st.stop() # Stop if core auth module is missing
 
 # --- Get Cookie Manager from Session State ---
