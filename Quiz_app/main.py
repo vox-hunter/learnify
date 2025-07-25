@@ -507,6 +507,68 @@ terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋"
 # --- Navigation Control ---
 pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
 
+# --- Streamlit-Native Multipage Routing ---
+# This implementation works with hosting platforms like Render, Streamlit Cloud, etc.
+# without requiring server-side configuration.
+
+# Handle page routing via query parameters (works with all hosting platforms)
+page_param = st.query_params.get('page')
+if page_param:
+    page_routes = {
+        'privacy': privacy_page,
+        'terms': terms_page,
+        'course': course_page,
+        'login': login_page
+    }
+    
+    allowed_pages = set(page_routes.keys())
+    page_param_lower = page_param.lower()
+    if page_param_lower in allowed_pages:
+        target_page = page_routes[page_param_lower]
+        st.switch_page(target_page)
+
+# Display helpful routing information for sharing links
+if st.query_params.get('show_routing_info'):
+    st.info("""
+    🔧 **Multipage Routing Information**
+    
+    **✅ Working Routes** (use these for sharing):
+    - Privacy Policy: `?page=privacy`
+    - Terms & Conditions: `?page=terms`
+    - Course Page: `?page=course`
+    - Login: `?page=login`
+    
+    **🔧 Direct URL Support**: For `/privacy` style URLs, server configuration is required.
+    See `DEPLOYMENT_GUIDE.md` for platform-specific instructions.
+    
+    **📱 Share URLs**: Use query parameter format for reliable cross-platform sharing.
+    """)
+
+# Add navigation helper links in development mode
+if st.query_params.get('dev_mode'):
+    st.write("**Quick Navigation Links (Development):**")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("Privacy Policy"):
+            st.query_params.page = 'privacy'
+            st.rerun()
+    
+    with col2:
+        if st.button("Terms & Conditions"):
+            st.query_params.page = 'terms'
+            st.rerun()
+    
+    with col3:
+        if st.button("Course Page"):
+            st.query_params.page = 'course'
+            st.rerun()
+    
+    with col4:
+        if st.button("Login"):
+            st.query_params.page = 'login'
+            st.rerun()
+
 # --- Sidebar UI (Renders after st.navigation) ---
 with st.sidebar:
     # Show debug info if available
