@@ -64,7 +64,8 @@ Learnify now supports Google OAuth as an optional authentication method alongsid
    **Authorized redirect URIs**:
    - `http://localhost:8501` (for local development)
    - `https://yourdomain.com` (for production)
-   - `urn:ietf:wg:oauth:2.0:oob` (for manual code entry - fallback)
+   
+   **Note**: Remove any `urn:ietf:wg:oauth:2.0:oob` entries as they are not needed for web applications.
 
 5. Click "Create"
 6. **Important**: Copy the Client ID and Client Secret immediately
@@ -123,9 +124,9 @@ No additional configuration needed. The OAuth will work with `localhost:8501`.
 3. You should see "Login with Google" and "Sign up with Google" buttons
 4. Test the OAuth flow:
    - Click the Google button
-   - Follow the authentication link
-   - Copy the authorization code
-   - Paste it back in the app
+   - You will be redirected to Google for authentication
+   - Authorize the application
+   - You will be automatically redirected back to Learnify
    - Verify successful authentication
 
 ## User Experience
@@ -173,7 +174,10 @@ The Google OAuth integration maintains the same data structure as manual account
    - Ensure they don't contain placeholder values
 
 2. **"Invalid redirect URI" error**
-   - Verify redirect URIs in Google Cloud Console match your domain
+   - Verify redirect URIs in Google Cloud Console match your domain exactly
+   - For development: Use `http://localhost:8501` 
+   - For production: Use your actual HTTPS domain
+   - Remove any `urn:ietf:wg:oauth:2.0:oob` entries (not needed for web apps)
    - Check for typos in URLs
    - Ensure protocol (http/https) matches
 
