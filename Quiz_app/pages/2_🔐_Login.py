@@ -579,6 +579,31 @@ else: # Not authenticated, show login or registration
     with login_tab:
         st.subheader("🔐 Login to Your Account")
         
+        # Handle OAuth callback first, regardless of login mode
+        query_params = st.query_params
+        if 'code' in query_params and 'state' in query_params and is_google_oauth_configured():
+            google_user_info = show_google_oauth_interface()
+            if google_user_info:
+                # Check if user exists with this Google ID
+                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_user:
+                    # User exists, log them in
+                    login_user(existing_user['username'], existing_user)
+                    st.success("Logged in successfully with Google!")
+                    st.rerun()
+                else:
+                    # Check if user exists with same email
+                    existing_email_user = manager.find_user_by_email(google_user_info['email'])
+                    if existing_email_user:
+                        # Ask user if they want to link accounts
+                        st.session_state['pending_google_link'] = {
+                            'google_info': google_user_info,
+                            'existing_user': existing_email_user
+                        }
+                        st.rerun()
+                    else:
+                        st.error("No account found with this Google account. Please sign up first.")
+        
         # Handle pending Google account linking
         if 'pending_google_link' in st.session_state:
             st.info("🔗 Link your Google account to your existing account")
@@ -606,11 +631,11 @@ else: # Not authenticated, show login or registration
             
             st.markdown("---")
         
-        # Google OAuth Login
+        # Google OAuth Login (only show if not handling callback)
         if 'google_login_mode' not in st.session_state:
             st.session_state.google_login_mode = False
         
-        if is_google_oauth_configured():
+        if is_google_oauth_configured() and not ('code' in query_params and 'state' in query_params):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("🔵 Login with Google", use_container_width=True):
@@ -623,29 +648,8 @@ else: # Not authenticated, show login or registration
             
             if st.session_state.google_login_mode:
                 google_user_info = show_google_oauth_interface()
-                if google_user_info:
-                    # Check if user exists with this Google ID
-                    existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
-                    if existing_user:
-                        # User exists, log them in
-                        login_user(existing_user['username'], existing_user)
-                        st.session_state.google_login_mode = False
-                        st.success("Logged in successfully with Google!")
-                        st.rerun()
-                    else:
-                        # Check if user exists with same email
-                        existing_email_user = manager.find_user_by_email(google_user_info['email'])
-                        if existing_email_user:
-                            # Ask user if they want to link accounts
-                            st.session_state['pending_google_link'] = {
-                                'google_info': google_user_info,
-                                'existing_user': existing_email_user
-                            }
-                            st.session_state.google_login_mode = False
-                            st.rerun()
-                        else:
-                            st.error("No account found with this Google account. Please sign up first.")
-                            st.session_state.google_login_mode = False
+                # Note: During normal flow (not callback), this will return None
+                # The actual processing happens when user returns from Google
                 
                 st.markdown("---")
         
@@ -671,6 +675,25 @@ else: # Not authenticated, show login or registration
     
     with register_tab:
         st.subheader("✨ Create a New Account")
+        
+        # Handle OAuth callback first, regardless of signup mode
+        query_params = st.query_params
+        if 'code' in query_params and 'state' in query_params and is_google_oauth_configured():
+            google_user_info = show_google_oauth_interface()
+            if google_user_info:
+                # Check if user exists with this email
+                existing_email_user = manager.find_user_by_email(google_user_info['email'])
+                if existing_email_user:
+                    st.error("An account with this email already exists. Please use the login tab to link your Google account.")
+                else:
+                    # Check if Google ID already exists
+                    existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                    if existing_google_user:
+                        st.error("This Google account is already registered. Please use the login tab.")
+                    else:
+                        # Store Google info for signup completion
+                        st.session_state['google_signup_info'] = google_user_info
+                        st.rerun()
         
         # Handle Google signup completion
         if 'google_signup_info' in st.session_state:
@@ -744,11 +767,12 @@ else: # Not authenticated, show login or registration
             
             st.markdown("---")
         
-        # Google OAuth Signup
+        # Google OAuth Signup (only show if not handling callback and not completing signup)
         if 'google_signup_mode' not in st.session_state:
             st.session_state.google_signup_mode = False
         
-        if is_google_oauth_configured() and 'google_signup_info' not in st.session_state:
+        if (is_google_oauth_configured() and 'google_signup_info' not in st.session_state and 
+            not ('code' in query_params and 'state' in query_params)):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("🔵 Sign up with Google", use_container_width=True):
@@ -761,23 +785,8 @@ else: # Not authenticated, show login or registration
             
             if st.session_state.google_signup_mode:
                 google_user_info = show_google_oauth_interface()
-                if google_user_info:
-                    # Check if user exists with this email
-                    existing_email_user = manager.find_user_by_email(google_user_info['email'])
-                    if existing_email_user:
-                        st.error("An account with this email already exists. Please use the login tab to link your Google account.")
-                        st.session_state.google_signup_mode = False
-                    else:
-                        # Check if Google ID already exists
-                        existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
-                        if existing_google_user:
-                            st.error("This Google account is already registered. Please use the login tab.")
-                            st.session_state.google_signup_mode = False
-                        else:
-                            # Store Google info for signup completion
-                            st.session_state['google_signup_info'] = google_user_info
-                            st.session_state.google_signup_mode = False
-                            st.rerun()
+                # Note: During normal flow (not callback), this will return None
+                # The actual processing happens when user returns from Google
                 
                 st.markdown("---")
         
