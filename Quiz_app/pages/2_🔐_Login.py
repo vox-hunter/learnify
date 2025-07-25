@@ -579,30 +579,22 @@ else: # Not authenticated, show login or registration
     with login_tab:
         st.subheader("🔐 Login to Your Account")
         
-        # Handle OAuth callback first, regardless of login mode
-        query_params = st.query_params
-        if 'code' in query_params and 'state' in query_params and is_google_oauth_configured():
-            google_user_info = show_google_oauth_interface()
-            if google_user_info:
-                # Check if user exists with this Google ID
-                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
-                if existing_user:
-                    # User exists, log them in
-                    login_user(existing_user['username'], existing_user)
-                    st.success("Logged in successfully with Google!")
-                    st.rerun()
-                else:
-                    # Check if user exists with same email
-                    existing_email_user = manager.find_user_by_email(google_user_info['email'])
-                    if existing_email_user:
-                        # Ask user if they want to link accounts
-                        st.session_state['pending_google_link'] = {
-                            'google_info': google_user_info,
-                            'existing_user': existing_email_user
-                        }
-                        st.rerun()
-                    else:
-                        st.error("No account found with this Google account. Please sign up first.")
+        # Handle pending Google signup from main.py OAuth callback
+        if 'pending_google_signup' in st.session_state:
+            google_user_info = st.session_state['pending_google_signup']
+            del st.session_state['pending_google_signup']
+            
+            # Check if user exists with same email for account linking
+            existing_email_user = manager.find_user_by_email(google_user_info['email'])
+            if existing_email_user:
+                # Ask user if they want to link accounts
+                st.session_state['pending_google_link'] = {
+                    'google_info': google_user_info,
+                    'existing_user': existing_email_user
+                }
+                st.rerun()
+            else:
+                st.error("No account found with this Google account. Please sign up first or create an account with the same email first.")
         
         # Handle pending Google account linking
         if 'pending_google_link' in st.session_state:
@@ -675,6 +667,25 @@ else: # Not authenticated, show login or registration
     
     with register_tab:
         st.subheader("✨ Create a New Account")
+        
+        # Handle pending Google signup from main.py OAuth callback
+        if 'pending_google_signup' in st.session_state:
+            google_user_info = st.session_state['pending_google_signup']
+            del st.session_state['pending_google_signup']
+            
+            # Check if user exists with this email
+            existing_email_user = manager.find_user_by_email(google_user_info['email'])
+            if existing_email_user:
+                st.error("An account with this email already exists. Please use the login tab to link your Google account.")
+            else:
+                # Check if Google ID already exists
+                existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_google_user:
+                    st.error("This Google account is already registered. Please use the login tab.")
+                else:
+                    # Store Google info for signup completion
+                    st.session_state['google_signup_info'] = google_user_info
+                    st.rerun()
         
         # Handle OAuth callback first, regardless of signup mode
         query_params = st.query_params
