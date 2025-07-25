@@ -12,6 +12,14 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 import google.auth.exceptions
 
+# Import centralized OAuth configuration
+try:
+    from oauth_config import get_oauth_redirect_uri
+except ImportError:
+    # Fallback if oauth_config.py is not available
+    def get_oauth_redirect_uri():
+        return "https://learnify-pr-17.onrender.com"
+
 
 def get_google_oauth_url():
     """
@@ -68,8 +76,8 @@ def get_app_redirect_uri():
     Returns:
         str: The redirect URI to use for OAuth
     """
-    # Hardcoded redirect URI for temporary hosting on Render
-    return "https://learnify-pr-17.onrender.com"
+    # Use the configured redirect URI from oauth_config.py
+    return get_oauth_redirect_uri()
     
     # Original logic kept as comments for future reference:
     # # Try to detect the current app URL
@@ -136,32 +144,42 @@ def exchange_code_for_user_info(auth_code):
     try:
         flow = create_google_oauth_flow()
         if not flow:
+            st.error("Failed to create OAuth flow")
             return None
         
         # Exchange code for token
-        flow.fetch_token(code=auth_code)
-        credentials = flow.credentials
+        try:
+            flow.fetch_token(code=auth_code)
+            credentials = flow.credentials
+        except Exception as token_error:
+            st.error(f"Failed to exchange authorization code: {token_error}")
+            return None
         
         # Get user info
         import requests
-        response = requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f'Bearer {credentials.token}'}
-        )
-        
-        if response.status_code == 200:
-            user_info = response.json()
-            return {
-                'google_id': user_info.get('id'),
-                'email': user_info.get('email'),
-                'name': user_info.get('name'),
-                'given_name': user_info.get('given_name'),
-                'family_name': user_info.get('family_name'),
-                'picture': user_info.get('picture'),
-                'verified_email': user_info.get('verified_email', False)
-            }
-        else:
-            st.error(f"Failed to get user info: {response.status_code}")
+        try:
+            response = requests.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {credentials.token}'},
+                timeout=10  # Add timeout
+            )
+            
+            if response.status_code == 200:
+                user_info = response.json()
+                return {
+                    'google_id': user_info.get('id'),
+                    'email': user_info.get('email'),
+                    'name': user_info.get('name'),
+                    'given_name': user_info.get('given_name'),
+                    'family_name': user_info.get('family_name'),
+                    'picture': user_info.get('picture'),
+                    'verified_email': user_info.get('verified_email', False)
+                }
+            else:
+                st.error(f"Failed to get user info from Google: HTTP {response.status_code}")
+                return None
+        except requests.RequestException as req_error:
+            st.error(f"Network error while getting user info: {req_error}")
             return None
             
     except Exception as e:

@@ -12,6 +12,14 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 import google.auth.exceptions
 
+# Import centralized OAuth configuration
+try:
+    from oauth_config import get_oauth_redirect_uri
+except ImportError:
+    # Fallback if oauth_config.py is not available
+    def get_oauth_redirect_uri():
+        return "https://learnify-pr-17.onrender.com"
+
 
 class GoogleOAuthManager:
     def __init__(self):
@@ -184,8 +192,8 @@ def get_app_redirect_uri():
     Returns:
         str: The redirect URI to use for OAuth
     """
-    # Hardcoded redirect URI for temporary hosting on Render
-    return "https://learnify-pr-17.onrender.com"
+    # Use the configured redirect URI from oauth_config.py
+    return get_oauth_redirect_uri()
     
     # Original logic kept as comments for future reference:
     # # Try to detect the current app URL
