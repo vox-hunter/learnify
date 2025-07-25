@@ -673,6 +673,13 @@ with st.sidebar:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
                 st.switch_page(login_page)
 
+# --- OAuth Callback Detection ---
+# Check if this is a Google OAuth callback and redirect to login page if needed
+query_params = st.query_params
+if 'code' in query_params and 'state' in query_params:
+    # This is a Google OAuth callback, redirect to login page with preserved parameters
+    st.switch_page(login_page)
+
 # --- Run Page ---
 pg.run()
 
