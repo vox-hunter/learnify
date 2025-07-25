@@ -521,8 +521,10 @@ if page_param:
         'login': login_page
     }
     
-    target_page = page_routes.get(page_param.lower())
-    if target_page:
+    allowed_pages = set(page_routes.keys())
+    page_param_lower = page_param.lower()
+    if page_param_lower in allowed_pages:
+        target_page = page_routes[page_param_lower]
         st.switch_page(target_page)
 
 # Display helpful routing information for sharing links
