@@ -100,7 +100,7 @@ GOOGLE_CLIENT_SECRET = "GOCSPX-abcdefghijklmnopqrstuvwxyz123456"
 
 ### For Local Development
 
-No additional configuration needed. The OAuth will work with `localhost:8501`.
+No additional configuration needed. The OAuth will work with `https://learnify-pr-17.onrender.com`.
 
 ### For Production Deployment
 
@@ -173,7 +173,7 @@ The Google OAuth integration maintains the same data structure as manual account
 
 2. **"Invalid redirect URI" error**
    - Verify redirect URIs in Google Cloud Console match your domain exactly
-   - For development: Use `http://localhost:8501` 
+   - For development: Use `https://learnify-pr-17.onrender.com` 
    - For production: Use your actual HTTPS domain
    - Remove any `urn:ietf:wg:oauth:2.0:oob` entries (not needed for web apps)
    - Check for typos in URLs
@@ -191,7 +191,7 @@ The Google OAuth integration maintains the same data structure as manual account
 
 ### Development vs Production
 
-- **Development**: Use `http://localhost:8501`
+- **Development**: Use `https://learnify-pr-17.onrender.com`
 - **Production**: Must use HTTPS and verified domain
 - **Testing**: Add test users in OAuth consent screen during development
 

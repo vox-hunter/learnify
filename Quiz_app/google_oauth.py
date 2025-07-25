@@ -184,24 +184,28 @@ def get_app_redirect_uri():
     Returns:
         str: The redirect URI to use for OAuth
     """
-    # Try to detect the current app URL
-    try:
-        # Check if we're running on Streamlit Cloud
-        if hasattr(st, 'get_option') and st.get_option('server.baseUrlPath'):
-            # Running on Streamlit Cloud or similar
-            base_url = st.get_option('server.baseUrlPath')
-            if not base_url.startswith('http'):
-                base_url = f"https://{base_url}"
-            return base_url
-    except:
-        pass
+    # Hardcoded redirect URI for temporary hosting on Render
+    return "https://learnify-pr-17.onrender.com"
     
-    # Check session state for custom redirect URI (can be set by admin)
-    if 'custom_oauth_redirect_uri' in st.session_state:
-        return st.session_state['custom_oauth_redirect_uri']
-    
-    # Default to localhost for development
-    return "http://localhost:8501"
+    # Original logic kept as comments for future reference:
+    # # Try to detect the current app URL
+    # try:
+    #     # Check if we're running on Streamlit Cloud
+    #     if hasattr(st, 'get_option') and st.get_option('server.baseUrlPath'):
+    #         # Running on Streamlit Cloud or similar
+    #         base_url = st.get_option('server.baseUrlPath')
+    #         if not base_url.startswith('http'):
+    #             base_url = f"https://{base_url}"
+    #         return base_url
+    # except:
+    #     pass
+    # 
+    # # Check session state for custom redirect URI (can be set by admin)
+    # if 'custom_oauth_redirect_uri' in st.session_state:
+    #     return st.session_state['custom_oauth_redirect_uri']
+    # 
+    # # Default to localhost for development
+    # return "http://localhost:8501"
 
 
 def get_oauth_manager():
