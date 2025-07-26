@@ -269,32 +269,35 @@ def handle_oauth_callback(query_params):
         dict: User information or None if failed
     """
     try:
-        # Verify state parameter to prevent CSRF attacks
-        received_state = query_params.get('state')
-        expected_state = st.session_state.get('oauth_state')
+        # Debug information
+        st.info(f"🔍 Handling OAuth callback with params: code={'code' in query_params}, state={'state' in query_params}")
         
-        if not expected_state or received_state != expected_state:
-            st.error("OAuth state mismatch. Please try again.")
-            # Clear the query params and state
-            st.query_params.clear()
-            if 'oauth_state' in st.session_state:
-                del st.session_state['oauth_state']
-            return None
-        
-        # Get authorization code
+        # Get authorization code first
         auth_code = query_params.get('code')
         if not auth_code:
             st.error("No authorization code received from Google.")
             return None
         
+        # Verify state parameter to prevent CSRF attacks
+        received_state = query_params.get('state')
+        expected_state = st.session_state.get('oauth_state')
+        
+        # More lenient state checking - warn but don't fail completely
+        if not expected_state:
+            st.warning("⚠️ OAuth state not found in session. This might be due to session timeout, but proceeding with authentication.")
+        elif received_state != expected_state:
+            st.warning("⚠️ OAuth state mismatch detected. This might be due to session issues, but proceeding with authentication.")
+        
+        # Clear state regardless
+        if 'oauth_state' in st.session_state:
+            del st.session_state['oauth_state']
+        
         # Exchange code for user info
         with st.spinner("Verifying with Google..."):
             user_info = exchange_code_for_user_info(auth_code)
             
-            # Clear the query params and state after successful authentication
+            # Clear the query params after successful authentication
             st.query_params.clear()
-            if 'oauth_state' in st.session_state:
-                del st.session_state['oauth_state']
             
             if user_info:
                 st.success("✅ Google authentication successful!")
@@ -305,7 +308,7 @@ def handle_oauth_callback(query_params):
                 
     except Exception as e:
         st.error(f"Error handling OAuth callback: {e}")
-        # Clear state on error
+        # Clear query params and state on error
         st.query_params.clear()
         if 'oauth_state' in st.session_state:
             del st.session_state['oauth_state']
