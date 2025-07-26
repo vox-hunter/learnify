@@ -492,6 +492,51 @@ else:
         st.session_state['authentication_status'] = False
         st.rerun()
 
+# --- OAuth Callback Detection ---
+# Check if this is a Google OAuth callback and handle it directly BEFORE navigation setup
+query_params = st.query_params
+if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
+    # This is a Google OAuth callback, process it here
+    try:
+        from google_oauth_simple import handle_oauth_callback, is_google_oauth_configured
+        
+        if is_google_oauth_configured():
+            google_user_info = handle_oauth_callback(query_params)
+            if google_user_info:
+                # Check if user exists with this Google ID
+                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_user:
+                    # User exists, log them in
+                    st.session_state['authentication_status'] = True
+                    st.session_state['username'] = existing_user['username']
+                    st.session_state['name'] = existing_user.get('name')
+                    st.session_state['email'] = existing_user.get('email')
+                    
+                    # Update cookies
+                    if cookies is not None:
+                        try:
+                            if cookies.ready():
+                                cookies[AUTH_COOKIE_NAME] = existing_user['username']
+                                cookies.save()
+                        except (AttributeError, TypeError):
+                            pass
+                    
+                    st.success("Logged in successfully with Google!")
+                    st.rerun()
+                else:
+                    # User doesn't exist, redirect to login page to handle signup or account linking
+                    st.session_state['pending_google_signup'] = google_user_info
+                    st.switch_page(login_page)
+            else:
+                # OAuth failed, redirect to login page
+                st.switch_page(login_page)
+        else:
+            # OAuth not configured, redirect to login page
+            st.switch_page(login_page)
+    except ImportError:
+        # Google OAuth not available, redirect to login page
+        st.switch_page(login_page)
+
 # --- Pages Definition ---
 home_page = st.Page("pages/1_🏠_Home.py", title="New Course", icon="➕", default=True)
 
@@ -672,51 +717,6 @@ with st.sidebar:
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
                 st.switch_page(login_page)
-
-# --- OAuth Callback Detection ---
-# Check if this is a Google OAuth callback and handle it directly
-query_params = st.query_params
-if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
-    # This is a Google OAuth callback, process it here
-    try:
-        from google_oauth_simple import handle_oauth_callback, is_google_oauth_configured
-        
-        if is_google_oauth_configured():
-            google_user_info = handle_oauth_callback(query_params)
-            if google_user_info:
-                # Check if user exists with this Google ID
-                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
-                if existing_user:
-                    # User exists, log them in
-                    st.session_state['authentication_status'] = True
-                    st.session_state['username'] = existing_user['username']
-                    st.session_state['name'] = existing_user.get('name')
-                    st.session_state['email'] = existing_user.get('email')
-                    
-                    # Update cookies
-                    if cookies is not None:
-                        try:
-                            if cookies.ready():
-                                cookies[AUTH_COOKIE_NAME] = existing_user['username']
-                                cookies.save()
-                        except (AttributeError, TypeError):
-                            pass
-                    
-                    st.success("Logged in successfully with Google!")
-                    st.rerun()
-                else:
-                    # User doesn't exist, redirect to login page to handle signup or account linking
-                    st.session_state['pending_google_signup'] = google_user_info
-                    st.switch_page(login_page)
-            else:
-                # OAuth failed, redirect to login page
-                st.switch_page(login_page)
-        else:
-            # OAuth not configured, redirect to login page
-            st.switch_page(login_page)
-    except ImportError:
-        # Google OAuth not available, redirect to login page
-        st.switch_page(login_page)
 
 # --- Run Page ---
 pg.run()
