@@ -269,9 +269,6 @@ def handle_oauth_callback(query_params):
         dict: User information or None if failed
     """
     try:
-        # Debug information
-        st.info(f"🔍 Handling OAuth callback with params: code={'code' in query_params}, state={'state' in query_params}")
-        
         # Get authorization code first
         auth_code = query_params.get('code')
         if not auth_code:
@@ -282,10 +279,8 @@ def handle_oauth_callback(query_params):
         received_state = query_params.get('state')
         expected_state = st.session_state.get('oauth_state')
         
-        # More lenient state checking - warn but don't fail completely
-        if not expected_state:
-            st.warning("⚠️ OAuth state not found in session. This might be due to session timeout, but proceeding with authentication.")
-        elif received_state != expected_state:
+        # More lenient state checking - only show debug info if state exists
+        if expected_state and received_state != expected_state:
             st.warning("⚠️ OAuth state mismatch detected. This might be due to session issues, but proceeding with authentication.")
         
         # Clear state regardless
