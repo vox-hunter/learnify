@@ -314,11 +314,15 @@ def login_user(username, user_data):
     st.rerun()
 
 def logout_user():
+    # Set logout flag FIRST to prevent immediate re-login
+    st.session_state['logout_just_occurred'] = True
+    
     # List of keys to preserve during logout
     preserve_keys = [
         'cookies', 'selected_tab',  # UI state
         'auth_manager',  # Auth infrastructure 
-        'app_loading_complete', 'app_fully_loaded'  # App state
+        'app_loading_complete', 'app_fully_loaded',  # App state
+        'logout_just_occurred'  # Logout flag - preserve this!
     ]
 
     # Create a new dictionary with only the preserved keys
@@ -337,9 +341,6 @@ def logout_user():
     st.session_state['name'] = None
     st.session_state['email'] = None
     
-    # Set logout flag for main.py to handle
-    st.session_state['logout_just_occurred'] = True
-    
     # Update cookies
     if cookies is not None:
         try:
@@ -349,6 +350,10 @@ def logout_user():
                 cookies.save()
         except (AttributeError, TypeError):
             pass  # Ignore cookie errors during logout
+    
+    # Clear any OAuth related query params
+    st.query_params.clear()
+    
     st.rerun()
 
 # Initialize session state variables if they don't exist

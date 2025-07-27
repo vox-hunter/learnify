@@ -442,6 +442,11 @@ if MONGO_AVAILABLE:
     manager = get_auth_manager()
     
     def auto_login_from_cookie():
+        # Don't auto-login if user just logged out
+        if st.session_state.get('logout_just_occurred'):
+            st.session_state.pop('logout_just_occurred', None)
+            return
+            
         if st.session_state.get('authentication_status'):
             return
         
@@ -469,6 +474,10 @@ if MONGO_AVAILABLE:
     auto_login_from_cookie()
 
     def logout_user():
+        # Set logout flag FIRST to prevent immediate re-login
+        st.session_state['logout_just_occurred'] = True
+        
+        # Clear authentication
         st.session_state['authentication_status'] = False
         st.session_state.pop('username', None)
         st.session_state.pop('name', None)
@@ -483,7 +492,10 @@ if MONGO_AVAILABLE:
             except (AttributeError, RuntimeError, ValueError):
                 pass  # Ignore cookie errors during logout
                 
+        # Clear any OAuth related query params
         st.query_params.clear()
+        
+        # Force a complete rerun
         st.rerun()
 else:
     st.session_state['authentication_status'] = False
