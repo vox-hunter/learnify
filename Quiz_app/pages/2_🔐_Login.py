@@ -1105,23 +1105,27 @@ else: # Not authenticated, show login or registration
                     else:
                         user = manager.find_user_by_email(fp_email)
                         if user:
-                            # Generate and send verification code
-                            reset_code = generate_verification_code()
-                            
-                            # Store verification code in database
-                            success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
-                            if success:
-                                # Send email
-                                email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
-                                if email_success:
-                                    st.session_state.reset_email = fp_email
-                                    st.session_state.reset_step = 'verify'
-                                    st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
-                                    st.rerun()
-                                else:
-                                    st.error(f"Failed to send reset email: {email_message}")
+                            # Check if this is a Google account
+                            if user.get('google_linked', False):
+                                st.error("🔗 This email is associated with a Google account. Password reset is not available for Google accounts. Please use Google's password recovery if needed.")
                             else:
-                                st.error(f"Failed to generate reset code: {error}")
+                                # Generate and send verification code
+                                reset_code = generate_verification_code()
+                                
+                                # Store verification code in database
+                                success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
+                                if success:
+                                    # Send email
+                                    email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
+                                    if email_success:
+                                        st.session_state.reset_email = fp_email
+                                        st.session_state.reset_step = 'verify'
+                                        st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to send reset email: {email_message}")
+                                else:
+                                    st.error(f"Failed to generate reset code: {error}")
                         else:
                             st.error("No account found with that email address.")
         
