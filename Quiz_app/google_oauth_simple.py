@@ -239,18 +239,21 @@ def show_google_oauth_interface():
         st.info("🔵 **Google OAuth Authentication**")
         st.write("Click the button below to authenticate with Google:")
         
-        # Create a styled button that opens Google auth in the same tab
+        # Create a styled button that opens Google auth
         if st.button("🔵 Continue with Google", use_container_width=True, type="primary"):
-            # Use JavaScript to redirect to OAuth URL
+            # Direct redirect using st.switch_page with external URL
             st.markdown(f"""
+            <meta http-equiv="refresh" content="0; url={oauth_url}">
             <script>
-                window.location.href = "{oauth_url}";
+                window.location.replace("{oauth_url}");
             </script>
             """, unsafe_allow_html=True)
             
-            # Also provide a manual link as fallback
-            st.markdown(f"If the redirect doesn't work, [click here to authenticate with Google]({oauth_url})")
-            st.info("You will be redirected to Google for authentication, then back to this app.")
+            # Show immediate feedback
+            st.success("Redirecting to Google...")
+            st.info("If you're not redirected automatically, click the link below:")
+            st.markdown(f"**[🔗 Authenticate with Google]({oauth_url})**")
+            st.stop()  # Stop execution to prevent further rendering
         
         return None
         

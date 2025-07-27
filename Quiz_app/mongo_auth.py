@@ -278,13 +278,18 @@ class MongoAuthManager:
 
     def update_user_details(self, username, updates):
         # Updates should be a dict of fields to update, e.g., {"name": "New Name", "email": "new@example.com"}
-        # Be careful about allowing username changes, as it's often used as a primary identifier.
         if not self._ensure_connection():
             return False, "Database connection error."
         
         # Prevent password updates through this method; use update_user_password for that.
         if "password" in updates:
             return False, "Password updates should be done via update_user_password."
+        
+        # If username is being updated, check if the new username already exists
+        if "username" in updates:
+            existing_user = self.users_collection.find_one({"username": updates["username"]})
+            if existing_user and existing_user["username"] != username:
+                return False, "Username already taken."
         
         # If email is being updated, check if the new email already exists for another user
         if "email" in updates:

@@ -392,16 +392,42 @@ if st.session_state.get('authentication_status'):
     
     st.markdown('<div class="auth-card">', unsafe_allow_html=True)
     st.subheader("📝 Update Your Details")
+    
+    # Check if current user is a Google user
+    current_user = manager.find_user_by_username(st.session_state['username'])
+    is_google_user = current_user and current_user.get('google_linked', False)
+    
     with st.form("update_details_form", clear_on_submit=True):
-        new_name = st.text_input("New Name", value=st.session_state.get('name', ''))
-        new_email = st.text_input("New Email", value=st.session_state.get('email', ''))
+        # Name field (always editable)
+        new_name = st.text_input("Display Name", value=st.session_state.get('name', ''), 
+                                help="Your display name shown to others")
+        
+        # Username field (always editable)
+        new_username = st.text_input("Username", value=st.session_state.get('username', ''),
+                                   help="Your unique username for login")
+        
+        # Email field (disabled for Google users)
+        if is_google_user:
+            st.text_input("Email", value=st.session_state.get('email', ''), 
+                         disabled=True, help="Email cannot be changed for Google accounts")
+            new_email = st.session_state.get('email', '')  # Keep current email
+        else:
+            new_email = st.text_input("Email", value=st.session_state.get('email', ''))
+        
         submitted_update = st.form_submit_button("✅ Update Details")
 
         if submitted_update:
             updates = {}
             if new_name and new_name != st.session_state.get('name'):
                 updates['name'] = new_name
-            if new_email and new_email != st.session_state.get('email'):
+            if new_username and new_username != st.session_state.get('username'):
+                # Check if new username is available
+                if not manager.find_user_by_username(new_username):
+                    updates['username'] = new_username
+                else:
+                    st.error("Username already taken. Please choose a different one.")
+                    st.stop()
+            if not is_google_user and new_email and new_email != st.session_state.get('email'):
                 updates['email'] = new_email
             
             if updates:
@@ -410,6 +436,7 @@ if st.session_state.get('authentication_status'):
                     st.success(f"Details updated successfully! {error_msg if error_msg else ''}")
                     # Update session state immediately
                     if 'name' in updates: st.session_state['name'] = updates['name']
+                    if 'username' in updates: st.session_state['username'] = updates['username']
                     if 'email' in updates: st.session_state['email'] = updates['email']
                     st.rerun()
                 else:
