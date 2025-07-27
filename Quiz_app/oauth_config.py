@@ -27,7 +27,7 @@ TROUBLESHOOTING:
 """
 
 # ===== UPDATE THIS URL FOR YOUR DEPLOYMENT =====
-OAUTH_REDIRECT_URI = "https://learnify-pr-17.onrender.com"
+OAUTH_REDIRECT_URI = "https://ailoom.me"
 # ==============================================
 
 # Don't modify below this line unless you know what you're doing
