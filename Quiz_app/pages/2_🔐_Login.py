@@ -386,9 +386,17 @@ if st.session_state.get('authentication_status'):
         if st.button("🚪 Logout", use_container_width=True):
             logout_user()
     with col2:
-        if st.button("🔑 Reset Password", use_container_width=True):
-            st.session_state['selected_tab'] = "Forgot Password"
-            logout_user()
+        # Only show Reset Password for non-Google users
+        current_user = manager.find_user_by_username(st.session_state['username'])
+        is_google_user = current_user and current_user.get('google_linked', False)
+        
+        if not is_google_user:
+            if st.button("🔑 Reset Password", use_container_width=True):
+                st.session_state['selected_tab'] = "Forgot Password"
+                logout_user()
+        else:
+            # Show a placeholder or different button for Google users
+            st.info("🔗 Google Account - Password managed by Google")
     
     st.markdown('<div class="auth-card">', unsafe_allow_html=True)
     st.subheader("📝 Update Your Details")

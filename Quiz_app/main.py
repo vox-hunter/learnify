@@ -744,8 +744,15 @@ with st.sidebar:
             with st.popover(f"👤 {st.session_state.get('name', st.session_state.get('username'))}", use_container_width=True):
                 if st.button("Logout", use_container_width=True):
                     logout_user()
-                if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
-                    st.switch_page(login_page)
+                
+                # Only show Reset Password for non-Google users
+                if MONGO_AVAILABLE:
+                    current_user = manager.find_user_by_username(st.session_state['username'])
+                    is_google_user = current_user and current_user.get('google_linked', False)
+                    
+                    if not is_google_user:
+                        if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
+                            st.switch_page(login_page)
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
                 st.switch_page(login_page)
