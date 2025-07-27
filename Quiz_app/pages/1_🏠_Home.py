@@ -634,25 +634,10 @@ def main():
     # No need for additional logout processing here
     
     # Top navigation
-    _, col2, col3 = st.columns([6, 1, 1])  # Adjusted column ratio for better spacing
+    _, _, col3 = st.columns([6, 1, 1])  # Removed col2 (login/user status) - now handled by sidebar
     
-    with col2: # Login/User status
-        if st.session_state.get('authentication_status'):
-            # Display user name, truncate if too long for the button-like display
-            display_name = st.session_state.get('name', st.session_state.get('username', 'User'))
-            if len(display_name) > 15:
-                display_name = display_name[:12] + "..."
-            st.markdown(f"<div style='text-align: center; padding: 5px 0px; border: 1px solid #9d00ff; border-radius: 25px; background: rgba(157,0,255,0.1); color: #ededed;'>👤 {display_name}</div>", unsafe_allow_html=True)
-        elif MONGO_AVAILABLE and cookies is not None:
-            try:
-                if cookies.ready():
-                    if st.button("🔐 Login", key="top_nav_login_btn", use_container_width=True):
-                        st.switch_page("pages/2_🔐_Login.py")
-            except Exception:
-                if st.button("🔐 Login", key="top_nav_login_btn", use_container_width=True):
-                    st.switch_page("pages/2_🔐_Login.py")
-        # If not authenticated and auth unavailable, this column remains empty or shows a guest indicator if desired
-
+    # Note: Login button and username display removed from home page
+    # These are now available in the sidebar for cleaner interface
 
     # Status message
     if st.session_state.get('authentication_status'):

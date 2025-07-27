@@ -231,12 +231,22 @@ try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager, get_session_id
     from email_verification import send_verification_email, generate_verification_code
+    from google_oauth_simple import show_google_oauth_interface, is_google_oauth_configured
     # verify_email_code is not used in this file
     MONGO_AVAILABLE = True
 except ImportError as e:
     # It's okay to call st.error here after set_page_config
     st.error(f"Failed to import required modules: {e}")
     MONGO_AVAILABLE = False
+    
+    # Define fallback functions to prevent NameError
+    def is_google_oauth_configured():
+        return False
+    
+    def show_google_oauth_interface():
+        st.error("Google OAuth is not available due to import errors.")
+        return None
+    
     st.stop() # Stop if core auth module is missing
 
 # --- Get Cookie Manager from Session State ---
@@ -304,11 +314,15 @@ def login_user(username, user_data):
     st.rerun()
 
 def logout_user():
+    # Set logout flag FIRST to prevent immediate re-login
+    st.session_state['logout_just_occurred'] = True
+    
     # List of keys to preserve during logout
     preserve_keys = [
         'cookies', 'selected_tab',  # UI state
         'auth_manager',  # Auth infrastructure 
-        'app_loading_complete', 'app_fully_loaded'  # App state
+        'app_loading_complete', 'app_fully_loaded',  # App state
+        'logout_just_occurred'  # Logout flag - preserve this!
     ]
 
     # Create a new dictionary with only the preserved keys
@@ -327,9 +341,6 @@ def logout_user():
     st.session_state['name'] = None
     st.session_state['email'] = None
     
-    # Set logout flag for main.py to handle
-    st.session_state['logout_just_occurred'] = True
-    
     # Update cookies
     if cookies is not None:
         try:
@@ -339,6 +350,10 @@ def logout_user():
                 cookies.save()
         except (AttributeError, TypeError):
             pass  # Ignore cookie errors during logout
+    
+    # Clear any OAuth related query params
+    st.query_params.clear()
+    
     st.rerun()
 
 # Initialize session state variables if they don't exist
@@ -350,6 +365,9 @@ if 'name' not in st.session_state:
     st.session_state['name'] = None
 
 manager = get_auth_manager()
+
+# Get query parameters for OAuth callback handling
+query_params = st.query_params
 
 # Auto-login is now handled by main.py
 
@@ -373,22 +391,56 @@ if st.session_state.get('authentication_status'):
         if st.button("🚪 Logout", use_container_width=True):
             logout_user()
     with col2:
-        if st.button("🔑 Reset Password", use_container_width=True):
-            st.session_state['selected_tab'] = "Forgot Password"
-            logout_user()
+        # Only show Reset Password for non-Google users
+        current_user = manager.find_user_by_username(st.session_state['username'])
+        is_google_user = current_user and current_user.get('google_linked', False)
+        
+        if not is_google_user:
+            if st.button("🔑 Reset Password", use_container_width=True):
+                st.session_state['selected_tab'] = "Forgot Password"
+                logout_user()
+        else:
+            # Show a placeholder or different button for Google users
+            st.info("🔗 Google Account - Password managed by Google")
     
     st.markdown('<div class="auth-card">', unsafe_allow_html=True)
     st.subheader("📝 Update Your Details")
+    
+    # Check if current user is a Google user
+    current_user = manager.find_user_by_username(st.session_state['username'])
+    is_google_user = current_user and current_user.get('google_linked', False)
+    
     with st.form("update_details_form", clear_on_submit=True):
-        new_name = st.text_input("New Name", value=st.session_state.get('name', ''))
-        new_email = st.text_input("New Email", value=st.session_state.get('email', ''))
+        # Name field (always editable)
+        new_name = st.text_input("Display Name", value=st.session_state.get('name', ''), 
+                                help="Your display name shown to others")
+        
+        # Username field (always editable)
+        new_username = st.text_input("Username", value=st.session_state.get('username', ''),
+                                   help="Your unique username for login")
+        
+        # Email field (disabled for Google users)
+        if is_google_user:
+            st.text_input("Email", value=st.session_state.get('email', ''), 
+                         disabled=True, help="Email cannot be changed for Google accounts")
+            new_email = st.session_state.get('email', '')  # Keep current email
+        else:
+            new_email = st.text_input("Email", value=st.session_state.get('email', ''))
+        
         submitted_update = st.form_submit_button("✅ Update Details")
 
         if submitted_update:
             updates = {}
             if new_name and new_name != st.session_state.get('name'):
                 updates['name'] = new_name
-            if new_email and new_email != st.session_state.get('email'):
+            if new_username and new_username != st.session_state.get('username'):
+                # Check if new username is available
+                if not manager.find_user_by_username(new_username):
+                    updates['username'] = new_username
+                else:
+                    st.error("Username already taken. Please choose a different one.")
+                    st.stop()
+            if not is_google_user and new_email and new_email != st.session_state.get('email'):
                 updates['email'] = new_email
             
             if updates:
@@ -397,6 +449,7 @@ if st.session_state.get('authentication_status'):
                     st.success(f"Details updated successfully! {error_msg if error_msg else ''}")
                     # Update session state immediately
                     if 'name' in updates: st.session_state['name'] = updates['name']
+                    if 'username' in updates: st.session_state['username'] = updates['username']
                     if 'email' in updates: st.session_state['email'] = updates['email']
                     st.rerun()
                 else:
@@ -404,6 +457,63 @@ if st.session_state.get('authentication_status'):
             else:
                 st.info("No changes detected.")
     st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Google Account Management Section
+    current_user = manager.find_user_by_username(st.session_state['username'])
+    if current_user:
+        st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+        st.subheader("🔵 Google Account")
+        
+        if current_user.get('google_linked', False):
+            st.success("✅ Your account is linked to Google")
+            if st.button("🔓 Unlink Google Account", use_container_width=True):
+                success, error = manager.unlink_google_account(st.session_state['username'])
+                if success:
+                    st.success("Google account unlinked successfully!")
+                    st.rerun()
+                else:
+                    st.error(f"Failed to unlink Google account: {error}")
+        else:
+            st.info("🔗 Link your Google account for easier login")
+            
+            # Initialize Google linking mode
+            if 'google_link_mode' not in st.session_state:
+                st.session_state.google_link_mode = False
+            
+            if is_google_oauth_configured():
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔵 Link Google Account", use_container_width=True):
+                        st.session_state.google_link_mode = True
+                        st.rerun()
+                with col2:
+                    if st.session_state.google_link_mode and st.button("❌ Cancel Linking", use_container_width=True):
+                        st.session_state.google_link_mode = False
+                        st.rerun()
+                
+                if st.session_state.google_link_mode:
+                    google_user_info = show_google_oauth_interface()
+                    if google_user_info:
+                        # Check if this Google account is already linked to another user
+                        existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                        if existing_google_user:
+                            st.error("This Google account is already linked to another user.")
+                        else:
+                            # Link the account
+                            success, error = manager.link_google_account(
+                                st.session_state['username'], 
+                                google_user_info['google_id']
+                            )
+                            if success:
+                                st.success("Google account linked successfully!")
+                                st.session_state.google_link_mode = False
+                                st.rerun()
+                            else:
+                                st.error(f"Failed to link Google account: {error}")
+            else:
+                st.info("Google OAuth is not configured.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # Delete Account Section
     st.markdown('<div class="danger-zone">', unsafe_allow_html=True)
@@ -520,25 +630,302 @@ else: # Not authenticated, show login or registration
 
     with login_tab:
         st.subheader("🔐 Login to Your Account")
-        with st.form("login_form", clear_on_submit=True):
-            login_username = st.text_input("Username", key="login_uname")
-            login_password = st.text_input("Password", type="password", key="login_pw")
-            submitted_login = st.form_submit_button("🚀 Login")
-
-            if submitted_login:
-                if not login_username or not login_password:
-                    st.warning("Please enter username and password.")
+        
+        # Handle OAuth callback for login (DEBUG MODE - NO AUTO-REDIRECT)
+        if 'code' in query_params and 'state' in query_params and is_google_oauth_configured():
+            st.warning("🔍 DEBUG MODE: OAuth callback detected - processing without auto-redirect")
+            st.write("**Query Parameters:**", dict(query_params))
+            
+            google_user_info = show_google_oauth_interface()
+            
+            if google_user_info:
+                st.success("✅ Google user info received successfully!")
+                st.json(google_user_info)
+                
+                # Check if user exists with this Google ID
+                existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_google_user:
+                    st.success(f"✅ Found existing Google user: {existing_google_user.get('name', existing_google_user['username'])}")
+                    if st.button("Login as this user"):
+                        login_user(existing_google_user['username'], existing_google_user)
+                        st.rerun()
                 else:
-                    user = manager.find_user_by_username(login_username)
-                    if user and manager.verify_password(login_password, user.get("password")):
-                        login_user(login_username, user) # This will now also set the cookie
-                        st.success("Logged in successfully!")
-                        st.rerun() # Rerun to show logged-in view
+                    # Check if user exists with same email for account linking
+                    existing_email_user = manager.find_user_by_email(google_user_info['email'])
+                    if existing_email_user:
+                        st.info(f"📧 Found existing account with email: {existing_email_user['username']}")
+                        if st.button("Link Google account to existing account"):
+                            st.session_state['pending_google_link'] = {
+                                'google_info': google_user_info,
+                                'existing_user': existing_email_user
+                            }
+                            st.rerun()
                     else:
-                        st.error("Invalid username or password.")
+                        st.error("❌ No account found with this Google account. Please sign up first or use the signup tab.")
+                        st.info("💡 Tip: You can create an account with the same email address in the signup tab, then link your Google account.")
+            else:
+                st.error("❌ Failed to get Google user info")
+            
+            # Add clear button to reset OAuth state
+            if st.button("🧹 Clear OAuth State and Continue"):
+                st.query_params.clear()
+                if 'oauth_state' in st.session_state:
+                    del st.session_state['oauth_state']
+                st.rerun()
+        
+        # Handle pending Google signup from main.py OAuth callback
+        if 'pending_google_signup' in st.session_state:
+            google_user_info = st.session_state['pending_google_signup']
+            del st.session_state['pending_google_signup']
+            
+            # Check if user exists with same email for account linking
+            existing_email_user = manager.find_user_by_email(google_user_info['email'])
+            if existing_email_user:
+                # Ask user if they want to link accounts
+                st.session_state['pending_google_link'] = {
+                    'google_info': google_user_info,
+                    'existing_user': existing_email_user
+                }
+                st.rerun()
+            else:
+                st.error("No account found with this Google account. Please sign up first or create an account with the same email first.")
+        
+        # Handle pending Google account linking
+        if 'pending_google_link' in st.session_state:
+            st.info("🔗 Link your Google account to your existing account")
+            pending_info = st.session_state['pending_google_link']
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Link Google Account", use_container_width=True):
+                    success, error = manager.link_google_account(
+                        pending_info['existing_user']['username'], 
+                        pending_info['google_info']['google_id']
+                    )
+                    if success:
+                        login_user(pending_info['existing_user']['username'], pending_info['existing_user'])
+                        del st.session_state['pending_google_link']
+                        st.success("Google account linked successfully!")
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to link account: {error}")
+            
+            with col2:
+                if st.button("❌ Use Different Account", use_container_width=True):
+                    del st.session_state['pending_google_link']
+                    st.rerun()
+            
+            st.markdown("---")
+        
+        # Google OAuth Login (only show if not handling callback)
+        if 'google_login_mode' not in st.session_state:
+            st.session_state.google_login_mode = False
+        
+        if is_google_oauth_configured() and not ('code' in query_params and 'state' in query_params):
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔵 Login with Google", use_container_width=True):
+                    st.session_state.google_login_mode = True
+                    st.rerun()
+            with col2:
+                if st.session_state.google_login_mode and st.button("❌ Cancel Google Login", use_container_width=True):
+                    st.session_state.google_login_mode = False
+                    st.rerun()
+            
+            if st.session_state.google_login_mode:
+                google_user_info = show_google_oauth_interface()
+                # Note: During normal flow (not callback), this will return None
+                # The actual processing happens when user returns from Google
+                
+                st.markdown("---")
+        
+        if not st.session_state.google_login_mode:
+            st.markdown("**OR use username/password:**")
+            
+            with st.form("login_form", clear_on_submit=True):
+                login_username = st.text_input("Username", key="login_uname")
+                login_password = st.text_input("Password", type="password", key="login_pw")
+                submitted_login = st.form_submit_button("🚀 Login")
+
+                if submitted_login:
+                    if not login_username or not login_password:
+                        st.warning("Please enter username and password.")
+                    else:
+                        user = manager.find_user_by_username(login_username)
+                        if user and manager.verify_password(login_password, user.get("password")):
+                            login_user(login_username, user) # This will now also set the cookie
+                            st.success("Logged in successfully!")
+                            st.rerun() # Rerun to show logged-in view
+                        else:
+                            st.error("Invalid username or password.")
     
     with register_tab:
         st.subheader("✨ Create a New Account")
+        
+        # Handle pending Google signup from main.py OAuth callback
+        if 'pending_google_signup' in st.session_state:
+            google_user_info = st.session_state['pending_google_signup']
+            del st.session_state['pending_google_signup']
+            
+            # Check if user exists with this email
+            existing_email_user = manager.find_user_by_email(google_user_info['email'])
+            if existing_email_user:
+                st.error("An account with this email already exists. Please use the login tab to link your Google account.")
+            else:
+                # Check if Google ID already exists
+                existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_google_user:
+                    st.error("This Google account is already registered. Please use the login tab.")
+                else:
+                    # Store Google info for signup completion
+                    st.session_state['google_signup_info'] = google_user_info
+                    st.rerun()
+        
+        # Handle OAuth callback first, regardless of signup mode (DEBUG MODE - NO AUTO-REDIRECT)
+        if 'code' in query_params and 'state' in query_params and is_google_oauth_configured():
+            st.warning("🔍 DEBUG MODE: OAuth callback detected in signup tab - processing without auto-redirect")
+            st.write("**Query Parameters:**", dict(query_params))
+            
+            google_user_info = show_google_oauth_interface()
+            
+            if google_user_info:
+                st.success("✅ Google user info received successfully!")
+                st.json(google_user_info)
+                
+                # Check if Google ID already exists (existing Google user - auto login)
+                existing_google_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_google_user:
+                    st.success(f"✅ Found existing Google user: {existing_google_user.get('name', existing_google_user['username'])}")
+                    if st.button("Login as existing user"):
+                        login_user(existing_google_user['username'], existing_google_user)
+                        st.rerun()
+                else:
+                    # Check if user exists with this email (potential account linking)
+                    existing_email_user = manager.find_user_by_email(google_user_info['email'])
+                    if existing_email_user:
+                        st.info(f"📧 Found existing account with email: {existing_email_user['username']}")
+                        if st.button("Link to existing account (switch to login tab)"):
+                            st.session_state['pending_google_link'] = {
+                                'google_info': google_user_info,
+                                'existing_user': existing_email_user
+                            }
+                            st.session_state['selected_tab'] = "Login"
+                            st.rerun()
+                        if st.button("Continue with new account signup"):
+                            st.session_state['google_signup_info'] = google_user_info
+                            st.rerun()
+                    else:
+                        st.info("✅ New user - ready for signup completion")
+                        if st.button("Continue with account creation"):
+                            st.session_state['google_signup_info'] = google_user_info
+                            st.rerun()
+            else:
+                st.error("❌ Failed to get Google user info")
+            
+            # Add clear button to reset OAuth state
+            if st.button("🧹 Clear OAuth State and Continue", key="signup_clear"):
+                st.query_params.clear()
+                if 'oauth_state' in st.session_state:
+                    del st.session_state['oauth_state']
+                st.rerun()
+        
+        # Handle Google signup completion
+        if 'google_signup_info' in st.session_state:
+            st.info("🎉 Complete your Google account setup")
+            google_info = st.session_state['google_signup_info']
+            
+            # Generate a suggested username
+            email = google_info.get('email', '')
+            suggested_username = email.split('@')[0] if '@' in email else 'user'
+            # Clean the username
+            import re
+            suggested_username = re.sub(r'[^a-zA-Z0-9_]', '', suggested_username) or 'googleuser'
+            
+            with st.form("complete_google_signup", clear_on_submit=False):
+                st.text_input("Email (from Google)", value=google_info.get('email', ''), disabled=True)
+                google_name = st.text_input("Full Name", value=google_info.get('name', ''), key="google_name")
+                google_username = st.text_input("Username", value=suggested_username, key="google_username")
+                
+                st.markdown("---")
+                
+                # Terms and conditions checkbox
+                st.markdown("**Legal Agreement Required:**")
+                google_terms_agreed = st.checkbox(
+                    "I agree to the Terms & Conditions and Privacy Policy",
+                    key="google_terms_checkbox",
+                    value=False
+                )
+                
+                st.markdown("📋 [**Terms & Conditions**](https://ailoom.me/Terms) | 🔒 [**Privacy Policy**](https://ailoom.me/Privacy)")
+                
+                google_marketing_emails = st.checkbox(
+                    "I agree to receive marketing emails (optional)",
+                    key="google_marketing_checkbox",
+                    value=True
+                )
+                
+                submitted_google_signup = st.form_submit_button("✅ Complete Google Account Setup")
+                
+                if submitted_google_signup:
+                    if not google_terms_agreed:
+                        st.error("You must agree to the Terms & Conditions and Privacy Policy.")
+                    elif not google_name or not google_username:
+                        st.warning("Please fill in all required fields.")
+                    else:
+                        # Create the Google user
+                        user_id, error, final_username = manager.create_google_user(
+                            google_info, 
+                            google_username, 
+                            google_marketing_emails
+                        )
+                        
+                        if error:
+                            st.error(f"Account creation failed: {error}")
+                        else:
+                            # Update the name if it was changed
+                            if google_name != google_info.get('name'):
+                                manager.update_user_details(final_username, {'name': google_name})
+                            
+                            st.success(f"Google account created successfully! Username: {final_username}")
+                            
+                            # Log the user in
+                            user_data = manager.find_user_by_username(final_username)
+                            if user_data:
+                                login_user(final_username, user_data)
+                                del st.session_state['google_signup_info']
+                                st.rerun()
+            
+            if st.button("❌ Cancel Google Signup"):
+                del st.session_state['google_signup_info']
+                st.rerun()
+            
+            st.markdown("---")
+        
+        # Google OAuth Signup (only show if not handling callback and not completing signup)
+        if 'google_signup_mode' not in st.session_state:
+            st.session_state.google_signup_mode = False
+        
+        if (is_google_oauth_configured() and 'google_signup_info' not in st.session_state and 
+            not ('code' in query_params and 'state' in query_params)):
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔵 Sign up with Google", use_container_width=True):
+                    st.session_state.google_signup_mode = True
+                    st.rerun()
+            with col2:
+                if st.session_state.google_signup_mode and st.button("❌ Cancel Google Signup", use_container_width=True):
+                    st.session_state.google_signup_mode = False
+                    st.rerun()
+            
+            if st.session_state.google_signup_mode:
+                google_user_info = show_google_oauth_interface()
+                # Note: During normal flow (not callback), this will return None
+                # The actual processing happens when user returns from Google
+                
+                st.markdown("---")
+        
+        if not st.session_state.google_signup_mode and 'google_signup_info' not in st.session_state:
+            st.markdown("**OR create account with email:**")
         
         # Registration flow state management
         if 'registration_step' not in st.session_state:
@@ -723,23 +1110,27 @@ else: # Not authenticated, show login or registration
                     else:
                         user = manager.find_user_by_email(fp_email)
                         if user:
-                            # Generate and send verification code
-                            reset_code = generate_verification_code()
-                            
-                            # Store verification code in database
-                            success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
-                            if success:
-                                # Send email
-                                email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
-                                if email_success:
-                                    st.session_state.reset_email = fp_email
-                                    st.session_state.reset_step = 'verify'
-                                    st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
-                                    st.rerun()
-                                else:
-                                    st.error(f"Failed to send reset email: {email_message}")
+                            # Check if this is a Google account
+                            if user.get('google_linked', False):
+                                st.error("🔗 This email is associated with a Google account. Password reset is not available for Google accounts. Please use Google's password recovery if needed.")
                             else:
-                                st.error(f"Failed to generate reset code: {error}")
+                                # Generate and send verification code
+                                reset_code = generate_verification_code()
+                                
+                                # Store verification code in database
+                                success, error = manager.store_verification_code(fp_email, reset_code, "password_reset")
+                                if success:
+                                    # Send email
+                                    email_success, email_message = send_verification_email(fp_email, reset_code, "password_reset")
+                                    if email_success:
+                                        st.session_state.reset_email = fp_email
+                                        st.session_state.reset_step = 'verify'
+                                        st.success(f"Password reset code sent to {fp_email}! Please check your inbox.")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to send reset email: {email_message}")
+                                else:
+                                    st.error(f"Failed to generate reset code: {error}")
                         else:
                             st.error("No account found with that email address.")
         

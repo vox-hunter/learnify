@@ -442,6 +442,11 @@ if MONGO_AVAILABLE:
     manager = get_auth_manager()
     
     def auto_login_from_cookie():
+        # Don't auto-login if user just logged out
+        if st.session_state.get('logout_just_occurred'):
+            st.session_state.pop('logout_just_occurred', None)
+            return
+            
         if st.session_state.get('authentication_status'):
             return
         
@@ -469,6 +474,10 @@ if MONGO_AVAILABLE:
     auto_login_from_cookie()
 
     def logout_user():
+        # Set logout flag FIRST to prevent immediate re-login
+        st.session_state['logout_just_occurred'] = True
+        
+        # Clear authentication
         st.session_state['authentication_status'] = False
         st.session_state.pop('username', None)
         st.session_state.pop('name', None)
@@ -483,7 +492,10 @@ if MONGO_AVAILABLE:
             except (AttributeError, RuntimeError, ValueError):
                 pass  # Ignore cookie errors during logout
                 
+        # Clear any OAuth related query params
         st.query_params.clear()
+        
+        # Force a complete rerun
         st.rerun()
 else:
     st.session_state['authentication_status'] = False
@@ -491,6 +503,83 @@ else:
     def logout_user(): # Define for non-mongo case
         st.session_state['authentication_status'] = False
         st.rerun()
+
+# --- OAuth Callback Detection ---
+# Check if this is a Google OAuth callback and handle it directly BEFORE navigation setup
+query_params = st.query_params
+if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
+    # This is a Google OAuth callback, process it here
+    try:
+        from google_oauth_simple import handle_oauth_callback, is_google_oauth_configured
+        
+        if is_google_oauth_configured():
+            google_user_info = handle_oauth_callback(query_params)
+            if google_user_info:
+                # Check if user exists with this Google ID
+                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                if existing_user:
+                    # User exists, log them in
+                    st.session_state['authentication_status'] = True
+                    st.session_state['username'] = existing_user['username']
+                    st.session_state['name'] = existing_user.get('name')
+                    st.session_state['email'] = existing_user.get('email')
+                    
+                    # Update cookies
+                    if cookies is not None:
+                        try:
+                            if cookies.ready():
+                                cookies[AUTH_COOKIE_NAME] = existing_user['username']
+                                cookies.save()
+                        except (AttributeError, TypeError):
+                            pass
+                    
+                    st.success("Logged in successfully with Google!")
+                    st.rerun()
+                else:
+                    # User doesn't exist, create a new account automatically using Google info
+                    st.info("Creating new account with Google information...")
+                    
+                    # Generate a base username from email or name
+                    email = google_user_info.get('email', '')
+                    name = google_user_info.get('name', '')
+                    base_username = email.split('@')[0] if email else name.lower().replace(' ', '')
+                    
+                    # Create the new Google user
+                    user_id, error_msg, final_username = manager.create_google_user(
+                        google_user_info, 
+                        base_username,
+                        marketing_consent=False  # Default to false, user can change later
+                    )
+                    
+                    if user_id and final_username:
+                        # Successfully created, now log them in
+                        st.session_state['authentication_status'] = True
+                        st.session_state['username'] = final_username
+                        st.session_state['name'] = google_user_info.get('name')
+                        st.session_state['email'] = google_user_info.get('email')
+                        
+                        # Update cookies
+                        if cookies is not None:
+                            try:
+                                if cookies.ready():
+                                    cookies[AUTH_COOKIE_NAME] = final_username
+                                    cookies.save()
+                            except (AttributeError, TypeError):
+                                pass
+                        
+                        st.success(f"Welcome! Account created successfully with username: {final_username}")
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to create account: {error_msg}")
+            else:
+                # OAuth failed
+                st.error("OAuth authentication failed. Please try again.")
+        else:
+            # OAuth not configured
+            st.error("Google OAuth is not properly configured.")
+    except ImportError:
+        # Google OAuth not available
+        st.error("Google OAuth is not available due to missing dependencies.")
 
 # --- Pages Definition ---
 home_page = st.Page("pages/1_🏠_Home.py", title="New Course", icon="➕", default=True)
@@ -729,8 +818,15 @@ with st.sidebar:
             with st.popover(f"👤 {st.session_state.get('name', st.session_state.get('username'))}", use_container_width=True):
                 if st.button("Logout", use_container_width=True):
                     logout_user()
-                if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
-                    st.switch_page(login_page)
+                
+                # Only show Reset Password for non-Google users
+                if MONGO_AVAILABLE:
+                    current_user = manager.find_user_by_username(st.session_state['username'])
+                    is_google_user = current_user and current_user.get('google_linked', False)
+                    
+                    if not is_google_user:
+                        if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
+                            st.switch_page(login_page)
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
                 st.switch_page(login_page)
