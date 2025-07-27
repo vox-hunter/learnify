@@ -308,6 +308,61 @@ except ImportError as e:
     def analyze_pdf_content(content):
         return {"word_count": 1000}  # Fallback
     
+    def analyze_file_content(file_content, filename):
+        """
+        Analyze any text-based file content.
+        For PDFs, extract text for faster processing.
+        For other files, let AI handle them directly (more reliable).
+        """
+        file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        
+        if file_ext == 'pdf':
+            # Use PDF text extraction for faster processing
+            try:
+                pdf_analysis = analyze_pdf_content(file_content)
+                return {
+                    'file_type': 'pdf',
+                    'word_count': pdf_analysis.get('word_count', 0),
+                    'extracted_text': pdf_analysis.get('extracted_text', ''),
+                    'error': pdf_analysis.get('error')
+                }
+            except Exception as e:
+                return {
+                    'file_type': 'pdf',
+                    'word_count': 0,
+                    'extracted_text': '',
+                    'error': f"PDF processing error: {str(e)}"
+                }
+        else:
+            # For non-PDF files, just validate they're readable and let AI handle extraction
+            try:
+                # Quick validation - try to read the file
+                if file_ext in ['txt', 'md', 'markdown', 'csv', 'json', 'xml', 'html', 'htm']:
+                    # Text files - do basic word count
+                    text_content = file_content.decode('utf-8', errors='ignore')
+                    word_count = len(text_content.split())
+                    return {
+                        'file_type': file_ext,
+                        'word_count': word_count,
+                        'extracted_text': text_content[:1000] + '...' if len(text_content) > 1000 else text_content,
+                        'error': None
+                    }
+                else:
+                    # Binary files (docx, doc, etc.) - let AI handle them
+                    return {
+                        'file_type': file_ext,
+                        'word_count': None,  # Unknown, let AI handle
+                        'extracted_text': f"[{file_ext.upper()} file - will be processed by AI]",
+                        'error': None
+                    }
+            except Exception as e:
+                return {
+                    'file_type': file_ext,
+                    'word_count': 0,
+                    'extracted_text': '',
+                    'error': f"File reading error: {str(e)}"
+                }
+    
     def generate_course(*args, **kwargs):
         return None, "MongoDB backend not available"
 
@@ -675,11 +730,17 @@ def main():
     pdf_url = None
     
     with tab1:
-        st.subheader("📄 Upload your PDF file")
+        st.subheader("📄 Upload your document")
+        st.markdown("🎯 **Upload ANY text-based file!** We support:")
+        st.markdown("• **Documents:** PDF, DOCX, DOC, RTF, TXT")
+        st.markdown("• **Code & Data:** JSON, CSV, XML, HTML")  
+        st.markdown("• **Markup:** Markdown, TeX, HTML")
+        st.markdown("• **And more!** Any file containing text can be processed by our AI")
+        st.markdown("---")
         uploaded_file = st.file_uploader(
-            "Choose a PDF file",
-            type=["pdf"],
-            help="Large files will be automatically compressed during course generation. Maximum words: 15,000",
+            "Choose any text-based document",
+            type=["pdf", "txt", "docx", "doc", "rtf", "md", "markdown", "tex", "csv", "json", "xml", "html", "htm"],
+            help="📁 Upload ANY text file! PDFs, Word docs, text files, markdown, CSV, JSON, XML, HTML - we support them all! Large files are automatically optimized.",
             label_visibility="collapsed"
         )
         if uploaded_file:
@@ -693,29 +754,45 @@ def main():
                 if file_size > 10 * 1024 * 1024:
                     # Large file: do quick validation only
                     try:
-                        # Quick test - try to read first few bytes to verify it's a valid PDF
+                        # Quick validation - just check if file is readable
                         file_content = uploaded_file.getvalue()
-                        if not file_content.startswith(b'%PDF'):
+                        file_ext = uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else ''
+                        
+                        if file_ext == 'pdf' and not file_content.startswith(b'%PDF'):
                             st.error("❌ Invalid PDF file format detected.")
                             uploaded_file = None
+                        else:
+                            # For large files, just show basic info and let AI handle the rest
+                            st.success(f"📄 Large file uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                            st.info("🤖 File will be processed by AI during course generation (optimized for large files)")
                     except Exception as e:
-                        st.error(f"❌ Error reading PDF file: {str(e)}")
+                        st.error(f"❌ Error reading file: {str(e)}")
                         uploaded_file = None
                 else:
-                    # Small file: do full analysis during upload as before
+                    # Small file: do analysis during upload
                     try:
-                        pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
-                        word_count = pdf_analysis['word_count']
+                        file_analysis = analyze_file_content(uploaded_file.getvalue(), uploaded_file.name)
                         
-                        if word_count > 15000:
-                            st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
-                            uploaded_file = None
-                        elif word_count == 0:
-                            st.error("❌ Could not extract text from this PDF. Please try a different file.")
+                        if file_analysis['error']:
+                            st.error(f"❌ {file_analysis['error']}")
                             uploaded_file = None
                         else:
-                            st.success(f"📄 File processed: {uploaded_file.name} ({file_size_mb:.1f} MB, {word_count:,} words)")
+                            file_type = file_analysis['file_type'].upper()
+                            word_count = file_analysis['word_count']
+                            
+                            if word_count and word_count > 15000:
+                                st.error(f"❌ File contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                                st.info("💡 **Tip:** Try uploading a shorter document or specific sections.")
+                                uploaded_file = None
+                            elif word_count == 0 and file_analysis['file_type'] == 'pdf':
+                                st.error("❌ Could not extract text from this PDF. Please try a different file.")
+                                uploaded_file = None
+                            else:
+                                # Success message based on file type
+                                if word_count:
+                                    st.success(f"📄 {file_type} file processed: {uploaded_file.name} ({file_size_mb:.1f} MB, {word_count:,} words)")
+                                else:
+                                    st.success(f"📄 {file_type} file uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB) - ready for AI processing")
                             
                             if word_count > 12000:
                                 st.warning("⚠️ Large document detected. Generation may take longer than usual.")
@@ -837,23 +914,35 @@ def generate_and_redirect(uploaded_file, pdf_url):
                     progress_bar.progress(12)
                     
                     try:
-                        pdf_analysis = analyze_pdf_content(file_content)
-                        word_count = pdf_analysis['word_count']
+                        # Use general file analysis instead of PDF-specific
+                        file_analysis = analyze_file_content(file_content, uploaded_file.name)
                         
-                        if word_count > 15000:
-                            status_text.text("❌ Analysis failed: too many words even after compression")
-                            st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                        if file_analysis['error']:
+                            status_text.text("❌ Analysis failed: file processing error")
+                            st.error(f"❌ {file_analysis['error']}")
                             st.session_state.is_generating_course = False
-                            st.rerun()  # Rerun to show the main UI again
-                        elif word_count == 0:
-                            status_text.text("❌ Analysis failed: no text found")
-                            st.error("❌ Could not extract text from the compressed PDF. Please try a different file.")
-                            st.session_state.is_generating_course = False
-                            st.rerun()  # Rerun to show the main UI again
+                            st.rerun()
                         else:
-                            status_text.text(f"✅ Content validated: {word_count:,} words found")
-                            progress_bar.progress(14)
+                            word_count = file_analysis['word_count']
+                            file_type = file_analysis['file_type'].upper()
+                            
+                            if word_count and word_count > 15000:
+                                status_text.text("❌ Analysis failed: too many words even after compression")
+                                st.error(f"❌ Compressed {file_type} file still contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                                st.info("💡 **Tip:** Try uploading a shorter document or specific sections.")
+                                st.session_state.is_generating_course = False
+                                st.rerun()
+                            elif word_count == 0 and file_analysis['file_type'] == 'pdf':
+                                status_text.text("❌ Analysis failed: no text found")
+                                st.error("❌ Could not extract text from the compressed PDF. Please try a different file.")
+                                st.session_state.is_generating_course = False
+                                st.rerun()
+                            else:
+                                if word_count:
+                                    status_text.text(f"✅ {file_type} content validated: {word_count:,} words found")
+                                else:
+                                    status_text.text(f"✅ {file_type} file ready for AI processing")
+                                progress_bar.progress(14)
                             
                     except Exception as e:
                         status_text.text("❌ Analysis failed: error reading content")

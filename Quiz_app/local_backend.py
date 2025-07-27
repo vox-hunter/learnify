@@ -11,6 +11,8 @@ import io
 import re
 import PyPDF2
 import pdfplumber
+import docx  # python-docx for .docx files
+from pathlib import Path
 
 try:
     import streamlit as st
