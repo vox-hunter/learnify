@@ -119,7 +119,11 @@ def create_google_oauth_flow():
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
             },
-            scopes=['openid', 'email', 'profile']
+            scopes=[
+                'openid',
+                'https://www.googleapis.com/auth/userinfo.email',
+                'https://www.googleapis.com/auth/userinfo.profile'
+            ]
         )
         
         # Use the app's redirect URI for web application flow
