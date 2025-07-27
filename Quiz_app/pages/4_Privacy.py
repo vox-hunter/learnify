@@ -107,9 +107,8 @@ We use your information to:
 
 ## 3. How Your Data is Stored  
 
-Your data is securely stored in:
-- **Supabase** (for authentication)  
-- **MongoDB** (for user-generated content and course data)
+Your data is securely stored in:  
+- **MongoDB** (for user-generated content and accounts details)
 
 We do **not** sell, rent, or share your data with third parties. However, we may share **anonymized usage data** with our AI provider to improve course generation features.
 
