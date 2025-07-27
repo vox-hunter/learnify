@@ -524,10 +524,41 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
                     st.success("Logged in successfully with Google!")
                     st.rerun()
                 else:
-                    # User doesn't exist, store for signup and continue to show the current page
-                    # The login page will handle the pending signup
-                    st.session_state['pending_google_signup'] = google_user_info
-                    st.warning("Google account not linked. Please link your account or create a new one.")
+                    # User doesn't exist, create a new account automatically using Google info
+                    st.info("Creating new account with Google information...")
+                    
+                    # Generate a base username from email or name
+                    email = google_user_info.get('email', '')
+                    name = google_user_info.get('name', '')
+                    base_username = email.split('@')[0] if email else name.lower().replace(' ', '')
+                    
+                    # Create the new Google user
+                    user_id, error_msg, final_username = manager.create_google_user(
+                        google_user_info, 
+                        base_username,
+                        marketing_consent=False  # Default to false, user can change later
+                    )
+                    
+                    if user_id and final_username:
+                        # Successfully created, now log them in
+                        st.session_state['authentication_status'] = True
+                        st.session_state['username'] = final_username
+                        st.session_state['name'] = google_user_info.get('name')
+                        st.session_state['email'] = google_user_info.get('email')
+                        
+                        # Update cookies
+                        if cookies is not None:
+                            try:
+                                if cookies.ready():
+                                    cookies[AUTH_COOKIE_NAME] = final_username
+                                    cookies.save()
+                            except (AttributeError, TypeError):
+                                pass
+                        
+                        st.success(f"Welcome! Account created successfully with username: {final_username}")
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to create account: {error_msg}")
             else:
                 # OAuth failed
                 st.error("OAuth authentication failed. Please try again.")
