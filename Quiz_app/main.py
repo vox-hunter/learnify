@@ -524,18 +524,19 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
                     st.success("Logged in successfully with Google!")
                     st.rerun()
                 else:
-                    # User doesn't exist, redirect to login page to handle signup or account linking
+                    # User doesn't exist, store for signup and continue to show the current page
+                    # The login page will handle the pending signup
                     st.session_state['pending_google_signup'] = google_user_info
-                    st.switch_page("pages/2_🔐_Login.py")
+                    st.warning("Google account not linked. Please link your account or create a new one.")
             else:
-                # OAuth failed, redirect to login page
-                st.switch_page("pages/2_🔐_Login.py")
+                # OAuth failed
+                st.error("OAuth authentication failed. Please try again.")
         else:
-            # OAuth not configured, redirect to login page
-            st.switch_page("pages/2_🔐_Login.py")
+            # OAuth not configured
+            st.error("Google OAuth is not properly configured.")
     except ImportError:
-        # Google OAuth not available, redirect to login page
-        st.switch_page("pages/2_🔐_Login.py")
+        # Google OAuth not available
+        st.error("Google OAuth is not available due to missing dependencies.")
 
 # --- Pages Definition ---
 home_page = st.Page("pages/1_🏠_Home.py", title="New Course", icon="➕", default=True)
