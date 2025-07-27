@@ -339,7 +339,7 @@ except ImportError as e:
                 # Quick validation - try to read the file
                 if file_ext in ['txt', 'md', 'markdown', 'csv', 'json', 'xml', 'html', 'htm']:
                     # Text files - do basic word count
-                    text_content = file_content.decode('utf-8', errors='ignore')
+                    text_content = file_content.decode('utf-8', errors='replace')
                     word_count = len(text_content.split())
                     return {
                         'file_type': file_ext,
