@@ -840,12 +840,19 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 
                 course_data, error_message = generate_course(
                     file_content=file_content, 
+                    filename=uploaded_file.name,
                     status_callback=status_callback
                 )
             else:
                 # URL-based generation (no compression needed)
+                # Extract filename from URL for validation
+                url_filename = os.path.basename(pdf_url.split('?')[0])  # Remove query params
+                if not url_filename:
+                    url_filename = "downloaded_file"
+                
                 course_data, error_message = generate_course(
                     file_url=pdf_url, 
+                    filename=url_filename,
                     status_callback=status_callback
                 )
             
