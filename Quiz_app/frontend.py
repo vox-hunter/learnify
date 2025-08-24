@@ -176,10 +176,12 @@ def reset_section_attempt_state():
 # --- Helper function to call local backend ---
 def generate_course(files=None, file_url=None, status_callback=None):
     file_content = None
+    filename = None
     
     if files:
-        # Read the file content
+        # Read the file content and get filename
         file_content = files.read()
+        filename = files.name
         # Reset the file pointer for potential future reads
         files.seek(0)
     elif file_url:
@@ -190,7 +192,7 @@ def generate_course(files=None, file_url=None, status_callback=None):
 
     try:
         # Call our local backend function directly with status callback
-        return local_backend.generate_course(file_content=file_content, file_url=file_url, status_callback=status_callback)
+        return local_backend.generate_course(file_content=file_content, file_url=file_url, filename=filename, status_callback=status_callback)
     except Exception as e:
         st.error(f"Error generating course: {e}")
         return None, f"Error generating course: {e}"
@@ -805,10 +807,10 @@ def main():
     with st.sidebar.expander("💡 Tips"):
         st.write("""
         **For best results:**
-        - Use PDFs with clear, readable text
+        - Use files with clear, readable content
         - Educational content works best
-        - Avoid image-heavy documents
-        - File size limit: 20MB
+        - Supported formats: PDF, Word docs, images, presentations, and more
+        - File size limit: 10MB
         
         **Supported question types:**
         - Multiple choice

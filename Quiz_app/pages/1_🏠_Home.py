@@ -296,7 +296,7 @@ except ImportError:
 try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager, get_session_id
-    from local_backend import analyze_pdf_content, generate_course
+    from local_backend import is_file_extension_safe, generate_course
     MONGO_AVAILABLE = True
 except ImportError as e:
     # Don't show error immediately - just set flag
@@ -675,68 +675,41 @@ def main():
     pdf_url = None
     
     with tab1:
-        st.subheader("📄 Upload your PDF file")
+        st.subheader("📄 Upload your file")
         uploaded_file = st.file_uploader(
-            "Choose a PDF file",
-            type=["pdf"],
-            help="Large files will be automatically compressed during course generation. Maximum words: 15,000",
+            "Choose a file",
+            help="Upload documents, images, presentations or other educational content. File size limit: 10MB",
             label_visibility="collapsed"
         )
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
             file_size_mb = file_size / (1024*1024)
-              # Show file info and size warning if large
-            if file_size > 10 * 1024 * 1024:
-                st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above 10MB limit)")
-                st.info("💡 **Note:** File will be automatically compressed during course generation to fit within limits.")
-            if uploaded_file:
-                if file_size > 10 * 1024 * 1024:
-                    # Large file: do quick validation only
-                    try:
-                        # Quick test - try to read first few bytes to verify it's a valid PDF
-                        file_content = uploaded_file.getvalue()
-                        if not file_content.startswith(b'%PDF'):
-                            st.error("❌ Invalid PDF file format detected.")
-                            uploaded_file = None
-                    except Exception as e:
-                        st.error(f"❌ Error reading PDF file: {str(e)}")
-                        uploaded_file = None
-                else:
-                    # Small file: do full analysis during upload as before
-                    try:
-                        pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
-                        word_count = pdf_analysis['word_count']
-                        
-                        if word_count > 15000:
-                            st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
-                            uploaded_file = None
-                        elif word_count == 0:
-                            st.error("❌ Could not extract text from this PDF. Please try a different file.")
-                            uploaded_file = None
-                        else:
-                            st.success(f"📄 File processed: {uploaded_file.name} ({file_size_mb:.1f} MB, {word_count:,} words)")
-                            
-                            if word_count > 12000:
-                                st.warning("⚠️ Large document detected. Generation may take longer than usual.")
-                                
-                    except Exception as e:
-                        st.error(f"❌ Error analyzing PDF: {str(e)}")
-                        uploaded_file = None
+            
+            # Check if file extension is safe
+            if not is_file_extension_safe(uploaded_file.name):
+                st.error(f"❌ File type '{os.path.splitext(uploaded_file.name.lower())[1]}' is not allowed for security reasons.")
+                uploaded_file = None
+            elif file_size > 10 * 1024 * 1024:
+                st.error(f"❌ File is too large ({file_size_mb:.1f} MB). Maximum size is 10MB.")
+                uploaded_file = None
+            else:
+                st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                if file_size_mb > 5:
+                    st.info("💡 **Note:** Large files may take longer to process.")
     
     with tab2:
-        st.subheader("🔗 Enter PDF URL")
+        st.subheader("🔗 Enter File URL")
         pdf_url = st.text_input(
-            "PDF URL",
+            "File URL",
             placeholder="https://example.com/document.pdf",
-            help="Enter a direct link to a PDF file",
+            help="Enter a direct link to a file (PDF, document, image, etc.)",
             label_visibility="collapsed"
         )
         if pdf_url and not pdf_url.startswith(('http://', 'https://')):
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
         elif pdf_url:
-            st.info("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
+            st.info("⚠️ **Limits:** Maximum 10MB file size")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
@@ -765,7 +738,7 @@ def main():
                 st.session_state.is_generating_course = True
                 st.rerun()
             else:
-                st.error("⚠️ Please upload a file or enter a URL first")
+                st.error("⚠️ Please upload a file or enter a file URL first")
     else:
         st.warning("⚠️ You've reached the limit of 3 guest courses. Please login for unlimited access.")
         if st.button("🔐 Go to Login", type="primary"):
