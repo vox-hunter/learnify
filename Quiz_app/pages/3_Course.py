@@ -87,6 +87,12 @@ def initialize_session_state():
         st.session_state.course_finished = False
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
+    if "course_overview_shown" not in st.session_state:
+        st.session_state.course_overview_shown = False
+    if "course_started_properly" not in st.session_state:
+        st.session_state.course_started_properly = False
+    if "course_ended_early" not in st.session_state:
+        st.session_state.course_ended_early = False
 
 def reset_course_session_state():
     """Reset course-specific session state when starting a new course"""
@@ -99,6 +105,11 @@ def reset_course_session_state():
     st.session_state.feedback = {}
     st.session_state.course_finished = False
     st.session_state.start_time = time.time()
+    
+    # Reset overview and course state flags
+    st.session_state.course_overview_shown = False
+    st.session_state.course_started_properly = False
+    st.session_state.course_ended_early = False
     
     # Clear any cached question counts
     keys_to_remove = [key for key in st.session_state.keys() if str(key).startswith('total_questions_')]
@@ -664,6 +675,11 @@ def main():
         display_course_completion_stats(course_data, course_id)
         return
     
+    # Check if overview should be shown (for new course access or if not started properly)
+    if not st.session_state.get('course_overview_shown', False) or not st.session_state.get('course_started_properly', False):
+        display_course_overview(course_data, course_id)
+        return
+    
     # Calculate progress for the sticky header
     all_questions_for_progress = []
     for section_idx, section_data in enumerate(course_data):
@@ -895,6 +911,21 @@ def main():
                 st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Add End Course button (always available during course)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([2, 1, 2])
+    
+    with col2:
+        if st.button("🔚 End Course", key="end_course_early", use_container_width=True, 
+                     help="End the course early and view conclusion"):
+            # Set flag for early ending
+            st.session_state.course_ended_early = True
+            st.session_state.course_finished = True
+            st.rerun()
+    
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # Display all questions progressively (Seneca-style)
     display_progressive_questions(course_data, course_id)
@@ -1186,6 +1217,230 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
                 st.session_state.course_finished = True
                 st.rerun()
 
+def display_course_overview(course_data, course_id):
+    """Display course overview page before starting the course."""
+    
+    # Get course title and metadata
+    course_title = "📚 Course"  # Default title
+    total_sections = len(course_data)
+    total_questions = count_total_questions(course_data)
+    
+    # Try to get title from MongoDB first
+    memory_strength = 0
+    last_attempt_timestamp = None
+    show_memory_tip = False
+    course_creator = "Unknown"
+    
+    if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
+        try:
+            course_manager = get_course_manager()
+            course_doc, _ = course_manager.get_course(course_id)
+            if course_doc:
+                course_title = course_doc.get('title', '📚 Course')
+                memory_strength = course_doc.get('memory_strength', 0)
+                last_attempt_timestamp = course_doc.get('last_attempt_timestamp')
+                course_creator = course_doc.get('creator', 'Unknown')
+                
+                # Check if it's been more than 24 hours for memory strength upgrade
+                if last_attempt_timestamp:
+                    current_time = datetime.datetime.now(datetime.timezone.utc)
+                    if last_attempt_timestamp.tzinfo is None:
+                        last_attempt_timestamp = last_attempt_timestamp.replace(tzinfo=datetime.timezone.utc)
+                    time_since_last_attempt = current_time - last_attempt_timestamp
+                    if time_since_last_attempt >= datetime.timedelta(hours=24):
+                        show_memory_tip = True
+        except (ImportError, AttributeError, ConnectionError) as e:
+            st.error(f"An error occurred while fetching course data: {e}")
+    
+    # Fall back to session state for title if needed
+    if course_title == "📚 Course" and 'course_history' in st.session_state:
+        try:
+            course_id_int = int(course_id)
+            if course_id_int < len(st.session_state.course_history):
+                course_title = st.session_state.course_history[course_id_int]['title']
+        except (ValueError, TypeError):
+            pass
+    
+    # Course overview UI
+    st.markdown("""
+    <style>
+    .overview-container {
+        background: linear-gradient(135deg, rgba(13, 18, 32, 0.8), rgba(6, 78, 149, 0.1));
+        border: 2px solid rgba(6, 182, 212, 0.3);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 1rem 0;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .overview-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientShift 3s ease infinite;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .stat-card {
+        background: rgba(6, 182, 212, 0.1);
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #06b6d4;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #a0aec0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .memory-strength {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    .memory-warning {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 152, 0, 0.2));
+        border: 1px solid rgba(255, 193, 7, 0.5);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    @keyframes gradientShift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="overview-container">', unsafe_allow_html=True)
+    
+    # Title
+    st.markdown(f'<h1 class="overview-title">Course Overview</h1>', unsafe_allow_html=True)
+    
+    # Course name
+    st.markdown(f"""
+    <div style="text-align: center; margin: 1rem 0;">
+        <h2 style="color: #e2e8f0; font-size: 1.5rem; font-weight: 600;">
+            {html.escape(course_title)}
+        </h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stats grid
+    st.markdown('<div class="stats-grid">', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{total_sections}</div>
+            <div class="stat-label">Sections</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{total_questions}</div>
+            <div class="stat-label">Questions</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        # Memory strength display
+        lightning_icons = []
+        for i in range(5):
+            if i < memory_strength:
+                lightning_icons.append('⚡')
+            else:
+                lightning_icons.append('⚪')
+        memory_display = ''.join(lightning_icons)
+        
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value" style="font-size: 1.5rem;">{memory_display}</div>
+            <div class="stat-label">Memory Strength</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Memory strength warning if applicable
+    if show_memory_tip and memory_strength < 5:
+        st.markdown(f"""
+        <div class="memory-warning">
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">🔄 Memory Strength Upgrade Available!</div>
+            <div style="color: #a0aec0;">
+                It's been more than 24 hours since your last attempt. 
+                Completing this course will upgrade your memory strength from {memory_strength} to {min(memory_strength + 1, 5)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif memory_strength >= 5:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2)); 
+                   border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 12px; padding: 1rem; 
+                   margin: 1rem 0; text-align: center;">
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">🏆 Maximum Memory Strength Achieved!</div>
+            <div style="color: #a0aec0;">You've mastered this course with perfect memory retention.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Action buttons
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("⬅️ Go Back", key="overview_back", use_container_width=True):
+            # Clear course selection and go back to home
+            if 'current_course_id' in st.session_state:
+                del st.session_state.current_course_id
+            if 'course_id' in st.query_params:
+                del st.query_params.course_id
+            st.switch_page("pages/1_🏠_Home.py")
+    
+    with col2:
+        if st.button("🚀 Start Course", key="overview_start", use_container_width=True):
+            # Set flags to indicate course was started properly
+            st.session_state.course_overview_shown = True
+            st.session_state.course_started_properly = True
+            st.session_state.course_ended_early = False
+            st.rerun()
+    
+    with col3:
+        st.write("")  # Placeholder for symmetry
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def display_course_completion_stats(course_data, course_id):
     """Displays compact course completion statistics optimized for no-scroll experience."""
     
@@ -1199,24 +1454,38 @@ def display_course_completion_stats(course_data, course_id):
     if score_percentage >= 95:
         st.balloons()
 
+    # Check if course was ended early
+    course_ended_early = st.session_state.get('course_ended_early', False)
+    
     # Message based on score with emojis
-    if score_percentage == 100:
+    if course_ended_early:
+        # Different messages for early end
+        completion_title = "Course Ended Early"
+        message = "Thanks for your time! Your progress is saved. 📚"
+        emoji = "⏹️"
+        color = "#f0ad4e"
+    elif score_percentage == 100:
+        completion_title = "Course Completed!"
         message = "Perfect Score! Master level! 🥇"
         emoji = "🎉"
         color = "#ffd700"
     elif score_percentage >= 95:
+        completion_title = "Course Completed!"
         message = "Outstanding! Nearly perfect! 🥈"
         emoji = "🌟"
         color = "#c0c0c0"
     elif score_percentage >= 70:
+        completion_title = "Course Completed!"
         message = "Great job! Solid understanding. 🥉"
         emoji = "👍"
         color = "#cd7f32"
     elif score_percentage >= 40:
+        completion_title = "Course Completed!"
         message = "Good effort! Keep practicing. 📚"
         emoji = "�"
         color = "#06b6d4"
     else:
+        completion_title = "Course Completed!"
         message = "Keep going! Every attempt counts. 🎯"
         emoji = "🔄"
         color = "#f56565"
@@ -1251,7 +1520,7 @@ def display_course_completion_stats(course_data, course_id):
                     update_strength = True
                     new_strength = min(memory_strength + 1, 5)
             
-            if update_strength:
+            if update_strength and not st.session_state.get('course_ended_early', False):
                 time_spent = time.time() - st.session_state.start_time
                 course_manager.update_course_memory_strength(course_id, new_strength, time_spent)
                 memory_strength = new_strength
@@ -1274,7 +1543,7 @@ def display_course_completion_stats(course_data, course_id):
             <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
                 <div style="font-size: 2.5rem;">{emoji}</div>
                 <div>
-                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
+                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">{completion_title}</h1>
                     <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
                 </div>
             </div>
@@ -1305,6 +1574,7 @@ def display_course_completion_stats(course_data, course_id):
                 </div>
                 <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
                     Level {memory_strength}/5 • {"Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"}
+                    {" • Memory strength not upgraded (ended early)" if course_ended_early else ""}
                 </div>
             </div>
         </div>
@@ -1368,6 +1638,11 @@ def display_course_completion_stats(course_data, course_id):
             st.session_state.current_score = 0
             st.session_state.scored_correctly_keys = set()
             st.session_state.start_time = time.time()
+            
+            # Reset overview state so it shows again
+            st.session_state.course_overview_shown = False
+            st.session_state.course_started_properly = False
+            st.session_state.course_ended_early = False
             
             st.success("🔄 Course reset! You can now re-attempt all questions.")
             st.rerun()
