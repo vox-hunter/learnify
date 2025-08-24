@@ -678,7 +678,7 @@ def main():
         st.subheader("📄 Upload your file")
         uploaded_file = st.file_uploader(
             "Choose a file",
-            help="Upload documents, images, presentations or other educational content. File size limit: 10MB",
+            help="Upload documents, images, presentations or other educational content. PPTX files will be automatically converted to PDF for better AI processing. File size limit: 10MB",
             label_visibility="collapsed"
         )
         if uploaded_file:
@@ -694,6 +694,8 @@ def main():
                 uploaded_file = None
             else:
                 st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                if uploaded_file.name.lower().endswith('.pptx'):
+                    st.info("🔄 **PPTX Conversion:** Your PowerPoint file will be automatically converted to PDF for better AI processing.")
                 if file_size_mb > 5:
                     st.info("💡 **Note:** Large files may take longer to process.")
     

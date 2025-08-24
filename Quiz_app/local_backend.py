@@ -11,6 +11,17 @@ import io
 import re
 import mimetypes
 
+# PPTX to PDF conversion imports (with fallback handling)
+try:
+    from pptx import Presentation
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.utils import ImageReader
+    from PIL import Image
+    PPTX_CONVERSION_AVAILABLE = True
+except ImportError:
+    PPTX_CONVERSION_AVAILABLE = False
+
 try:
     import streamlit as st
     STREAMLIT_AVAILABLE = True
@@ -247,6 +258,108 @@ def estimate_processing_time_by_size(file_size_bytes):
         upper_seconds = upper_time % 60
         return f"{minutes}:{seconds:02d}-{upper_minutes}:{upper_seconds:02d} minutes"
 
+def convert_pptx_to_pdf(pptx_bytes, filename="presentation.pptx"):
+    """
+    Convert PPTX file to PDF format.
+    
+    Args:
+        pptx_bytes: Binary content of the PPTX file
+        filename: Name of the file (for logging)
+        
+    Returns:
+        tuple: (pdf_bytes, error_message)
+            - pdf_bytes: Binary content of the converted PDF or None if failed
+            - error_message: Error message or None if successful
+    """
+    if not PPTX_CONVERSION_AVAILABLE:
+        return None, "PPTX conversion libraries not available. Please install python-pptx and reportlab."
+    
+    try:
+        logger.info(f"Converting PPTX to PDF: {filename}")
+        
+        # Load the PPTX presentation
+        pptx_stream = io.BytesIO(pptx_bytes)
+        presentation = Presentation(pptx_stream)
+        
+        # Create PDF in memory
+        pdf_stream = io.BytesIO()
+        pdf_canvas = canvas.Canvas(pdf_stream, pagesize=A4)
+        
+        page_width, page_height = A4
+        slide_count = 0
+        
+        for slide_index, slide in enumerate(presentation.slides):
+            slide_count += 1
+            
+            # Add slide title page
+            pdf_canvas.setFont("Helvetica-Bold", 16)
+            title_y = page_height - 50
+            
+            # Try to extract slide title
+            slide_title = f"Slide {slide_index + 1}"
+            for shape in slide.shapes:
+                if hasattr(shape, 'text') and shape.text.strip():
+                    if len(shape.text.strip()) < 100:  # Likely a title
+                        slide_title = shape.text.strip()[:80]  # Truncate if too long
+                        break
+            
+            pdf_canvas.drawString(50, title_y, slide_title)
+            
+            # Extract text content from slide
+            text_content = []
+            current_y = title_y - 40
+            
+            for shape in slide.shapes:
+                if hasattr(shape, 'text') and shape.text.strip():
+                    text = shape.text.strip()
+                    if text and text != slide_title:  # Don't repeat the title
+                        # Split long text into lines
+                        words = text.split()
+                        lines = []
+                        current_line = []
+                        
+                        for word in words:
+                            current_line.append(word)
+                            # Rough estimate: 80 characters per line
+                            if len(' '.join(current_line)) > 80:
+                                if len(current_line) > 1:
+                                    lines.append(' '.join(current_line[:-1]))
+                                    current_line = [word]
+                        
+                        if current_line:
+                            lines.append(' '.join(current_line))
+                        
+                        # Add lines to PDF
+                        for line in lines:
+                            if current_y < 100:  # Near bottom of page
+                                pdf_canvas.showPage()  # Start new page
+                                current_y = page_height - 50
+                            
+                            pdf_canvas.setFont("Helvetica", 12)
+                            pdf_canvas.drawString(50, current_y, line[:100])  # Truncate very long lines
+                            current_y -= 20
+            
+            # Add some spacing between slides
+            current_y -= 30
+            
+            # If we have more slides and we're not near the bottom, add a separator
+            if slide_index < len(presentation.slides) - 1 and current_y > 150:
+                pdf_canvas.line(50, current_y, page_width - 50, current_y)
+                current_y -= 30
+            elif slide_index < len(presentation.slides) - 1:
+                pdf_canvas.showPage()  # New page for next slide
+        
+        # Finalize the PDF
+        pdf_canvas.save()
+        pdf_bytes = pdf_stream.getvalue()
+        
+        logger.info(f"Successfully converted PPTX to PDF: {filename} ({slide_count} slides, {len(pdf_bytes)} bytes)")
+        return pdf_bytes, None
+        
+    except Exception as e:
+        logger.error(f"Error converting PPTX to PDF: {filename}: {e}")
+        return None, f"Failed to convert PPTX to PDF: {str(e)}"
+
 def validate_short_answer_with_ai(question, user_answer, expected_answer):
     """
     Use AI to validate a short answer question and provide feedback.
@@ -354,7 +467,24 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
         # Detect MIME type
         detected_mime_type = get_mime_type(filename, file_content)
         file_bytes = file_content
-        update_status("✅ File validated successfully", 20)
+        
+        # Check if file is PPTX and convert to PDF for better Gemini compatibility
+        if filename and filename.lower().endswith('.pptx'):
+            update_status("🔄 Converting PPTX to PDF for better AI processing...", 15)
+            logger.info("PPTX file detected - converting to PDF for Gemini compatibility")
+            
+            pdf_bytes, conversion_error = convert_pptx_to_pdf(file_content, filename)
+            if pdf_bytes:
+                file_bytes = pdf_bytes
+                detected_mime_type = "application/pdf"
+                logger.info(f"Successfully converted PPTX to PDF ({len(pdf_bytes)} bytes)")
+                update_status("✅ PPTX converted to PDF successfully", 18)
+            else:
+                logger.warning(f"PPTX conversion failed: {conversion_error}. Proceeding with original PPTX file.")
+                update_status("⚠️ PPTX conversion failed - using original file", 18)
+                # Continue with original file if conversion fails
+        
+        update_status("✅ File processing completed", 20)
     
     # Handle file URL
     elif file_url:
@@ -383,6 +513,22 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
             # Detect MIME type from URL and content
             detected_mime_type = get_mime_type(url_filename, resp.content)
             file_bytes = resp.content
+            
+            # Check if downloaded file is PPTX and convert to PDF for better Gemini compatibility
+            if url_filename and url_filename.lower().endswith('.pptx'):
+                update_status("🔄 Converting downloaded PPTX to PDF...", 19)
+                logger.info("Downloaded PPTX file detected - converting to PDF for Gemini compatibility")
+                
+                pdf_bytes, conversion_error = convert_pptx_to_pdf(resp.content, url_filename)
+                if pdf_bytes:
+                    file_bytes = pdf_bytes
+                    detected_mime_type = "application/pdf"
+                    logger.info(f"Successfully converted downloaded PPTX to PDF ({len(pdf_bytes)} bytes)")
+                    update_status("✅ PPTX converted to PDF successfully", 19)
+                else:
+                    logger.warning(f"PPTX conversion failed: {conversion_error}. Proceeding with original PPTX file.")
+                    update_status("⚠️ PPTX conversion failed - using original file", 19)
+            
             update_status(f"✅ File downloaded successfully ({len(file_bytes)} bytes)", 20)
             logger.info(f"Successfully fetched file ({len(file_bytes)} bytes)")
             
