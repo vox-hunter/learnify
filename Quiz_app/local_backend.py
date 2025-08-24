@@ -11,6 +11,10 @@ import io
 import re
 import PyPDF2
 import pdfplumber
+from file_security import validate_file_security, get_mime_type, MAX_FILE_SIZE, MAX_CONTENT_WORDS
+from document_converter import convert_to_pdf, should_convert_to_pdf, get_conversion_info
+from file_converter import convert_to_pdf
+from document_converter import convert_to_pdf, should_convert_to_pdf
 
 try:
     import streamlit as st
@@ -19,6 +23,32 @@ except ImportError:
     STREAMLIT_AVAILABLE = False
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
+
+def should_convert_to_pdf(filename: str) -> bool:
+    """
+    Determine if a file should be converted to PDF for optimal Gemini processing.
+    Based on Gemini documentation, PDF is the preferred format for document understanding.
+    """
+    if not filename:
+        return False
+    
+    file_ext = os.path.splitext(filename.lower())[1]
+    
+    # Don't convert if already PDF
+    if file_ext == '.pdf':
+        return False
+    
+    # Convert document formats that benefit from PDF conversion
+    convertible_formats = {
+        '.docx', '.doc',        # Word documents
+        '.pptx', '.ppt',        # PowerPoint presentations  
+        '.xlsx', '.xls',        # Excel spreadsheets
+        '.txt', '.md',          # Text and Markdown
+        '.html', '.htm',        # HTML files
+        '.rtf',                 # Rich Text Format
+    }
+    
+    return file_ext in convertible_formats
 
 # Define a Pydantic model for arbitrary key-value mappings
 class ArbitraryMapping(BaseModel):
@@ -202,13 +232,15 @@ Be fair but accurate in your evaluation.
         logger.error(f"Error in AI validation: {e}")
         return None, f"AI validation error: {str(e)}"
     
-def generate_course(file_content=None, file_url=None, status_callback=None):
+def generate_course(file_content=None, file_url=None, filename=None, status_callback=None):
     """
-    Generate a course structure from PDF content or a PDF URL.
+    Generate a course structure from file content or a file URL.
+    Supports multiple file formats: PDF, Word docs, images, audio, video, text files, etc.
     
     Args:
-        file_content: The binary content of a PDF file
-        file_url: URL to a PDF file
+        file_content: The binary content of a file
+        file_url: URL to a file
+        filename: Original filename for MIME type detection (optional)
         status_callback: Optional callback function to report progress status
         
     Returns:
@@ -226,72 +258,139 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
             status_callback(message, progress)
         logger.info(message)
     
-    pdf_bytes = None
+    file_bytes = None
+    detected_filename = filename
     update_status("🚀 Starting course generation process...", 5)
     
     # Handle file content
     if file_content:
-        update_status("📄 Validating uploaded PDF file...", 10)
-        logger.info(f"Processing uploaded PDF file ({len(file_content)} bytes)")
-        if not validate_pdf_content(file_content):
-            return None, "Invalid PDF file. Please ensure you're uploading a valid PDF document."
-        pdf_bytes = file_content
-        update_status("✅ PDF file validated successfully", 20)
+        update_status("📄 Validating uploaded file...", 10)
+        logger.info(f"Processing uploaded file ({len(file_content)} bytes)")
+        
+        if filename:
+            # Validate file security and type
+            is_safe, error_message = validate_file_security(filename, len(file_content))
+            if not is_safe:
+                return None, error_message
+            
+            # Check if we should convert to PDF for better Gemini processing
+            if should_convert_to_pdf(filename):
+                update_status(f"🔄 Converting {filename} to PDF for optimal AI processing...", 15)
+                logger.info(f"Converting {filename} to PDF")
+                
+                pdf_bytes, conversion_error = convert_to_pdf(file_content, filename)
+                if pdf_bytes:
+                    file_bytes = pdf_bytes
+                    detected_filename = filename.rsplit('.', 1)[0] + '.pdf'  # Change extension to PDF
+                    update_status("✅ File converted to PDF successfully", 20)
+                    logger.info(f"Successfully converted {filename} to PDF ({len(pdf_bytes)} bytes)")
+                else:
+                    logger.warning(f"PDF conversion failed for {filename}: {conversion_error}")
+                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
+                    file_bytes = file_content  # Fall back to original
+            else:
+                file_bytes = file_content
+        else:
+            file_bytes = file_content
+        
+        update_status("✅ File validated successfully", 20)
     
     # Handle file URL
     elif file_url:
-        update_status("🌐 Connecting to PDF URL...", 10)
-        logger.info(f"Fetching PDF from URL: {file_url}")
+        update_status("🌐 Connecting to file URL...", 10)
+        logger.info(f"Fetching file from URL: {file_url}")
         try:
             # Add headers to mimic a browser request
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-            update_status("📥 Downloading PDF from URL...", 15)
+            update_status("📥 Downloading file from URL...", 15)
             resp = requests.get(file_url, headers=headers, timeout=30)
             resp.raise_for_status()
             
-            # Check content type
-            content_type = resp.headers.get('content-type', '').lower()
-            if 'application/pdf' not in content_type and not file_url.lower().endswith('.pdf'):
-                logger.warning(f"Content type '{content_type}' may not be a PDF")
+            # Extract filename from URL for validation
+            import urllib.parse
+            parsed_url = urllib.parse.urlparse(file_url)
+            detected_filename = os.path.basename(parsed_url.path)
+            if not detected_filename:
+                # Try to guess from Content-Disposition header
+                cd_header = resp.headers.get('content-disposition', '')
+                if 'filename=' in cd_header:
+                    detected_filename = cd_header.split('filename=')[1].strip('"')
+                else:
+                    detected_filename = "unknown_file"
             
-            update_status("🔍 Validating downloaded PDF...", 18)
-            if not validate_pdf_content(resp.content):
-                return None, "The URL does not point to a valid PDF file."
+            update_status("🔍 Validating downloaded file...", 18)
+            # Validate file security and type
+            is_safe, error_message = validate_file_security(detected_filename, len(resp.content))
+            if not is_safe:
+                return None, error_message
             
-            pdf_bytes = resp.content
-            update_status(f"✅ PDF downloaded successfully ({len(pdf_bytes)} bytes)", 20)
-            logger.info(f"Successfully fetched PDF ({len(pdf_bytes)} bytes)")
+            # Check if we should convert to PDF for better Gemini processing
+            if should_convert_to_pdf(detected_filename):
+                update_status(f"🔄 Converting {detected_filename} to PDF for optimal AI processing...", 19)
+                logger.info(f"Converting {detected_filename} to PDF")
+                
+                pdf_bytes, conversion_error = convert_to_pdf(resp.content, detected_filename)
+                if pdf_bytes:
+                    file_bytes = pdf_bytes
+                    detected_filename = detected_filename.rsplit('.', 1)[0] + '.pdf'  # Change extension to PDF
+                    update_status("✅ File converted to PDF successfully", 20)
+                    logger.info(f"Successfully converted downloaded file to PDF ({len(pdf_bytes)} bytes)")
+                else:
+                    logger.warning(f"PDF conversion failed for {detected_filename}: {conversion_error}")
+                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
+                    file_bytes = resp.content  # Fall back to original
+            else:
+                file_bytes = resp.content
+            update_status(f"✅ File downloaded successfully ({len(file_bytes)} bytes)", 20)
+            logger.info(f"Successfully fetched file ({len(file_bytes)} bytes)")
             
         except requests.exceptions.Timeout:
-            return None, "Request timed out. The PDF file may be too large or the server is slow."
+            return None, "Request timed out. The file may be too large or the server is slow."
         except requests.exceptions.ConnectionError:
             return None, "Connection error. Please check the URL and your internet connection."
         except requests.exceptions.HTTPError as e:
-            return None, f"HTTP error {e.response.status_code}: Unable to fetch PDF from URL"
+            return None, f"HTTP error {e.response.status_code}: Unable to fetch file from URL"
         except Exception as e:
-            logger.error(f"Error fetching PDF from URL: {e}")
-            return None, f"Unable to fetch PDF from URL: {e}"
-      # Check if we have PDF content
-    if not pdf_bytes:
+            logger.error(f"Error fetching file from URL: {e}")
+            return None, f"Unable to fetch file from URL: {e}"
+      # Check if we have file content
+    if not file_bytes:
         return None, "No file content or file_url provided, or an error occurred processing the input."
     
     update_status("📏 Checking file size and content limits...", 25)
-    # Check file size limits (reduced from 20MB to 10MB)
-    max_size = 10 * 1024 * 1024  # 10MB
-    if len(pdf_bytes) > max_size:
-        return None, f"PDF file is too large ({len(pdf_bytes)} bytes). Maximum size is {max_size} bytes (10MB)."      # Analyze PDF content for word count
-    update_status("📊 Analyzing PDF content and word count...", 30)
-    pdf_analysis = analyze_pdf_content(pdf_bytes)
-    word_count = pdf_analysis['word_count']
-    estimated_time = pdf_analysis['estimated_time']
+    # Check file size limits (10MB)
+    max_size = MAX_FILE_SIZE  # Use the constant from file_security
+    if len(file_bytes) > max_size:
+        return None, f"File is too large ({len(file_bytes)} bytes). Maximum size is {max_size} bytes ({max_size // (1024*1024)}MB)."
     
-    if word_count == 0:
-        return None, "Could not extract readable text from this PDF. Please ensure the PDF contains text content."
+    # For PDF files (including converted ones), we can analyze content for word count validation
+    # For other file types, we'll let Gemini handle them directly
+    word_count = 0
+    estimated_time = "2-4 minutes"
     
-    if word_count > 15000:
-        return None, f"PDF contains too many words ({word_count:,}). Maximum allowed is 15,000 words. Please use a shorter document."
+    if detected_filename and detected_filename.lower().endswith('.pdf'):
+        update_status("📊 Analyzing PDF content and word count...", 30)
+        try:
+            pdf_analysis = analyze_pdf_content(file_bytes)
+            word_count = pdf_analysis['word_count']
+            estimated_time = pdf_analysis['estimated_time']
+            
+            if word_count == 0:
+                logger.warning("Could not extract readable text from PDF. Proceeding with direct AI processing.")
+                update_status("⚠️ Could not extract text from PDF. AI will use document vision...", 32)
+            elif word_count > MAX_CONTENT_WORDS:
+                logger.warning(f"PDF contains {word_count:,} words (above limit). AI will process with document vision.")
+                update_status(f"⚠️ Large document ({word_count:,} words). AI will use document vision for processing...", 32)
+                # Don't return error - let Gemini handle it with document vision
+            else:
+                update_status(f"📄 Content analyzed: {word_count:,} words", 32)
+        except Exception as e:
+            logger.warning(f"PDF analysis failed: {e}. Proceeding with direct AI processing.")
+            update_status("⚠️ PDF analysis failed. AI will use document vision...", 32)
+    else:
+        update_status("📊 File will be processed directly by AI...", 30)
       # Update status with estimated time information
     update_status(f"📊 AI is analyzing PDF content (Est. time: {estimated_time})", 32)
     
@@ -299,7 +398,17 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
         update_status("🤖 Connecting to Gemini AI...", 35)
         logger.info("Sending request to Gemini AI...")
         
-        update_status(f"📤 Uploading PDF to AI for analysis... (Est. time: {estimated_time})", 45)
+        update_status(f"📤 Uploading file to AI for analysis... (Est. time: {estimated_time})", 45)
+        
+        # Determine the appropriate MIME type for the file
+        # If we converted to PDF, use PDF MIME type for optimal processing
+        if detected_filename and detected_filename.lower().endswith('.pdf'):
+            mime_type = "application/pdf"
+            logger.info(f"Using PDF MIME type for optimal Gemini document understanding")
+        else:
+            mime_type = get_mime_type(detected_filename or "unknown.bin")
+            logger.info(f"Using MIME type: {mime_type} for file: {detected_filename}")
+        
         # Generate content using Gemini API
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
@@ -308,7 +417,7 @@ def generate_course(file_content=None, file_url=None, status_callback=None):
                 response_mime_type="application/json",
             ),
             contents=[
-                types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
+                types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
                 prompt,
             ],
         )

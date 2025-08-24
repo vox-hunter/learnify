@@ -297,6 +297,8 @@ try:
     from mongo_auth import MongoAuthManager
     from mongo_course_manager import get_course_manager, get_session_id
     from local_backend import analyze_pdf_content, generate_course
+    from file_security import validate_file_security, get_mime_type, get_file_type_category, get_supported_file_types_display, get_file_processing_info, MAX_FILE_SIZE, MAX_CONTENT_WORDS
+    from document_converter import get_conversion_info
     MONGO_AVAILABLE = True
 except ImportError as e:
     # Don't show error immediately - just set flag
@@ -675,68 +677,70 @@ def main():
     pdf_url = None
     
     with tab1:
-        st.subheader("📄 Upload your PDF file")
+        st.subheader("📄 Upload your file")
+        supported_types = get_supported_file_types_display()
         uploaded_file = st.file_uploader(
-            "Choose a PDF file",
-            type=["pdf"],
-            help="Large files will be automatically compressed during course generation. Maximum words: 15,000",
+            f"Choose a file - Supported types: {supported_types}",
+            help=f"Maximum file size: {MAX_FILE_SIZE // (1024*1024)}MB, Maximum content: {MAX_CONTENT_WORDS:,} words",
             label_visibility="collapsed"
         )
         if uploaded_file:
             file_size = len(uploaded_file.getvalue())
             file_size_mb = file_size / (1024*1024)
-              # Show file info and size warning if large
-            if file_size > 10 * 1024 * 1024:
-                st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above 10MB limit)")
-                st.info("💡 **Note:** File will be automatically compressed during course generation to fit within limits.")
-            if uploaded_file:
+            
+            # Validate file security and type
+            is_safe, error_message = validate_file_security(uploaded_file.name, file_size)
+            
+            if not is_safe:
+                st.error(f"❌ {error_message}")
+                uploaded_file = None
+            else:
+                # Show file info
+                file_type = get_file_type_category(uploaded_file.name)
+                processing_info = get_conversion_info(uploaded_file.name)
+                
+                st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB, {file_type})")
+                st.info(f"🤖 {processing_info}")
+                
+                # Show size warning if large
                 if file_size > 10 * 1024 * 1024:
-                    # Large file: do quick validation only
-                    try:
-                        # Quick test - try to read first few bytes to verify it's a valid PDF
-                        file_content = uploaded_file.getvalue()
-                        if not file_content.startswith(b'%PDF'):
-                            st.error("❌ Invalid PDF file format detected.")
-                            uploaded_file = None
-                    except Exception as e:
-                        st.error(f"❌ Error reading PDF file: {str(e)}")
-                        uploaded_file = None
-                else:
-                    # Small file: do full analysis during upload as before
-                    try:
-                        pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
-                        word_count = pdf_analysis['word_count']
-                        
-                        if word_count > 15000:
-                            st.error(f"❌ PDF contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
-                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
-                            uploaded_file = None
-                        elif word_count == 0:
-                            st.error("❌ Could not extract text from this PDF. Please try a different file.")
-                            uploaded_file = None
-                        else:
-                            st.success(f"📄 File processed: {uploaded_file.name} ({file_size_mb:.1f} MB, {word_count:,} words)")
+                    st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above {MAX_FILE_SIZE // (1024*1024)}MB limit)")
+                    st.info("💡 **Note:** Large files will be processed using Gemini's document vision capabilities.")
+                
+                # For PDF files (original or converted), try to estimate word count
+                if uploaded_file.name.lower().endswith('.pdf') or processing_info.startswith('🔄'):
+                    if file_size <= 10 * 1024 * 1024:  # Small files only
+                        try:
+                            pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
+                            word_count = pdf_analysis['word_count']
                             
-                            if word_count > 12000:
-                                st.warning("⚠️ Large document detected. Generation may take longer than usual.")
-                                
-                    except Exception as e:
-                        st.error(f"❌ Error analyzing PDF: {str(e)}")
-                        uploaded_file = None
+                            if word_count > MAX_CONTENT_WORDS:
+                                st.warning(f"⚠️ Document contains {word_count:,} words (above {MAX_CONTENT_WORDS:,} limit).")
+                                st.info("💡 **Note:** AI will use document vision to process the content intelligently.")
+                            elif word_count == 0:
+                                st.info("💡 **Note:** AI will use document vision to analyze this file.")
+                            else:
+                                st.success(f"📄 Content preview: ~{word_count:,} words")
+                                if word_count > 12000:
+                                    st.warning("⚠️ Large document detected. Generation may take longer than usual.")
+                        except Exception as e:
+                            st.info("💡 **Note:** AI will use document vision to analyze this file.")
+                else:
+                    st.info("💡 **Note:** File will be processed using Gemini's advanced AI capabilities.")
     
     with tab2:
-        st.subheader("🔗 Enter PDF URL")
+        st.subheader("🔗 Enter file URL")
         pdf_url = st.text_input(
-            "PDF URL",
+            "File URL",
             placeholder="https://example.com/document.pdf",
-            help="Enter a direct link to a PDF file",
+            help="Enter a direct link to a file (PDF, document, image, etc.)",
             label_visibility="collapsed"
         )
         if pdf_url and not pdf_url.startswith(('http://', 'https://')):
             st.warning("⚠️ Please enter a valid URL starting with http:// or https://")
             pdf_url = None
         elif pdf_url:
-            st.info("⚠️ **Limits:** Maximum 10MB file size, 15,000 words")
+            st.info(f"⚠️ **Limits:** Maximum {MAX_FILE_SIZE // (1024*1024)}MB file size, {MAX_CONTENT_WORDS:,} words")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
@@ -840,9 +844,9 @@ def generate_and_redirect(uploaded_file, pdf_url):
                         pdf_analysis = analyze_pdf_content(file_content)
                         word_count = pdf_analysis['word_count']
                         
-                        if word_count > 15000:
+                        if word_count > MAX_CONTENT_WORDS:
                             status_text.text("❌ Analysis failed: too many words even after compression")
-                            st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: 15,000 words.")
+                            st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: {MAX_CONTENT_WORDS:,} words.")
                             st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
                             st.session_state.is_generating_course = False
                             st.rerun()  # Rerun to show the main UI again
@@ -867,12 +871,21 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 
                 course_data, error_message = generate_course(
                     file_content=file_content, 
+                    filename=uploaded_file.name if uploaded_file else None,
                     status_callback=status_callback
                 )
             else:
                 # URL-based generation (no compression needed)
+                # Extract filename from URL for better processing
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(pdf_url)
+                url_filename = os.path.basename(parsed_url.path)
+                if not url_filename:
+                    url_filename = "downloaded_file"
+                
                 course_data, error_message = generate_course(
-                    file_url=pdf_url, 
+                    file_url=pdf_url,
+                    filename=url_filename,
                     status_callback=status_callback
                 )
             
