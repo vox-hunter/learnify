@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Apply modern CSS styling
+# Apply modern CSS styling for home page
 st.markdown("""
 <style>
     /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
