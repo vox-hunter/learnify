@@ -698,7 +698,7 @@ def main():
     answered_questions = sum(1 for q_key in all_questions_for_progress if q_key in st.session_state and st.session_state[q_key])
     progress_percentage = (answered_questions / total_questions_count) * 100 if total_questions_count > 0 else 0
     
-    # Create a sticky header using a placeholder that we'll update
+    # Create a sticky header using a placeholder that we'll update (only for main course content)
     header_placeholder = st.empty()
     with header_placeholder.container():
         st.markdown(f"""
