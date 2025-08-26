@@ -1158,10 +1158,14 @@ st.markdown("""
 # Footer navigation buttons
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
-    if st.button("🔒 Privacy Policy", use_container_width=True, key="footer_privacy"):
+    # Disable privacy button during course generation
+    privacy_disabled = st.session_state.get('is_generating_course', False)
+    if st.button("🔒 Privacy Policy", use_container_width=True, key="footer_privacy", disabled=privacy_disabled):
         st.switch_page("pages/4_Privacy.py")
 with col2:
     st.markdown('<div style="text-align: center; padding: 1rem;">•</div>', unsafe_allow_html=True)
 with col3:
-    if st.button("📋 Terms & Conditions", use_container_width=True, key="footer_terms"):
+    # Disable terms button during course generation
+    terms_disabled = st.session_state.get('is_generating_course', False)
+    if st.button("📋 Terms & Conditions", use_container_width=True, key="footer_terms", disabled=terms_disabled):
         st.switch_page("pages/5_Terms.py")

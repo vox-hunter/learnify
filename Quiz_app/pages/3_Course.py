@@ -680,6 +680,7 @@ def main():
         display_course_overview(course_data, course_id)
         return
     
+    # MAIN COURSE CONTENT - Only execute when course is started properly
     # Calculate progress for the sticky header
     all_questions_for_progress = []
     for section_idx, section_data in enumerate(course_data):
