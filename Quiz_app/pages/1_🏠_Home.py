@@ -707,8 +707,8 @@ def main():
                     st.warning(f"📦 Large file detected: {file_size_mb:.1f} MB (above {MAX_FILE_SIZE // (1024*1024)}MB limit)")
                     st.info("💡 **Note:** Large files will be processed using Gemini's document vision capabilities.")
                 
-                # For PDF files (original or converted), try to estimate word count
-                if uploaded_file.name.lower().endswith('.pdf') or processing_info.startswith('🔄'):
+                # For PDF files (original only, not converted), try to estimate word count
+                if uploaded_file.name.lower().endswith('.pdf') and not processing_info.startswith('🔄'):
                     if file_size <= 10 * 1024 * 1024:  # Small files only
                         try:
                             pdf_analysis = analyze_pdf_content(uploaded_file.getvalue())
@@ -725,7 +725,7 @@ def main():
                                     st.warning("⚠️ Large document detected. Generation may take longer than usual.")
                         except Exception as e:
                             st.info("💡 **Note:** AI will use document vision to analyze this file.")
-                else:
+                elif not processing_info.startswith('🔄'):
                     st.info("💡 **Note:** File will be processed using Gemini's advanced AI capabilities.")
     
     with tab2:
