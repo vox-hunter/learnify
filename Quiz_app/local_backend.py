@@ -286,8 +286,37 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
                     logger.info(f"Successfully converted {filename} to PDF ({len(pdf_bytes)} bytes)")
                 else:
                     logger.warning(f"PDF conversion failed for {filename}: {conversion_error}")
-                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
-                    file_bytes = file_content  # Fall back to original
+                    # Check if the original file has a supported MIME type
+                    original_mime_type = get_mime_type(filename)
+                    from file_security import GEMINI_SUPPORTED_MIME_TYPES
+                    if original_mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+                        # The original file is not supported and conversion failed
+                        from file_security import get_supported_file_types_display
+                        supported_types = get_supported_file_types_display()
+                        error_msg = f"""
+🚫 **File Conversion Failed**
+
+We couldn't convert your file to a supported format, and the original format is not supported by our AI system.
+
+**📁 Your file:** {filename}  
+**🔄 Conversion error:** {conversion_error}  
+**🔍 Original format:** {original_mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Try converting your file to PDF manually before uploading
+• Use online converters (Google Docs, PDF converters, etc.)
+• Save your document in a different format (like .txt for text content)
+• Ensure the file is not corrupted or password-protected
+
+**🔧 Alternative:** If your file contains mostly text, try copying the content and saving it as a .txt file.
+                        """.strip()
+                        return None, error_msg
+                    else:
+                        update_status("⚠️ PDF conversion failed, processing original file...", 20)
+                        file_bytes = file_content  # Fall back to original
             else:
                 file_bytes = file_content
         else:
@@ -339,8 +368,37 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
                     logger.info(f"Successfully converted downloaded file to PDF ({len(pdf_bytes)} bytes)")
                 else:
                     logger.warning(f"PDF conversion failed for {detected_filename}: {conversion_error}")
-                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
-                    file_bytes = resp.content  # Fall back to original
+                    # Check if the original file has a supported MIME type
+                    original_mime_type = get_mime_type(detected_filename)
+                    from file_security import GEMINI_SUPPORTED_MIME_TYPES
+                    if original_mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+                        # The original file is not supported and conversion failed
+                        from file_security import get_supported_file_types_display
+                        supported_types = get_supported_file_types_display()
+                        error_msg = f"""
+🚫 **File Conversion Failed**
+
+We couldn't convert the downloaded file to a supported format, and the original format is not supported by our AI system.
+
+**🔗 Downloaded from:** {file_url}  
+**📁 Filename:** {detected_filename}  
+**🔄 Conversion error:** {conversion_error}  
+**🔍 Original format:** {original_mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Try downloading and converting the file to PDF manually before uploading
+• Use a different URL that points to a supported file format
+• Check if the URL points to the actual file (not a webpage)
+
+**🔧 Alternative:** If the file contains mostly text, try saving its content as a .txt file and uploading that instead.
+                        """.strip()
+                        return None, error_msg
+                    else:
+                        update_status("⚠️ PDF conversion failed, processing original file...", 20)
+                        file_bytes = resp.content  # Fall back to original
             else:
                 file_bytes = resp.content
             update_status(f"✅ File downloaded successfully ({len(file_bytes)} bytes)", 20)
@@ -409,18 +467,78 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
             mime_type = get_mime_type(detected_filename or "unknown.bin")
             logger.info(f"Using MIME type: {mime_type} for file: {detected_filename}")
         
+        # Validate that the MIME type is supported by Gemini before proceeding
+        from file_security import GEMINI_SUPPORTED_MIME_TYPES, get_supported_file_types_display
+        if mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+            # Provide a user-friendly error message explaining supported file types
+            supported_types = get_supported_file_types_display()
+            error_msg = f"""
+🚫 **Unsupported File Type**
+
+The file you uploaded has a format that is not supported by our AI system.
+
+**📁 Your file:** {detected_filename or 'Unknown filename'}  
+**🔍 Detected format:** {mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Convert your file to PDF (recommended for best results)
+• Use a supported format like PNG, JPEG, MP3, MP4, or TXT
+• For office documents: save as PDF or use online converters
+• For unsupported formats: try converting to a text file (.txt) first
+
+**Need help?** Most file types can be converted online for free using tools like PDF converters or Google Docs.
+            """.strip()
+            
+            logger.error(f"Unsupported MIME type: {mime_type} for file: {detected_filename}")
+            return None, error_msg
+        
         # Generate content using Gemini API
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            config=types.GenerateContentConfig(
-                system_instruction=sys_ins,
-                response_mime_type="application/json",
-            ),
-            contents=[
-                types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
-                prompt,
-            ],
-        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-preview-05-20",
+                config=types.GenerateContentConfig(
+                    system_instruction=sys_ins,
+                    response_mime_type="application/json",
+                ),
+                contents=[
+                    types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+                    prompt,
+                ],
+            )
+        except Exception as api_error:
+            # Handle specific errors related to file processing or unsupported content
+            error_str = str(api_error).lower()
+            if any(keyword in error_str for keyword in ['mime', 'unsupported', 'format', 'invalid', 'content-type']):
+                # This is likely a file format/mime type related error
+                supported_types = get_supported_file_types_display()
+                error_msg = f"""
+🚫 **File Processing Error**
+
+There was an issue processing your file. This usually happens with unsupported or corrupted files.
+
+**📁 Your file:** {detected_filename or 'Unknown filename'}  
+**🔍 File format:** {mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Ensure your file is not corrupted or password-protected
+• Convert to PDF for best compatibility (recommended)
+• Try a different file format from the supported list
+• For office documents: export/save as PDF instead of uploading the original format
+
+**🔧 Technical details:** {str(api_error)[:100]}{'...' if len(str(api_error)) > 100 else ''}
+                """.strip()
+                
+                logger.error(f"File processing error for {detected_filename}: {api_error}")
+                return None, error_msg
+            else:
+                # Re-raise other API errors to be handled by the outer exception handler
+                raise api_error
 
         update_status(f"🧠 AI is analyzing content... (Est. time: {estimated_time})", 65)
         if not response.text:
