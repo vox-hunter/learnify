@@ -1,7 +1,7 @@
 import streamlit as st
 import json
-import sys # Add sys import
-import os # Add os import
+import sys  # Add sys import
+import os  # Add os import
 import random
 import time
 import datetime
@@ -9,37 +9,51 @@ import html
 import re
 
 def sanitize_inline(text: str) -> str:
-        """Return a safe HTML fragment for inline insertion.
-        Differences from earlier version:
-            * Disallowed tags (including stray closing divs) are removed instead of shown escaped
-            * Prevents leaking raw escaped container markup like `&lt;/div>`
-        Steps:
-            1. Unescape once
-            2. Strip script/style blocks
-            3. Remove comments
-            4. Keep only an allowlist of inline-safe tags; drop others entirely
-            5. Collapse leftover angle brackets from malformed tags
+    """Return a safe HTML fragment for inline insertion.
+
+    Changes:
+      - Fixed indentation issues.
+      - Removed blanket escaping of all angle brackets (which produced visible artifacts like '&gt;').
+      - Strips disallowed tags instead of escaping them.
+      - Cleans common leading artifact patterns left after tag stripping (e.g. stray quote + angle remnants).
+      - Keeps a conservative allowlist of inline-safe tags.
+    """
+    if not text:
+        return ""
+    try:
+        t = html.unescape(str(text))
+        t = re.sub(r'<\s*(script|style)[^>]*>.*?<\/\s*\1\s*>', '', t, flags=re.IGNORECASE | re.DOTALL)
+        t = re.sub(r'<!--.*?-->', '', t, flags=re.DOTALL)
+        allowed = {'b', 'strong', 'i', 'em', 'code', 'br', 'ul', 'ol', 'li', 'p', 'span', 'u', 'sub', 'sup', 'small'}
+
+        def repl(match):
+            full = match.group(0)
+            name = match.group(1).lower().lstrip('/')
+            return full if name in allowed else ''
+
+        t = re.sub(r'</?([a-zA-Z0-9]+)(?:\s+[^>]*)?>', repl, t)
+        t = re.sub(r'^["\']&gt;\s*', '', t)
+        t = re.sub(r'^["\']>\s*', '', t)
+        t = re.sub(r'\s{2,}', ' ', t).strip()
+        return t
+    except Exception:
+        return html.escape(str(text))
+
+# --- Artifact cleanup helper (targets stray leading characters like "&gt; or ">) ---
+_LEADING_ARTIFACT_RE = re.compile(r'^[\s]*(["\']?(?:&gt;|>))+\s*')
+
+def strip_leading_artifacts(text: str) -> str:
+        """Remove stray leading quote/greater-than escape artifacts left from prior escaping.
+
+        Examples removed:
+            "> What is photosynthesis?" -> "What is photosynthesis?"
+            "&gt; Explain X"           -> "Explain X"
+            "'&gt;Term"               -> "Term"
+        Safe: only trims if pattern matches at very start; leaves interior symbols intact.
         """
         if not text:
                 return ""
-        try:
-                t = html.unescape(str(text))
-                # Remove script/style blocks
-                t = re.sub(r'<\s*(script|style)[^>]*>.*?<\/\s*\1\s*>', '', t, flags=re.IGNORECASE | re.DOTALL)
-                # Remove HTML comments
-                t = re.sub(r'<!--.*?-->', '', t, flags=re.DOTALL)
-                allowed = { 'b','strong','i','em','code','br','ul','ol','li','p','span','u','sub','sup','small' }
-                def repl(match):
-                        full = match.group(0)
-                        name = match.group(1).lower().lstrip('/')
-                        return full if name in allowed else ''  # drop disallowed tag completely
-                t = re.sub(r'</?([a-zA-Z0-9]+)(?:\s+[^>]*)?>', repl, t)
-                # Remove any remaining naked angle brackets sequences
-                t = t.replace('<', '&lt;').replace('>', '&gt;')
-                return t
-        except Exception:
-                # Fallback: fully escape
-                return html.escape(str(text))
+        return _LEADING_ARTIFACT_RE.sub('', str(text))
 
 def safe_str_convert(value):
     """Safely convert any value to string for Streamlit text widgets"""
@@ -1440,7 +1454,11 @@ def display_course_overview(course_data, course_id):
         </div>
         """, unsafe_allow_html=True)
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Removed an extra unmatched closing </div> that caused stray characters ("'>") to appear
+    # before each question due to malformed DOM structure. Each question card div is already
+    # properly opened and closed inside the loop above, so this additional closing tag was
+    # superfluous and produced rendering artifacts.
+    # (Previously: st.markdown('</div>', unsafe_allow_html=True))
     
     # Memory strength warning if applicable
     if show_memory_tip and memory_strength < 5:
@@ -2142,11 +2160,10 @@ def display_question(question_item, section_key, question_idx):
     </div>
     """, unsafe_allow_html=True)
 
-    # Display question text (same rendering for now; structure kept for future differentiation)
-    if question_type in ["fill_in_the_blank", "fill in the blank"]:
-        st.markdown(f'<div class="question-text">{sanitize_inline(question_text_full)}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="question-text">{sanitize_inline(question_text_full)}</div>', unsafe_allow_html=True)
+    # Clean leading artifacts then sanitize for safe inline HTML
+    cleaned_question = strip_leading_artifacts(question_text_full)
+    safe_question_html = sanitize_inline(cleaned_question)
+    st.markdown(f'<div class="question-text">{safe_question_html}</div>', unsafe_allow_html=True)
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices
