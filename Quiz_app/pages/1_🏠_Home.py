@@ -5,6 +5,8 @@ import streamlit as st
 import sys
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
+from utils.background_jobs import start_course_generation, get_job, cleanup_finished
+from utils.lazy_imports import lazy_import
 import io
 
 # Add parent directory to path to import modules
@@ -751,30 +753,135 @@ def main():
     # Check if user can generate courses
     can_generate = check_course_limit()
     
-    if st.session_state.get('is_generating_course', False):
-        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")
-        show_generation_progress()
+    # Background async job handling
+    active_job_id = st.session_state.get('active_course_job_id')
+    if active_job_id:
+        job = get_job(active_job_id)
+        if job:
+            progress = job.get('progress', 0)
+            msg = job.get('message', 'Working...')
+            st.progress(progress/100 if progress else 0)
+            status_color = 'info'
+            if job.get('status') == 'error':
+                st.error(f"❌ {job.get('error', msg)}")
+                st.session_state.pop('active_course_job_id', None)
+            elif job.get('status') == 'done':
+                st.success('✅ Course generated. Finalizing...')
+                # Store result for post-save processing
+                st.session_state.generated_course_result = job.get('result')
+            else:
+                st.info(f"{msg} ({progress}%)")
+        else:
+            st.info("Initializing generation...")
     elif can_generate:
-        # Dynamic label based on whether user provided input
         has_input = bool(uploaded_file or pdf_url)
         btn_label = "✨ Generate Course" if has_input else "📁 Upload a file or enter a URL"
-        # Disable button if no input yet
         if st.button(btn_label, type="primary", key="generate_btn", disabled=not has_input):
-            # Double-check course limit before generating
             if not check_course_limit():
                 st.error("🔐 Course limit reached. Please login to continue.")
                 st.rerun()
-            # Store file data in session state for progress function
-            st.session_state.current_uploaded_file = uploaded_file
-            st.session_state.current_pdf_url = pdf_url
-            st.session_state.is_generating_course = True
-            st.rerun()
+            # Launch background job
+            try:
+                backend = lazy_import('local_backend')
+                file_bytes = None
+                file_stream = None
+                if uploaded_file:
+                    # Decide between in-memory read vs streaming based on size threshold (2MB)
+                    try:
+                        file_size = len(uploaded_file.getbuffer())
+                    except Exception:
+                        # Fallback to reading to determine size
+                        data_peek = uploaded_file.read()
+                        file_size = len(data_peek)
+                        uploaded_file.seek(0)
+                    STREAM_THRESHOLD = 2 * 1024 * 1024  # 2MB
+                    if file_size > STREAM_THRESHOLD:
+                        file_stream = uploaded_file  # let backend stream chunks
+                    else:
+                        file_bytes = uploaded_file.read()
+                job_id = start_course_generation(
+                    file_content=file_bytes,
+                    file_stream=file_stream,
+                    file_url=pdf_url if (pdf_url and not uploaded_file) else None,
+                    filename=uploaded_file.name if uploaded_file else (os.path.basename(pdf_url) if pdf_url else None),
+                    user_context={'username': st.session_state.get('username')},
+                    generate_course_fn=backend.generate_course
+                )
+                st.session_state.active_course_job_id = job_id
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to start background job: {e}")
     else:
         st.warning("⚠️ You've reached the limit of 3 guest courses. Please login for unlimited access.")
         if st.button("🔐 Go to Login", type="primary"):
             st.switch_page("pages/2_🔐_Login.py")
     
     # Sidebar is now handled by main.py for consistency
+
+    # Post-job save & redirect logic
+    if st.session_state.get('generated_course_result') and not st.session_state.get('course_save_in_progress'):
+        st.session_state.course_save_in_progress = True
+        course_data = st.session_state.pop('generated_course_result')
+        try:
+            course_title = getattr(course_data, 'course_title', None) or (
+                course_data.get('course_title') if isinstance(course_data, dict) else 'Generated Course')
+            sections_to_save = getattr(course_data, 'sections', None) or (
+                course_data.get('sections') if isinstance(course_data, dict) else course_data)
+            generated_course_id = None
+            if MONGO_AVAILABLE:
+                from mongo_course_manager import get_course_manager, get_session_id
+                cm = get_course_manager()
+                is_guest = not st.session_state.get('authentication_status', False)
+                creator = st.session_state.get('username') if not is_guest else get_session_id()
+                generated_course_id, save_err = cm.save_course(
+                    course_data=sections_to_save,
+                    course_title=course_title,
+                    creator=creator,
+                    is_guest=is_guest,
+                    session_id=None if not is_guest else creator,
+                    is_public=True
+                )
+                if save_err:
+                    st.error(f"❌ Failed to save course: {save_err}")
+                else:
+                    st.query_params['course_id'] = str(generated_course_id)
+                    st.session_state.current_course_id = generated_course_id
+                    # Invalidate / update course list cache so sidebar reflects new course immediately
+                    try:
+                        from utils.navigation_cache import (
+                            get_cached_course_list,
+                            cache_course_list,
+                            invalidate_course_list_cache,
+                        )
+                        existing = get_cached_course_list(force=False)
+                        if existing is not None:
+                            # Append lightweight doc if not already present
+                            gid_str = str(generated_course_id)
+                            if not any(str(c.get('_id') or c.get('id') or c.get('course_id')) == gid_str for c in existing):
+                                minimal_doc = {
+                                    '_id': generated_course_id,
+                                    'title': course_title,
+                                    'is_public': True,
+                                }
+                                new_list = list(existing) + [minimal_doc]
+                                cache_course_list(new_list)
+                        else:
+                            # Force refetch on next sidebar build
+                            invalidate_course_list_cache()
+                    except Exception:
+                        pass
+            if generated_course_id:
+                if not st.session_state.get('authentication_status'):
+                    increment_guest_course_count()
+                st.session_state.pop('active_course_job_id', None)
+                st.session_state.pop('course_save_in_progress', None)
+                cleanup_finished()
+                st.switch_page('pages/3_Course.py')
+            else:
+                st.session_state.pop('course_save_in_progress', None)
+        except Exception as e:
+            st.error(f"❌ Post-processing error: {e}")
+            st.session_state.pop('course_save_in_progress', None)
 
 def show_generation_progress():
     """Show course generation progress and start generation"""

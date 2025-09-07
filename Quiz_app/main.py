@@ -758,8 +758,18 @@ with st.sidebar:
                                         if ok:
                                             # Update caches immediately so UI reflects change without full reload
                                             remove_course_from_cache(cid)
+                                            # Also mutate in-flight list so current loop reflects removal without rerun
+                                            try:
+                                                _courses_list[:] = [c for c in _courses_list if str(c.get('_id') or c.get('id') or c.get('course_id')) != cid]
+                                            except Exception:
+                                                pass
+                                            # Invalidate list cache so next build re-fetches if needed
+                                            try:
+                                                from utils.navigation_cache import invalidate_course_list_cache
+                                                invalidate_course_list_cache()
+                                            except Exception:
+                                                pass
                                             st.success("Course deleted successfully!")
-                                            # Force immediate sidebar refresh by clearing cached list display container
                                             st.rerun()
                                         else:
                                             st.error(f"Failed: {msg}")

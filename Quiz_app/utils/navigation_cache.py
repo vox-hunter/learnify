@@ -71,6 +71,12 @@ def cache_course_list(courses) -> None:
     st.session_state.course_list_cache = {"data": courses, "ts": time.time()}
 
 
+def invalidate_course_list_cache() -> None:
+    """Force the next access to re-fetch course list from DB by clearing cache."""
+    _ensure_structures()
+    st.session_state.course_list_cache = {"data": None, "ts": 0.0}
+
+
 def purge_stale_course_cache(valid_ids: Optional[List[str]] = None) -> None:
     _ensure_structures()
     if not valid_ids:
