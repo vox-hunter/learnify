@@ -6,7 +6,7 @@ This script handles navigation and session management for the Learnify app.
 import streamlit as st
 import os
 import sys
-import time
+from utils.lazy_imports import import_optional, prefetch_modules
 
 # --- Helper Functions ---
 def truncate_course_name(course_name, max_words=4):
@@ -21,8 +21,8 @@ def truncate_course_name(course_name, max_words=4):
     if len(words) <= max_words:
         return course_name, False
     
-    truncated = " ".join(words[:max_words]) + "..."
-    return truncated, True
+    truncated_result = " ".join(words[:max_words]) + "..."
+    return truncated_result, True
 
 def escape_for_javascript(text):
     """Escape special characters for safe JavaScript string inclusion"""
@@ -106,6 +106,10 @@ st.markdown("""
         font-weight: 500 !important;
         transition: all 0.3s ease !important;
     }
+    
+        /* Preserve original casing for course buttons in sidebar */
+        [data-testid="stSidebar"] .stButton > button,
+        [data-testid="stSidebarContent"] .stButton > button { text-transform: none !important; }
     
     .stSidebar button:hover,
     .stSidebar .stButton > button:hover,
@@ -393,13 +397,13 @@ window.addEventListener('load', enhanceSidebar);
 # Add parent directory to path to allow imports from Quiz_app
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from mongo_auth import MongoAuthManager
-    from mongo_course_manager import get_course_manager
-    from streamlit_cookies_manager import EncryptedCookieManager
-    MONGO_AVAILABLE = True
-except ImportError:
-    MONGO_AVAILABLE = False
+MongoAuthManager = import_optional("mongo_auth:MongoAuthManager")
+get_course_manager_fn = import_optional("mongo_course_manager:get_course_manager")
+EncryptedCookieManagerClass = import_optional("streamlit_cookies_manager:EncryptedCookieManager")
+MONGO_AVAILABLE = all([MongoAuthManager, get_course_manager_fn, EncryptedCookieManagerClass])
+
+# Warm heavy modules in background (non-blocking)
+prefetch_modules(["mongo_auth", "mongo_course_manager", "streamlit_cookies_manager"])  # warm-up
 
 # --- Auth & Cookie Management (No UI Rendering) ---
 def initialize_cookie_manager():
@@ -407,8 +411,9 @@ def initialize_cookie_manager():
     try:
         # Use only Streamlit secrets
         cookie_key = st.secrets.get("COOKIE_ENCRYPTION_KEY", "learnify-secure-key-2024-change-for-production")
-        
-        cookie_manager = EncryptedCookieManager(
+        if EncryptedCookieManagerClass is None:
+            raise ImportError("EncryptedCookieManager dependency not available")
+        cookie_manager = EncryptedCookieManagerClass(
             password=cookie_key,
             prefix="learnify/auth",
         )
@@ -434,6 +439,8 @@ if MONGO_AVAILABLE:
     def get_auth_manager():
         if "auth_manager" not in st.session_state:
             try:
+                if MongoAuthManager is None:
+                    raise ImportError("MongoAuthManager not available")
                 st.session_state.auth_manager = MongoAuthManager()
             except (ImportError, ConnectionError, ValueError):
                 st.session_state.auth_manager = None
@@ -514,9 +521,9 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
         
         if is_google_oauth_configured():
             google_user_info = handle_oauth_callback(query_params)
-            if google_user_info:
+            if google_user_info and manager:
                 # Check if user exists with this Google ID
-                existing_user = manager.find_user_by_google_id(google_user_info['google_id'])
+                existing_user = manager.find_user_by_google_id(google_user_info['google_id']) if manager else None
                 if existing_user:
                     # User exists, log them in
                     st.session_state['authentication_status'] = True
@@ -545,11 +552,13 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
                     base_username = email.split('@')[0] if email else name.lower().replace(' ', '')
                     
                     # Create the new Google user
-                    user_id, error_msg, final_username = manager.create_google_user(
+                    user_id = error_msg = final_username = None
+                    if manager:
+                        user_id, error_msg, final_username = manager.create_google_user(
                         google_user_info, 
                         base_username,
                         marketing_consent=False  # Default to false, user can change later
-                    )
+                        )
                     
                     if user_id and final_username:
                         # Successfully created, now log them in
@@ -588,13 +597,28 @@ if st.session_state.get('authentication_status'):
     login_page = st.Page("pages/2_🔐_Login.py", title="Account", icon="👤")
 else:
     login_page = st.Page("pages/2_🔐_Login.py", title="Login", icon="🔐")
-    
+
 course_page = st.Page("pages/3_Course.py", title="Course")
 privacy_page = st.Page("pages/4_Privacy.py", title="Privacy Policy", icon="🔒")
 terms_page = st.Page("pages/5_Terms.py", title="Terms & Conditions", icon="📋")
 
+# Build navigation list (always include login_page so switching works)
+nav_pages = [home_page, login_page, course_page, privacy_page, terms_page]
+
 # --- Navigation Control ---
-pg = st.navigation([home_page, login_page, course_page, privacy_page, terms_page])
+pg = st.navigation(nav_pages)
+
+# Hide the Account/Login link when authenticated
+if st.session_state.get('authentication_status'):
+    st.markdown(
+        """
+        <style>
+        /* Hide sidebar nav link pointing to /Login when user authenticated */
+        [data-testid="stSidebarNav"] a[href*="/Login"] {display: none !important;}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- Streamlit-Native Multipage Routing ---
 # This implementation works with hosting platforms like Render, Streamlit Cloud, etc.
@@ -666,167 +690,64 @@ with st.sidebar:
     
     if st.session_state.get('authentication_status') and MONGO_AVAILABLE:
         st.header("Courses")
-        course_manager = get_course_manager()
-        if course_manager:
-            courses, error = course_manager.get_user_courses(st.session_state['username'])
+        cm = get_course_manager_fn() if get_course_manager_fn else None
+        if cm:
+            courses, error = cm.get_user_courses(st.session_state['username'])
             if error:
                 st.error(error)
-            
-            if courses:
-                # Calculate dynamic height based on number of courses
-                num_courses = len(courses)
-                
-                # Each course item takes roughly 50px (button + spacing)
-                # Add some padding and account for menu items
-                base_height = num_courses * 50 + 20  # 20px for padding
-                
-                # Set minimum and maximum heights to keep it reasonable
-                min_height = 60   # Minimum for at least one course
-                max_height = 400  # Maximum to prevent overly tall sidebar
-                
-                # Use dynamic height, but only add container if more than 6 courses
-                dynamic_height = max(min_height, min(base_height, max_height))
-                
-                if num_courses > 6:
-                    # Use scrollable container for many courses
-                    with st.container(height=dynamic_height):
-                        for course in courses:
-                            course_id_val = course.get('_id') or course.get('id') or course.get('course_id')
-                            if not course_id_val:
-                                continue
-
-                            course_id = str(course_id_val)
-                            course_title = course.get('title', 'Untitled Course')
-                            truncated_title, is_truncated = truncate_course_name(course_title)
-                            
-                            # Register course title for tooltip if truncated
-                            if is_truncated:
-                                escaped_truncated = escape_for_javascript(truncated_title)
-                                escaped_full = escape_for_javascript(course_title)
-                                st.markdown(f"""
-                                <script>
-                                if (typeof window.courseTitles === 'undefined') {{
-                                    window.courseTitles = new Map();
-                                }}
-                                window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
-                                </script>
-                                """, unsafe_allow_html=True)
-                            
-                            col1, col2 = st.columns([0.8, 0.2])
-                            with col1:
-                                if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
-                                    # Set the course ID in session state and query params
-                                    st.session_state.current_course_id = course_id
-                                    st.query_params.course_id = course_id
-                                    # Navigate to the course page using string path (like old version)
-                                    st.switch_page("pages/3_Course.py")
-                            with col2:
-                                with st.popover("⋮", use_container_width=True):
-                                    delete_key = f"delete_{course_id}"
-                                    if st.button("Delete", key=delete_key, use_container_width=True):
-                                        success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                        if success:
-                                            st.success("Course deleted successfully!")
-                                            st.rerun()
-                                        else:
-                                            st.error(f"Failed to delete course: {msg}")
-                                            st.rerun()
-                                    
-                                    share_key = f"share_{course_id}"
-                                    is_public = course.get('is_public', False)
-                                    share_label = "Make Private" if is_public else "Make Public"
-                                    if st.button(share_label, key=share_key, use_container_width=True):
-                                        # Use session state to track privacy update to avoid double processing
-                                        if share_key not in st.session_state:
-                                            st.session_state[share_key] = True
-                                            success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
-                                            if success:
-                                                st.success("Privacy updated.")
-                                                # Clear the update flag after successful update
-                                                del st.session_state[share_key]
-                                                st.rerun()
-                                            else:
-                                                st.error(msg)
-                                                del st.session_state[share_key]
-                else:
-                    # No container needed for few courses - let them expand naturally
-                    for course in courses:
-                        course_id_val = course.get('_id') or course.get('id') or course.get('course_id')
-                        if not course_id_val:
+            elif courses:
+                num = len(courses)
+                h = max(60, min(num * 50 + 20, 400))
+                wrapper = st.container(height=h) if num > 6 else st.container()
+                with wrapper:
+                    for c in courses:
+                        cid_raw = c.get('_id') or c.get('id') or c.get('course_id')
+                        if not cid_raw:
                             continue
-
-                        course_id = str(course_id_val)
-                        course_title = course.get('title', 'Untitled Course')
-                        truncated_title, is_truncated = truncate_course_name(course_title)
-                        
-                        # Register course title for tooltip if truncated
-                        if is_truncated:
-                            escaped_truncated = escape_for_javascript(truncated_title)
-                            escaped_full = escape_for_javascript(course_title)
+                        cid = str(cid_raw)
+                        title = c.get('title', 'Untitled Course')
+                        trunc, is_trunc = truncate_course_name(title)
+                        if is_trunc:
                             st.markdown(f"""
                             <script>
-                            if (typeof window.courseTitles === 'undefined') {{
-                                window.courseTitles = new Map();
-                            }}
-                            window.courseTitles.set("{escaped_truncated}", "{escaped_full}");
+                            if (typeof window.courseTitles === 'undefined') {{ window.courseTitles = new Map(); }}
+                            window.courseTitles.set("{escape_for_javascript(trunc)}", "{escape_for_javascript(title)}");
                             </script>
                             """, unsafe_allow_html=True)
-                        
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
-                            if st.button(truncated_title, key=f"nav_{course_id}", use_container_width=True):
-                                # Store debug info in session state so it persists
-                                # Set the course ID in session state and query params
-                                st.session_state.current_course_id = course_id
-                                st.query_params.course_id = course_id
-                                # Navigate to the course page using string path (like old version)
+                            if st.button(trunc, key=f"nav_{cid}", use_container_width=True):
+                                st.session_state.current_course_id = cid
+                                st.query_params.course_id = cid
                                 st.switch_page("pages/3_Course.py")
                         with col2:
                             with st.popover("⋮", use_container_width=True):
-                                delete_key = f"delete_{course_id}"
-                                if st.button("Delete", key=delete_key, use_container_width=True):
-                                    success, msg = course_manager.delete_course(course_id, st.session_state['username'])
-                                    if success:
+                                if st.button("Delete", key=f"delete_{cid}", use_container_width=True):
+                                    ok, msg = cm.delete_course(cid, st.session_state['username'])
+                                    if ok:
                                         st.success("Course deleted successfully!")
-                                        st.rerun()
                                     else:
-                                        st.error(f"Failed to delete course: {msg}")
-                                        st.rerun()
-                                
-                                share_key = f"share_{course_id}"
-                                is_public = course.get('is_public', False)
-                                share_label = "Make Private" if is_public else "Make Public"
-                                if st.button(share_label, key=share_key, use_container_width=True):
-                                    # Use session state to track privacy update to avoid double processing
-                                    if share_key not in st.session_state:
-                                        st.session_state[share_key] = True
-                                        success, msg = course_manager.update_course_privacy(course_id, st.session_state['username'], not is_public)
-                                        if success:
-                                            st.success("Privacy updated.")
-                                            # Clear the update flag after successful update
-                                            del st.session_state[share_key]
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
-                                            del st.session_state[share_key]
+                                        st.error(f"Failed: {msg}")
+                                    st.rerun()
+                                is_public = c.get('is_public', False)
+                                label = "Make Private" if is_public else "Make Public"
+                                if st.button(label, key=f"share_{cid}", use_container_width=True):
+                                    ok, msg = cm.update_course_privacy(cid, st.session_state['username'], not is_public)
+                                    if ok:
+                                        st.success("Privacy updated.")
+                                    else:
+                                        st.error(msg)
+                                    st.rerun()
             else:
                 st.info("No courses yet.")
     
     st.markdown('<div style="margin-top: auto;"></div>', unsafe_allow_html=True)
     with st.container():
         if st.session_state.get('authentication_status'):
-            with st.popover(f"👤 {st.session_state.get('name', st.session_state.get('username'))}", use_container_width=True):
-                if st.button("Logout", use_container_width=True):
-                    logout_user()
-                
-                # Only show Reset Password for non-Google users
-                if MONGO_AVAILABLE:
-                    current_user = manager.find_user_by_username(st.session_state['username'])
-                    is_google_user = current_user and current_user.get('google_linked', False)
-                    
-                    if not is_google_user:
-                        if st.button("Reset Password", use_container_width=True, key="sidebar_reset_password"):
-                            st.switch_page(login_page)
+            # Direct Account button (no dropdown) -> navigate to account page
+            display_name = st.session_state.get('name', st.session_state.get('username'))
+            if st.button(f"👤 {display_name}", use_container_width=True, key="account_button"):
+                st.switch_page(login_page)
         else:
             if st.button("Sign up / Login", icon="🔐", use_container_width=True):
                 st.switch_page(login_page)

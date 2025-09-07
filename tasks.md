@@ -1,4 +1,4 @@
-- [ ] 1. Implement lazy import system for heavy dependencies
+- [x] 1. Implement lazy import system for heavy dependencies (lazy import utility added, main & frontend updated)
 
   - Create `Quiz_app/utils/lazy_imports.py` with asynchronous module loading
   - Replace synchronous imports in `main.py` and `frontend.py` with lazy loading

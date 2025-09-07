@@ -6,6 +6,40 @@ import random
 import time
 import datetime
 import html
+import re
+
+def sanitize_inline(text: str) -> str:
+        """Return a safe HTML fragment for inline insertion.
+        Differences from earlier version:
+            * Disallowed tags (including stray closing divs) are removed instead of shown escaped
+            * Prevents leaking raw escaped container markup like `&lt;/div>`
+        Steps:
+            1. Unescape once
+            2. Strip script/style blocks
+            3. Remove comments
+            4. Keep only an allowlist of inline-safe tags; drop others entirely
+            5. Collapse leftover angle brackets from malformed tags
+        """
+        if not text:
+                return ""
+        try:
+                t = html.unescape(str(text))
+                # Remove script/style blocks
+                t = re.sub(r'<\s*(script|style)[^>]*>.*?<\/\s*\1\s*>', '', t, flags=re.IGNORECASE | re.DOTALL)
+                # Remove HTML comments
+                t = re.sub(r'<!--.*?-->', '', t, flags=re.DOTALL)
+                allowed = { 'b','strong','i','em','code','br','ul','ol','li','p','span','u','sub','sup','small' }
+                def repl(match):
+                        full = match.group(0)
+                        name = match.group(1).lower().lstrip('/')
+                        return full if name in allowed else ''  # drop disallowed tag completely
+                t = re.sub(r'</?([a-zA-Z0-9]+)(?:\s+[^>]*)?>', repl, t)
+                # Remove any remaining naked angle brackets sequences
+                t = t.replace('<', '&lt;').replace('>', '&gt;')
+                return t
+        except Exception:
+                # Fallback: fully escape
+                return html.escape(str(text))
 
 def safe_str_convert(value):
     """Safely convert any value to string for Streamlit text widgets"""
@@ -144,9 +178,9 @@ def is_admin_user():
     username = st.session_state.get('username', '')
     email = st.session_state.get('email', '')
     
-    admin_usernames = ["vox"]
-    admin_emails = ["vidyutsanthosh4@gmail.com"]
-    
+    admin_usernames = ["vidyut"]
+    admin_emails = ["vidyuts@gardenbangkok.com"]
+
     return username in admin_usernames or email in admin_emails
 
 def mark_all_section_questions_correct(course_data, section_index, course_id):
@@ -824,7 +858,7 @@ def main():
         except (ValueError, TypeError):
             pass
     
-    st.markdown(f'<h1 class="course-title">{html.escape(course_title)}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="course-title">{sanitize_inline(course_title)}</h1>', unsafe_allow_html=True)
     
     # Enhanced course metadata with modern styling
     total_sections = len(course_data)
@@ -1349,7 +1383,7 @@ def display_course_overview(course_data, course_id):
     st.markdown(f"""
     <div style="text-align: center; margin: 1rem 0;">
         <h2 style="color: #e2e8f0; font-size: 1.5rem; font-weight: 600;">
-            {html.escape(course_title)}
+            {sanitize_inline(course_title)}
         </h2>
     </div>
     """, unsafe_allow_html=True)
@@ -1530,60 +1564,65 @@ def display_course_completion_stats(course_data, course_id):
 
     # Compact completion display with all info in one section
     # Build lightning icons first
-    lightning_icons = []
-    for i in range(5):
-        if i < memory_strength:
-            lightning_icons.append('<span style="font-size: 1.5rem; color: #ffd700; text-shadow: 0 0 8px #ffd700; margin: 0 2px;">⚡</span>')
-        else:
-            lightning_icons.append('<span style="font-size: 1.5rem; color: #4a5568; margin: 0 2px;">⚪</span>')
-    
-    lightning_html = ''.join(lightning_icons)
-    
-    completion_html = f"""<div class="completion-container">
-        <div style="text-align: center; padding: 1rem;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
-                <div style="font-size: 2.5rem;">{emoji}</div>
-                <div>
-                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">{completion_title}</h1>
-                    <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
-                </div>
+        # --- Build memory strength lightning icons (visual only, not user-supplied) ---
+        lightning_icons = []
+        for i in range(5):
+                if i < memory_strength:
+                        lightning_icons.append('<span style="font-size:1.5rem;color:#ffd700;text-shadow:0 0 8px #ffd700;margin:0 2px;">⚡</span>')
+                else:
+                        lightning_icons.append('<span style="font-size:1.5rem;color:#4a5568;margin:0 2px;">⚪</span>')
+        lightning_html = ''.join(lightning_icons)
+
+        # Status text (internal strings – safe to interpolate directly)
+        status_msg = "Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"
+        if course_ended_early:
+                status_msg += " • Memory strength not upgraded (ended early)"
+
+        # Consolidated HTML template to avoid stray standalone closing tags rendering as raw text
+        completion_html = f"""
+<div class="completion-container">
+    <div style="text-align:center;padding:1rem;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;">
+            <div style="font-size:2.5rem;">{emoji}</div>
+            <div>
+                <h1 style="font-size:2rem;font-weight:700;background:linear-gradient(45deg,#06b6d4,#0ea5e9,#f093fb);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 3s ease infinite;margin:0;">{completion_title}</h1>
+                <div style="font-size:1.1rem;color:{color};font-weight:600;margin-top:0.5rem;">{message}</div>
             </div>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
-                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
-                    <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
-                    <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
-                </div>
-                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #48bb78;">{correct_answers}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Correct</div>
-                    </div>
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #06b6d4;">{total_questions}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Total</div>
-                    </div>
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #f56565;">{total_questions - correct_answers}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Missed</div>
-                    </div>
-                </div>
+        </div>
+        <div style="display:flex;justify-content:center;align-items:center;gap:2rem;margin:1.5rem 0;flex-wrap:wrap;">
+            <div style="background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(8,145,178,0.2));border:2px solid {color}40;border-radius:16px;padding:1rem 1.5rem;min-width:120px;">
+                <div class="completion-score" style="font-size:2.5rem;margin:0;">{score_percentage:.1f}%</div>
+                <div style="font-size:0.9rem;color:#a0aec0;margin-top:0.25rem;">Final Score</div>
             </div>
-            <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem; color: #06b6d4; font-weight: 600;">🧠 Memory Strength:</span>
-                    {lightning_html}
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#48bb78;">{correct_answers}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Correct</div>
                 </div>
-                <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
-                    Level {memory_strength}/5 • {"Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"}
-                    {" • Memory strength not upgraded (ended early)" if course_ended_early else ""}
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#06b6d4;">{total_questions}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Total</div>
+                </div>
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#f56565;">{total_questions - correct_answers}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Missed</div>
                 </div>
             </div>
         </div>
-    </div>"""
-    
-    st.markdown(completion_html, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        <div style="background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,165,0,0.1));border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:1rem;margin:1rem 0;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin-bottom:0.5rem;">
+                <span style="font-size:1.2rem;color:#06b6d4;font-weight:600;">🧠 Memory Strength:</span>
+                {lightning_html}
+            </div>
+            <div style="text-align:center;font-size:0.9rem;color:#a0aec0;">
+                Level {memory_strength}/5 • {status_msg}
+            </div>
+        </div>
+    </div>
+</div>
+""".strip()
+
+        st.markdown(completion_html, unsafe_allow_html=True)
 
     # Add specific styling for action buttons
     st.markdown("""
@@ -2045,7 +2084,7 @@ def display_section_content(section_data, section_key):
                     font-size: 1.5rem;
                     font-weight: 600;
                 ">
-                    🔸 {html.escape(sub_title)}
+                    🔸 {sanitize_inline(sub_title)}
                 </h3>
             """, unsafe_allow_html=True)
             
@@ -2089,12 +2128,11 @@ def display_question(question_item, section_key, question_idx):
     </div>
     """, unsafe_allow_html=True)
 
-    # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
-    if question_type not in ["fill_in_the_blank", "fill in the blank"]:
-        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
+    # Display question text (same rendering for now; structure kept for future differentiation)
+    if question_type in ["fill_in_the_blank", "fill in the blank"]:
+        st.markdown(f'<div class="question-text">{sanitize_inline(question_text_full)}</div>', unsafe_allow_html=True)
     else:
-        # For fill-in-the-blank, display the question text in the card as well
-        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="question-text">{sanitize_inline(question_text_full)}</div>', unsafe_allow_html=True)
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices
