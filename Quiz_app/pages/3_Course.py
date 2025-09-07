@@ -81,6 +81,15 @@ try:
 except ImportError:
     MONGO_AVAILABLE = False
 
+# Navigation cache utilities (lightweight)
+try:
+    from utils.navigation_cache import get_cached_course, cache_course
+except Exception:  # Fallback if not present
+    def get_cached_course(_):
+        return None
+    def cache_course(_, __):
+        return None
+
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
 if cookies is None:
@@ -1003,6 +1012,10 @@ def load_course_data(course_id):
     """Load course data by ID from MongoDB or session state"""
     # First try to load from MongoDB if available
     if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:  # MongoDB ObjectId is 24 chars
+        # First see if we already have it cached from navigation prefetch
+        cached = get_cached_course(course_id)
+        if cached is not None:
+            return cached
         # Check if user can access this course
         user_identifier = st.session_state.get('username')
         session_id = get_session_id() if not user_identifier else None
@@ -1011,6 +1024,7 @@ def load_course_data(course_id):
         course_content, error = _load_course_from_mongo(course_id, user_identifier, session_id)
         
         if course_content and not error:
+            cache_course(course_id, course_content)
             return course_content
         elif error:
             st.error(f"❌ Error loading course: {error}")

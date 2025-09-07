@@ -34,12 +34,14 @@
   - Batch database operations where possible to reduce round trips
   - _Requirements: 3.4, 6.4, 8.1, 8.2, 8.4_
 
-- [ ] 7. Optimize page transitions and navigation
-  - Implement client-side routing optimization for faster transitions
-  - Add preloading for likely next pages based on user behavior
-  - Optimize session state management to prevent unnecessary re-renders
-  - Cache navigation state and course data for instant switching
+- [x] 7. Optimize page transitions and navigation
+  - Implemented lightweight navigation cache (`utils/navigation_cache.py`)
+  - Added prediction + pre-warm of likely next pages & course list
+  - Cached per-course data to eliminate duplicate DB fetch on revisit
+  - Session state flags trimmed (reuse existing logic) to reduce reruns
+  - Sidebar course list cached w/ TTL + stale purge
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
+
 
 - [ ] 9. Implement mobile-specific performance optimizations
   - Add responsive loading strategies for mobile devices

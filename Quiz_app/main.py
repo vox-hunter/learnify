@@ -7,6 +7,7 @@ import streamlit as st
 import os
 import sys
 from utils.lazy_imports import import_optional, prefetch_modules
+from utils.navigation_cache import record_page_visit, cache_course_list, get_cached_course_list, purge_stale_course_cache, warm_next_pages, remove_course_from_cache
 
 # --- Helper Functions ---
 def truncate_course_name(course_name, max_words=4):
@@ -607,6 +608,28 @@ nav_pages = [home_page, login_page, course_page, privacy_page, terms_page]
 
 # --- Navigation Control ---
 pg = st.navigation(nav_pages)
+current_page_title = getattr(pg, 'title', None) or getattr(pg, 'name', None)
+if current_page_title:
+    record_page_visit(current_page_title)
+
+# Warm likely next pages (lightweight, no blocking UI)
+def _prefetch(page_name: str):
+    # For now just touch course manager for Course page prediction
+    if page_name == 'Course' and get_course_manager_fn:
+        try:
+            _cm_local = get_course_manager_fn()
+            if _cm_local and st.session_state.get('authentication_status'):
+                _cached_courses = get_cached_course_list()
+                if _cached_courses is None:
+                    _courses, _err = _cm_local.get_user_courses(st.session_state['username'])
+                    if not _err:
+                        cache_course_list(_courses)
+                        valid_ids = [str(c.get('_id') or c.get('id') or c.get('course_id')) for c in _courses]
+                        purge_stale_course_cache(valid_ids)
+        except (RuntimeError, ValueError):
+            pass
+
+warm_next_pages(_prefetch)
 
 # Hide the Account/Login link when authenticated
 if st.session_state.get('authentication_status'):
@@ -690,56 +713,69 @@ with st.sidebar:
     
     if st.session_state.get('authentication_status') and MONGO_AVAILABLE:
         st.header("Courses")
-        cm = get_course_manager_fn() if get_course_manager_fn else None
-        if cm:
-            courses, error = cm.get_user_courses(st.session_state['username'])
-            if error:
-                st.error(error)
-            elif courses:
-                num = len(courses)
-                h = max(60, min(num * 50 + 20, 400))
-                wrapper = st.container(height=h) if num > 6 else st.container()
-                with wrapper:
-                    for c in courses:
-                        cid_raw = c.get('_id') or c.get('id') or c.get('course_id')
-                        if not cid_raw:
-                            continue
-                        cid = str(cid_raw)
-                        title = c.get('title', 'Untitled Course')
-                        trunc, is_trunc = truncate_course_name(title)
-                        if is_trunc:
-                            st.markdown(f"""
-                            <script>
-                            if (typeof window.courseTitles === 'undefined') {{ window.courseTitles = new Map(); }}
-                            window.courseTitles.set("{escape_for_javascript(trunc)}", "{escape_for_javascript(title)}");
-                            </script>
-                            """, unsafe_allow_html=True)
-                        col1, col2 = st.columns([0.8, 0.2])
-                        with col1:
-                            if st.button(trunc, key=f"nav_{cid}", use_container_width=True):
-                                st.session_state.current_course_id = cid
-                                st.query_params.course_id = cid
-                                st.switch_page("pages/3_Course.py")
-                        with col2:
-                            with st.popover("⋮", use_container_width=True):
-                                if st.button("Delete", key=f"delete_{cid}", use_container_width=True):
-                                    ok, msg = cm.delete_course(cid, st.session_state['username'])
-                                    if ok:
-                                        st.success("Course deleted successfully!")
-                                    else:
-                                        st.error(f"Failed: {msg}")
-                                    st.rerun()
-                                is_public = c.get('is_public', False)
-                                label = "Make Private" if is_public else "Make Public"
-                                if st.button(label, key=f"share_{cid}", use_container_width=True):
-                                    ok, msg = cm.update_course_privacy(cid, st.session_state['username'], not is_public)
-                                    if ok:
-                                        st.success("Privacy updated.")
-                                    else:
-                                        st.error(msg)
-                                    st.rerun()
-            else:
-                st.info("No courses yet.")
+        _cm_sidebar = get_course_manager_fn() if get_course_manager_fn else None
+        if _cm_sidebar:
+            try:
+                # Try read from cache first
+                _cached_courses_sidebar = get_cached_course_list()
+                if _cached_courses_sidebar is not None:
+                    _courses_list, _err_sidebar = _cached_courses_sidebar, None
+                else:
+                    _courses_list, _err_sidebar = _cm_sidebar.get_user_courses(st.session_state['username'])
+                    if not _err_sidebar:
+                        cache_course_list(_courses_list)
+                if _err_sidebar:
+                    st.error(_err_sidebar)
+                elif _courses_list:
+                    num = len(_courses_list)
+                    h = max(60, min(num * 50 + 20, 400))
+                    wrapper = st.container(height=h) if num > 6 else st.container()
+                    with wrapper:
+                        for _course_doc in _courses_list:
+                            cid_raw = _course_doc.get('_id') or _course_doc.get('id') or _course_doc.get('course_id')
+                            if not cid_raw:
+                                continue
+                            cid = str(cid_raw)
+                            title = _course_doc.get('title', 'Untitled Course')
+                            trunc, is_trunc = truncate_course_name(title)
+                            if is_trunc:
+                                st.markdown(f"""
+                                <script>
+                                if (typeof window.courseTitles === 'undefined') {{ window.courseTitles = new Map(); }}
+                                window.courseTitles.set("{escape_for_javascript(trunc)}", "{escape_for_javascript(title)}");
+                                </script>
+                                """, unsafe_allow_html=True)
+                            col1, col2 = st.columns([0.8, 0.2])
+                            with col1:
+                                if st.button(trunc, key=f"nav_{cid}", use_container_width=True):
+                                    st.session_state.current_course_id = cid
+                                    st.query_params.course_id = cid
+                                    st.switch_page("pages/3_Course.py")
+                            with col2:
+                                with st.popover("⋮", use_container_width=True):
+                                    if st.button("Delete", key=f"delete_{cid}", use_container_width=True):
+                                        ok, msg = _cm_sidebar.delete_course(cid, st.session_state['username'])
+                                        if ok:
+                                            # Update caches immediately so UI reflects change without full reload
+                                            remove_course_from_cache(cid)
+                                            st.success("Course deleted successfully!")
+                                            # Force immediate sidebar refresh by clearing cached list display container
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Failed: {msg}")
+                                    is_public = _course_doc.get('is_public', False)
+                                    label = "Make Private" if is_public else "Make Public"
+                                    if st.button(label, key=f"share_{cid}", use_container_width=True):
+                                        ok, msg = _cm_sidebar.update_course_privacy(cid, st.session_state['username'], not is_public)
+                                        if ok:
+                                            st.success("Privacy updated.")
+                                        else:
+                                            st.error(msg)
+                                        st.rerun()
+                else:
+                    st.info("No courses yet.")
+            except (RuntimeError, ValueError):
+                st.info("Courses temporarily unavailable.")
     
     st.markdown('<div style="margin-top: auto;"></div>', unsafe_allow_html=True)
     with st.container():

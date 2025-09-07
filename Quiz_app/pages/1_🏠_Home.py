@@ -699,8 +699,9 @@ def main():
                 file_type = get_file_type_category(uploaded_file.name)
                 processing_info = get_conversion_info(uploaded_file.name)
                 
-                st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB, {file_type})")
-                st.info(f"🤖 {processing_info}")
+                # Removed per request: suppress explicit file uploaded & conversion info messages
+                # st.success(f"📄 File uploaded: {uploaded_file.name} ({file_size_mb:.1f} MB, {file_type})")
+                # st.info(f"🤖 {processing_info}")
                 
                 # Show size warning if large
                 if file_size > 10 * 1024 * 1024:
@@ -751,25 +752,23 @@ def main():
     can_generate = check_course_limit()
     
     if st.session_state.get('is_generating_course', False):
-        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")        # Show progress
+        st.button("🤖 Generating Course...", disabled=True, key="generating_btn")
         show_generation_progress()
     elif can_generate:
-        if st.button("✨ Generate Course", type="primary", key="generate_btn"):
-            if uploaded_file or pdf_url:
-                # Double-check course limit before generating
-                if not check_course_limit():
-                    st.error("🔐 Course limit reached. Please login to continue.")
-                    st.rerun()  # Rerun to show the main UI again
-                    
-                # Store file data in session state for progress function
-                st.session_state.current_uploaded_file = uploaded_file
-                st.session_state.current_pdf_url = pdf_url
-                
-                # Set generating state immediately and rerun to update UI
-                st.session_state.is_generating_course = True
+        # Dynamic label based on whether user provided input
+        has_input = bool(uploaded_file or pdf_url)
+        btn_label = "✨ Generate Course" if has_input else "📁 Upload a file or enter a URL"
+        # Disable button if no input yet
+        if st.button(btn_label, type="primary", key="generate_btn", disabled=not has_input):
+            # Double-check course limit before generating
+            if not check_course_limit():
+                st.error("🔐 Course limit reached. Please login to continue.")
                 st.rerun()
-            else:
-                st.error("⚠️ Please upload a file or enter a URL first")
+            # Store file data in session state for progress function
+            st.session_state.current_uploaded_file = uploaded_file
+            st.session_state.current_pdf_url = pdf_url
+            st.session_state.is_generating_course = True
+            st.rerun()
     else:
         st.warning("⚠️ You've reached the limit of 3 guest courses. Please login for unlimited access.")
         if st.button("🔐 Go to Login", type="primary"):
