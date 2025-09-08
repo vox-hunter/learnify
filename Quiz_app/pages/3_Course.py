@@ -1,11 +1,59 @@
 import streamlit as st
 import json
-import sys # Add sys import
-import os # Add os import
+import sys  # Add sys import
+import os  # Add os import
 import random
 import time
 import datetime
 import html
+import re
+
+def sanitize_inline(text: str) -> str:
+    """Return a safe HTML fragment for inline insertion.
+
+    Changes:
+      - Fixed indentation issues.
+      - Removed blanket escaping of all angle brackets (which produced visible artifacts like '&gt;').
+      - Strips disallowed tags instead of escaping them.
+      - Cleans common leading artifact patterns left after tag stripping (e.g. stray quote + angle remnants).
+      - Keeps a conservative allowlist of inline-safe tags.
+    """
+    if not text:
+        return ""
+    try:
+        t = html.unescape(str(text))
+        t = re.sub(r'<\s*(script|style)[^>]*>.*?<\/\s*\1\s*>', '', t, flags=re.IGNORECASE | re.DOTALL)
+        t = re.sub(r'<!--.*?-->', '', t, flags=re.DOTALL)
+        allowed = {'b', 'strong', 'i', 'em', 'code', 'br', 'ul', 'ol', 'li', 'p', 'span', 'u', 'sub', 'sup', 'small'}
+
+        def repl(match):
+            full = match.group(0)
+            name = match.group(1).lower().lstrip('/')
+            return full if name in allowed else ''
+
+        t = re.sub(r'</?([a-zA-Z0-9]+)(?:\s+[^>]*)?>', repl, t)
+        t = re.sub(r'^["\']&gt;\s*', '', t)
+        t = re.sub(r'^["\']>\s*', '', t)
+        t = re.sub(r'\s{2,}', ' ', t).strip()
+        return t
+    except Exception:
+        return html.escape(str(text))
+
+# --- Artifact cleanup helper (targets stray leading characters like "&gt; or ">) ---
+_LEADING_ARTIFACT_RE = re.compile(r'^[\s]*(["\']?(?:&gt;|>))+\s*')
+
+def strip_leading_artifacts(text: str) -> str:
+        """Remove stray leading quote/greater-than escape artifacts left from prior escaping.
+
+        Examples removed:
+            "> What is photosynthesis?" -> "What is photosynthesis?"
+            "&gt; Explain X"           -> "Explain X"
+            "'&gt;Term"               -> "Term"
+        Safe: only trims if pattern matches at very start; leaves interior symbols intact.
+        """
+        if not text:
+                return ""
+        return _LEADING_ARTIFACT_RE.sub('', str(text))
 
 def safe_str_convert(value):
     """Safely convert any value to string for Streamlit text widgets"""
@@ -47,6 +95,15 @@ try:
 except ImportError:
     MONGO_AVAILABLE = False
 
+# Navigation cache utilities (lightweight)
+try:
+    from utils.navigation_cache import get_cached_course, cache_course
+except Exception:  # Fallback if not present
+    def get_cached_course(_):
+        return None
+    def cache_course(_, __):
+        return None
+
 # --- Get Cookie Manager from Session State ---
 cookies = st.session_state.get('cookies')
 if cookies is None:
@@ -87,6 +144,12 @@ def initialize_session_state():
         st.session_state.course_finished = False
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
+    if "course_overview_shown" not in st.session_state:
+        st.session_state.course_overview_shown = False
+    if "course_started_properly" not in st.session_state:
+        st.session_state.course_started_properly = False
+    if "course_ended_early" not in st.session_state:
+        st.session_state.course_ended_early = False
 
 def reset_course_session_state():
     """Reset course-specific session state when starting a new course"""
@@ -99,6 +162,11 @@ def reset_course_session_state():
     st.session_state.feedback = {}
     st.session_state.course_finished = False
     st.session_state.start_time = time.time()
+    
+    # Reset overview and course state flags
+    st.session_state.course_overview_shown = False
+    st.session_state.course_started_properly = False
+    st.session_state.course_ended_early = False
     
     # Clear any cached question counts
     keys_to_remove = [key for key in st.session_state.keys() if str(key).startswith('total_questions_')]
@@ -133,9 +201,9 @@ def is_admin_user():
     username = st.session_state.get('username', '')
     email = st.session_state.get('email', '')
     
-    admin_usernames = ["vox"]
-    admin_emails = ["vidyutsanthosh4@gmail.com"]
-    
+    admin_usernames = ["vidyut"]
+    admin_emails = ["vidyuts@gardenbangkok.com"]
+
     return username in admin_usernames or email in admin_emails
 
 def mark_all_section_questions_correct(course_data, section_index, course_id):
@@ -664,6 +732,12 @@ def main():
         display_course_completion_stats(course_data, course_id)
         return
     
+    # Check if overview should be shown (for new course access or if not started properly)
+    if not st.session_state.get('course_overview_shown', False) or not st.session_state.get('course_started_properly', False):
+        display_course_overview(course_data, course_id)
+        return
+    
+    # MAIN COURSE CONTENT - Only execute when course is started properly
     # Calculate progress for the sticky header
     all_questions_for_progress = []
     for section_idx, section_data in enumerate(course_data):
@@ -682,7 +756,7 @@ def main():
     answered_questions = sum(1 for q_key in all_questions_for_progress if q_key in st.session_state and st.session_state[q_key])
     progress_percentage = (answered_questions / total_questions_count) * 100 if total_questions_count > 0 else 0
     
-    # Create a sticky header using a placeholder that we'll update
+    # Create a sticky header using a placeholder that we'll update (only for main course content)
     header_placeholder = st.empty()
     with header_placeholder.container():
         st.markdown(f"""
@@ -807,7 +881,7 @@ def main():
         except (ValueError, TypeError):
             pass
     
-    st.markdown(f'<h1 class="course-title">{html.escape(course_title)}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="course-title">{sanitize_inline(course_title)}</h1>', unsafe_allow_html=True)
     
     # Enhanced course metadata with modern styling
     total_sections = len(course_data)
@@ -896,6 +970,21 @@ def main():
         
         st.markdown('</div>', unsafe_allow_html=True)
     
+    # Add End Course button (always available during course)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([2, 1, 2])
+    
+    with col2:
+        if st.button("🔚 End Course", key="end_course_early", use_container_width=True, 
+                     help="End the course early and view conclusion"):
+            # Set flag for early ending
+            st.session_state.course_ended_early = True
+            st.session_state.course_finished = True
+            st.rerun()
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     # Display all questions progressively (Seneca-style)
     display_progressive_questions(course_data, course_id)
 
@@ -937,6 +1026,10 @@ def load_course_data(course_id):
     """Load course data by ID from MongoDB or session state"""
     # First try to load from MongoDB if available
     if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:  # MongoDB ObjectId is 24 chars
+        # First see if we already have it cached from navigation prefetch
+        cached = get_cached_course(course_id)
+        if cached is not None:
+            return cached
         # Check if user can access this course
         user_identifier = st.session_state.get('username')
         session_id = get_session_id() if not user_identifier else None
@@ -945,6 +1038,7 @@ def load_course_data(course_id):
         course_content, error = _load_course_from_mongo(course_id, user_identifier, session_id)
         
         if course_content and not error:
+            cache_course(course_id, course_content)
             return course_content
         elif error:
             st.error(f"❌ Error loading course: {error}")
@@ -1186,6 +1280,234 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
                 st.session_state.course_finished = True
                 st.rerun()
 
+def display_course_overview(course_data, course_id):
+    """Display course overview page before starting the course."""
+    
+    # Get course title and metadata
+    course_title = "📚 Course"  # Default title
+    total_sections = len(course_data)
+    total_questions = count_total_questions(course_data)
+    
+    # Try to get title from MongoDB first
+    memory_strength = 0
+    last_attempt_timestamp = None
+    show_memory_tip = False
+    course_creator = "Unknown"
+    
+    if MONGO_AVAILABLE and isinstance(course_id, str) and len(course_id) == 24:
+        try:
+            course_manager = get_course_manager()
+            course_doc, _ = course_manager.get_course(course_id)
+            if course_doc:
+                course_title = course_doc.get('title', '📚 Course')
+                memory_strength = course_doc.get('memory_strength', 0)
+                last_attempt_timestamp = course_doc.get('last_attempt_timestamp')
+                course_creator = course_doc.get('creator', 'Unknown')
+                
+                # Check if it's been more than 24 hours for memory strength upgrade
+                if last_attempt_timestamp:
+                    current_time = datetime.datetime.now(datetime.timezone.utc)
+                    if last_attempt_timestamp.tzinfo is None:
+                        last_attempt_timestamp = last_attempt_timestamp.replace(tzinfo=datetime.timezone.utc)
+                    time_since_last_attempt = current_time - last_attempt_timestamp
+                    if time_since_last_attempt >= datetime.timedelta(hours=24):
+                        show_memory_tip = True
+        except (ImportError, AttributeError, ConnectionError) as e:
+            st.error(f"An error occurred while fetching course data: {e}")
+    
+    # Fall back to session state for title if needed
+    if course_title == "📚 Course" and 'course_history' in st.session_state:
+        try:
+            course_id_int = int(course_id)
+            if course_id_int < len(st.session_state.course_history):
+                course_title = st.session_state.course_history[course_id_int]['title']
+        except (ValueError, TypeError):
+            pass
+    
+    # Course overview UI
+    st.markdown("""
+    <style>
+    .overview-container {
+        background: linear-gradient(135deg, rgba(13, 18, 32, 0.8), rgba(6, 78, 149, 0.1));
+        border: 2px solid rgba(6, 182, 212, 0.3);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 1rem 0;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .overview-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientShift 3s ease infinite;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .stat-card {
+        background: rgba(6, 182, 212, 0.1);
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #06b6d4;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #a0aec0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .memory-strength {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    .memory-warning {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 152, 0, 0.2));
+        border: 1px solid rgba(255, 193, 7, 0.5);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    @keyframes gradientShift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="overview-container">', unsafe_allow_html=True)
+    
+    # Title
+    st.markdown(f'<h1 class="overview-title">Course Overview</h1>', unsafe_allow_html=True)
+    
+    # Course name
+    st.markdown(f"""
+    <div style="text-align: center; margin: 1rem 0;">
+        <h2 style="color: #e2e8f0; font-size: 1.5rem; font-weight: 600;">
+            {sanitize_inline(course_title)}
+        </h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stats grid
+    st.markdown('<div class="stats-grid">', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{total_sections}</div>
+            <div class="stat-label">Sections</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{total_questions}</div>
+            <div class="stat-label">Questions</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        # Memory strength display
+        lightning_icons = []
+        for i in range(5):
+            if i < memory_strength:
+                lightning_icons.append('⚡')
+            else:
+                lightning_icons.append('⚪')
+        memory_display = ''.join(lightning_icons)
+        
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value" style="font-size: 1.5rem;">{memory_display}</div>
+            <div class="stat-label">Memory Strength</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Removed an extra unmatched closing </div> that caused stray characters ("'>") to appear
+    # before each question due to malformed DOM structure. Each question card div is already
+    # properly opened and closed inside the loop above, so this additional closing tag was
+    # superfluous and produced rendering artifacts.
+    # (Previously: st.markdown('</div>', unsafe_allow_html=True))
+    
+    # Memory strength warning if applicable
+    if show_memory_tip and memory_strength < 5:
+        st.markdown(f"""
+        <div class="memory-warning">
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">🔄 Memory Strength Upgrade Available!</div>
+            <div style="color: #a0aec0;">
+                It's been more than 24 hours since your last attempt. 
+                Completing this course will upgrade your memory strength from {memory_strength} to {min(memory_strength + 1, 5)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif memory_strength >= 5:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2)); 
+                   border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 12px; padding: 1rem; 
+                   margin: 1rem 0; text-align: center;">
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">🏆 Maximum Memory Strength Achieved!</div>
+            <div style="color: #a0aec0;">You've mastered this course with perfect memory retention.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Action buttons
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("⬅️ Go Back", key="overview_back", use_container_width=True):
+            # Clear course selection and go back to home
+            if 'current_course_id' in st.session_state:
+                del st.session_state.current_course_id
+            if 'course_id' in st.query_params:
+                del st.query_params.course_id
+            st.switch_page("pages/1_🏠_Home.py")
+    
+    with col2:
+        if st.button("🚀 Start Course", key="overview_start", use_container_width=True):
+            # Set flags to indicate course was started properly
+            st.session_state.course_overview_shown = True
+            st.session_state.course_started_properly = True
+            st.session_state.course_ended_early = False
+            st.rerun()
+    
+    with col3:
+        st.write("")  # Placeholder for symmetry
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def display_course_completion_stats(course_data, course_id):
     """Displays compact course completion statistics optimized for no-scroll experience."""
     
@@ -1199,24 +1521,38 @@ def display_course_completion_stats(course_data, course_id):
     if score_percentage >= 95:
         st.balloons()
 
+    # Check if course was ended early
+    course_ended_early = st.session_state.get('course_ended_early', False)
+    
     # Message based on score with emojis
-    if score_percentage == 100:
+    if course_ended_early:
+        # Different messages for early end
+        completion_title = "Course Ended Early"
+        message = "Thanks for your time! Your progress is saved. 📚"
+        emoji = "⏹️"
+        color = "#f0ad4e"
+    elif score_percentage == 100:
+        completion_title = "Course Completed!"
         message = "Perfect Score! Master level! 🥇"
         emoji = "🎉"
         color = "#ffd700"
     elif score_percentage >= 95:
+        completion_title = "Course Completed!"
         message = "Outstanding! Nearly perfect! 🥈"
         emoji = "🌟"
         color = "#c0c0c0"
     elif score_percentage >= 70:
+        completion_title = "Course Completed!"
         message = "Great job! Solid understanding. 🥉"
         emoji = "👍"
         color = "#cd7f32"
     elif score_percentage >= 40:
+        completion_title = "Course Completed!"
         message = "Good effort! Keep practicing. 📚"
         emoji = "�"
         color = "#06b6d4"
     else:
+        completion_title = "Course Completed!"
         message = "Keep going! Every attempt counts. 🎯"
         emoji = "🔄"
         color = "#f56565"
@@ -1251,7 +1587,7 @@ def display_course_completion_stats(course_data, course_id):
                     update_strength = True
                     new_strength = min(memory_strength + 1, 5)
             
-            if update_strength:
+            if update_strength and not st.session_state.get('course_ended_early', False):
                 time_spent = time.time() - st.session_state.start_time
                 course_manager.update_course_memory_strength(course_id, new_strength, time_spent)
                 memory_strength = new_strength
@@ -1260,59 +1596,65 @@ def display_course_completion_stats(course_data, course_id):
 
     # Compact completion display with all info in one section
     # Build lightning icons first
-    lightning_icons = []
-    for i in range(5):
-        if i < memory_strength:
-            lightning_icons.append('<span style="font-size: 1.5rem; color: #ffd700; text-shadow: 0 0 8px #ffd700; margin: 0 2px;">⚡</span>')
-        else:
-            lightning_icons.append('<span style="font-size: 1.5rem; color: #4a5568; margin: 0 2px;">⚪</span>')
-    
-    lightning_html = ''.join(lightning_icons)
-    
-    completion_html = f"""<div class="completion-container">
-        <div style="text-align: center; padding: 1rem;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
-                <div style="font-size: 2.5rem;">{emoji}</div>
-                <div>
-                    <h1 style="font-size: 2rem; font-weight: 700; background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientShift 3s ease infinite; margin: 0;">Course Completed!</h1>
-                    <div style="font-size: 1.1rem; color: {color}; font-weight: 600; margin-top: 0.5rem;">{message}</div>
-                </div>
+        # --- Build memory strength lightning icons (visual only, not user-supplied) ---
+        lightning_icons = []
+        for i in range(5):
+                if i < memory_strength:
+                        lightning_icons.append('<span style="font-size:1.5rem;color:#ffd700;text-shadow:0 0 8px #ffd700;margin:0 2px;">⚡</span>')
+                else:
+                        lightning_icons.append('<span style="font-size:1.5rem;color:#4a5568;margin:0 2px;">⚪</span>')
+        lightning_html = ''.join(lightning_icons)
+
+        # Status text (internal strings – safe to interpolate directly)
+        status_msg = "Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"
+        if course_ended_early:
+                status_msg += " • Memory strength not upgraded (ended early)"
+
+        # Consolidated HTML template to avoid stray standalone closing tags rendering as raw text
+        completion_html = f"""
+<div class="completion-container">
+    <div style="text-align:center;padding:1rem;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;">
+            <div style="font-size:2.5rem;">{emoji}</div>
+            <div>
+                <h1 style="font-size:2rem;font-weight:700;background:linear-gradient(45deg,#06b6d4,#0ea5e9,#f093fb);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 3s ease infinite;margin:0;">{completion_title}</h1>
+                <div style="font-size:1.1rem;color:{color};font-weight:600;margin-top:0.5rem;">{message}</div>
             </div>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin: 1.5rem 0; flex-wrap: wrap;">
-                <div style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.2)); border: 2px solid {color}40; border-radius: 16px; padding: 1rem 1.5rem; min-width: 120px;">
-                    <div class="completion-score" style="font-size: 2.5rem; margin: 0;">{score_percentage:.1f}%</div>
-                    <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 0.25rem;">Final Score</div>
-                </div>
-                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #48bb78;">{correct_answers}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Correct</div>
-                    </div>
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #06b6d4;">{total_questions}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Total</div>
-                    </div>
-                    <div class="stat-item" style="text-align: center;">
-                        <span class="stat-number" style="font-size: 1.8rem; color: #f56565;">{total_questions - correct_answers}</span>
-                        <div class="stat-label" style="font-size: 0.85rem;">Missed</div>
-                    </div>
-                </div>
+        </div>
+        <div style="display:flex;justify-content:center;align-items:center;gap:2rem;margin:1.5rem 0;flex-wrap:wrap;">
+            <div style="background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(8,145,178,0.2));border:2px solid {color}40;border-radius:16px;padding:1rem 1.5rem;min-width:120px;">
+                <div class="completion-score" style="font-size:2.5rem;margin:0;">{score_percentage:.1f}%</div>
+                <div style="font-size:0.9rem;color:#a0aec0;margin-top:0.25rem;">Final Score</div>
             </div>
-            <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem; color: #06b6d4; font-weight: 600;">🧠 Memory Strength:</span>
-                    {lightning_html}
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#48bb78;">{correct_answers}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Correct</div>
                 </div>
-                <div style="text-align: center; font-size: 0.9rem; color: #a0aec0;">
-                    Level {memory_strength}/5 • {"Max level reached! 🎯" if memory_strength >= 5 else "Re-attempt after 24hrs to level up!"}
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#06b6d4;">{total_questions}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Total</div>
+                </div>
+                <div class="stat-item" style="text-align:center;">
+                    <span class="stat-number" style="font-size:1.8rem;color:#f56565;">{total_questions - correct_answers}</span>
+                    <div class="stat-label" style="font-size:0.85rem;">Missed</div>
                 </div>
             </div>
         </div>
-    </div>"""
-    
-    st.markdown(completion_html, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        <div style="background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,165,0,0.1));border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:1rem;margin:1rem 0;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin-bottom:0.5rem;">
+                <span style="font-size:1.2rem;color:#06b6d4;font-weight:600;">🧠 Memory Strength:</span>
+                {lightning_html}
+            </div>
+            <div style="text-align:center;font-size:0.9rem;color:#a0aec0;">
+                Level {memory_strength}/5 • {status_msg}
+            </div>
+        </div>
+    </div>
+</div>
+""".strip()
+
+        st.markdown(completion_html, unsafe_allow_html=True)
 
     # Add specific styling for action buttons
     st.markdown("""
@@ -1368,6 +1710,11 @@ def display_course_completion_stats(course_data, course_id):
             st.session_state.current_score = 0
             st.session_state.scored_correctly_keys = set()
             st.session_state.start_time = time.time()
+            
+            # Reset overview state so it shows again
+            st.session_state.course_overview_shown = False
+            st.session_state.course_started_properly = False
+            st.session_state.course_ended_early = False
             
             st.success("🔄 Course reset! You can now re-attempt all questions.")
             st.rerun()
@@ -1769,7 +2116,7 @@ def display_section_content(section_data, section_key):
                     font-size: 1.5rem;
                     font-weight: 600;
                 ">
-                    🔸 {html.escape(sub_title)}
+                    🔸 {sanitize_inline(sub_title)}
                 </h3>
             """, unsafe_allow_html=True)
             
@@ -1813,12 +2160,10 @@ def display_question(question_item, section_key, question_idx):
     </div>
     """, unsafe_allow_html=True)
 
-    # Only display the question text here if it's NOT a fill-in-the-blank handled by the custom component
-    if question_type not in ["fill_in_the_blank", "fill in the blank"]:
-        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
-    else:
-        # For fill-in-the-blank, display the question text in the card as well
-        st.markdown(f'<div class="question-text">{html.escape(question_text_full)}</div>', unsafe_allow_html=True)
+    # Clean leading artifacts then sanitize for safe inline HTML
+    cleaned_question = strip_leading_artifacts(question_text_full)
+    safe_question_html = sanitize_inline(cleaned_question)
+    st.markdown(f'<div class="question-text">{safe_question_html}</div>', unsafe_allow_html=True)
 
     if question_type in ["multiple_choice", "multiple choice"]:
         options = choices  # Use the already extracted choices

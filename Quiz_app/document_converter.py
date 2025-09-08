@@ -322,54 +322,46 @@ def _convert_html_to_pdf(file_content: bytes, filename: str) -> Tuple[Optional[b
 def _convert_image_to_pdf(file_content: bytes, filename: str) -> Tuple[Optional[bytes], Optional[str]]:
     """Convert image file to PDF"""
     try:
-        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Spacer, Paragraph
         from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.pagesizes import A4
         from reportlab.lib.utils import ImageReader
-        
-        # Open image
+    except ImportError:
+        return None, "Required libraries not available for image conversion (PIL, reportlab)"
+
+    try:
         img_buffer = io.BytesIO(file_content)
         img = Image.open(img_buffer)
-        
-        # Create PDF
+
         pdf_buffer = io.BytesIO()
         pdf_doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
         styles = getSampleStyleSheet()
         story = []
-        
-        # Add title
+
         story.append(Paragraph(f"Image: {filename}", styles['Title']))
         story.append(Spacer(1, 20))
-        
-        # Calculate image size to fit page
+
         page_width, page_height = A4
-        margin = 72  # 1 inch margins
+        margin = 72
         max_width = page_width - 2 * margin
-        max_height = page_height - 200  # Leave space for title and margins
-        
-        # Scale image to fit
+        max_height = page_height - 200
+
         img_width, img_height = img.size
         scale_w = max_width / img_width
         scale_h = max_height / img_height
-        scale = min(scale_w, scale_h, 1.0)  # Don't scale up
-        
+        scale = min(scale_w, scale_h, 1.0)
+
         scaled_width = img_width * scale
         scaled_height = img_height * scale
-        
-        # Create image for PDF
-        img_buffer.seek(0)  # Reset buffer position
+
+        img_buffer.seek(0)
         rl_img = RLImage(ImageReader(img_buffer), width=scaled_width, height=scaled_height)
         story.append(rl_img)
-        
-        # Build PDF
+
         pdf_doc.build(story)
         pdf_bytes = pdf_buffer.getvalue()
         pdf_buffer.close()
-        
         return pdf_bytes, None
-        
-    except ImportError:
-        return None, "Required libraries not available for image conversion (PIL, reportlab)"
     except Exception as e:
         return None, f"Image conversion error: {str(e)}"
 
@@ -403,10 +395,17 @@ def get_conversion_info(filename: str) -> str:
         return "Unknown file type"
     
     _, ext = os.path.splitext(filename.lower())
-    
+    # Define categories
+    convertible = {
+        '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls',
+        '.txt', '.md', '.markdown', '.html', '.htm',
+        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
+    }
+
     if ext == '.pdf':
-        return "✅ PDF - Native Gemini document understanding with vision capabilities"
-    elif should_convert_to_pdf(filename):
-        return "🔄 Will be converted to PDF for optimal Gemini document understanding"
-    else:
-        return "📦 Will be processed as binary data by Gemini AI"
+        return '✅ PDF detected: processed directly without conversion'
+    if ext in convertible:
+        return '🔄 Will be converted to PDF for enhanced AI processing'
+    if not ext:
+        return '📁 No extension: attempting direct binary processing'
+    return f'📦 {ext.upper()} file: processed in original format'

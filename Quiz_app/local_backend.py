@@ -232,7 +232,7 @@ Be fair but accurate in your evaluation.
         logger.error(f"Error in AI validation: {e}")
         return None, f"AI validation error: {str(e)}"
     
-def generate_course(file_content=None, file_url=None, filename=None, status_callback=None):
+def generate_course(file_content=None, file_stream=None, file_url=None, filename=None, status_callback=None):
     """
     Generate a course structure from file content or a file URL.
     Supports multiple file formats: PDF, Word docs, images, audio, video, text files, etc.
@@ -259,43 +259,107 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
         logger.info(message)
     
     file_bytes = None
+    streamed_chunks = []
+    CHUNK_READ_SIZE = 1024 * 256  # 256KB
     detected_filename = filename
     update_status("🚀 Starting course generation process...", 5)
     
-    # Handle file content
-    if file_content:
+    # Phase 1: Ingestion (supports in-memory bytes, streaming iterator, or URL fetch)
+    update_status("📥 Ingesting input...", 8)
+
+    # Streaming path (file_stream is a file-like or iterable yielding bytes)
+    if file_stream is not None:
+        update_status("📥 Streaming upload...", 9)
+        total_streamed = 0
+        try:
+            # Unified iterator interface
+            if hasattr(file_stream, 'read'):
+                while True:
+                    chunk = file_stream.read(CHUNK_READ_SIZE)
+                    if not chunk:
+                        break
+                    streamed_chunks.append(chunk)
+                    total_streamed += len(chunk)
+                    if total_streamed > 0 and total_streamed % (CHUNK_READ_SIZE * 4) == 0:
+                        # Update every ~1MB
+                        progress_est = min(10, 5 + int(total_streamed / (CHUNK_READ_SIZE * 4)))
+                        update_status(f"📥 Streaming... {total_streamed/1024/1024:.1f}MB", progress_est)
+            else:  # Iterable of chunks
+                for chunk in file_stream:
+                    if not chunk:
+                        continue
+                    streamed_chunks.append(chunk)
+                    total_streamed += len(chunk)
+                    if total_streamed % (CHUNK_READ_SIZE * 4) == 0:
+                        progress_est = min(10, 5 + int(total_streamed / (CHUNK_READ_SIZE * 4)))
+                        update_status(f"📥 Streaming... {total_streamed/1024/1024:.1f}MB", progress_est)
+            file_content = b"".join(streamed_chunks)
+            update_status(f"✅ Stream complete: {total_streamed/1024/1024:.2f}MB", 10)
+            # Promote streamed bytes so downstream validation/conversion path runs
+            file_bytes = file_content
+            file_stream = None  # ensure subsequent branch (if file_content and not file_stream) triggers
+        except Exception as stream_err:
+            return None, f"Streaming read failed: {stream_err}"    
+
+    # Handle direct file content path
+    if (file_content or file_bytes) and not file_stream:
+        # Normalize to file_bytes
+        if file_bytes is None:
+            file_bytes = file_content
+        if not file_bytes:
+            return None, "Uploaded file is empty."
         update_status("📄 Validating uploaded file...", 10)
-        logger.info(f"Processing uploaded file ({len(file_content)} bytes)")
-        
+        logger.info(f"Processing uploaded file ({len(file_bytes)} bytes)")
+
         if filename:
             # Validate file security and type
-            is_safe, error_message = validate_file_security(filename, len(file_content))
+            is_safe, error_message = validate_file_security(filename, len(file_bytes))
             if not is_safe:
                 return None, error_message
-            
-            # Check if we should convert to PDF for better Gemini processing
+
+            # Optional PDF conversion
             if should_convert_to_pdf(filename):
                 update_status(f"🔄 Converting {filename} to PDF for optimal AI processing...", 15)
                 logger.info(f"Converting {filename} to PDF")
-                
-                pdf_bytes, conversion_error = convert_to_pdf(file_content, filename)
+                pdf_bytes, conversion_error = convert_to_pdf(file_bytes, filename)
                 if pdf_bytes:
                     file_bytes = pdf_bytes
-                    detected_filename = filename.rsplit('.', 1)[0] + '.pdf'  # Change extension to PDF
+                    detected_filename = filename.rsplit('.', 1)[0] + '.pdf'
                     update_status("✅ File converted to PDF successfully", 20)
                     logger.info(f"Successfully converted {filename} to PDF ({len(pdf_bytes)} bytes)")
                 else:
                     logger.warning(f"PDF conversion failed for {filename}: {conversion_error}")
-                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
-                    file_bytes = file_content  # Fall back to original
-            else:
-                file_bytes = file_content
-        else:
-            file_bytes = file_content
-        
+                    original_mime_type = get_mime_type(filename)
+                    from file_security import GEMINI_SUPPORTED_MIME_TYPES
+                    if original_mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+                        from file_security import get_supported_file_types_display
+                        supported_types = get_supported_file_types_display()
+                        error_msg = f"""
+🚫 **File Conversion Failed**
+
+We couldn't convert your file to a supported format, and the original format is not supported by our AI system.
+
+**📁 Your file:** {filename}  
+**🔄 Conversion error:** {conversion_error}  
+**🔍 Original format:** {original_mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Try converting your file to PDF manually before uploading
+• Use online converters (Google Docs, PDF converters, etc.)
+• Save your document in a different format (like .txt for text content)
+• Ensure the file is not corrupted or password-protected
+
+**🔧 Alternative:** If your file contains mostly text, try copying the content and saving it as a .txt file.
+                        """.strip()
+                        return None, error_msg
+                    else:
+                        update_status("⚠️ PDF conversion failed, processing original file...", 20)
         update_status("✅ File validated successfully", 20)
-    
-    # Handle file URL
+
+    # Handle file URL (Phase 1 alt path)
     elif file_url:
         update_status("🌐 Connecting to file URL...", 10)
         logger.info(f"Fetching file from URL: {file_url}")
@@ -339,8 +403,37 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
                     logger.info(f"Successfully converted downloaded file to PDF ({len(pdf_bytes)} bytes)")
                 else:
                     logger.warning(f"PDF conversion failed for {detected_filename}: {conversion_error}")
-                    update_status("⚠️ PDF conversion failed, processing original file...", 20)
-                    file_bytes = resp.content  # Fall back to original
+                    # Check if the original file has a supported MIME type
+                    original_mime_type = get_mime_type(detected_filename)
+                    from file_security import GEMINI_SUPPORTED_MIME_TYPES
+                    if original_mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+                        # The original file is not supported and conversion failed
+                        from file_security import get_supported_file_types_display
+                        supported_types = get_supported_file_types_display()
+                        error_msg = f"""
+🚫 **File Conversion Failed**
+
+We couldn't convert the downloaded file to a supported format, and the original format is not supported by our AI system.
+
+**🔗 Downloaded from:** {file_url}  
+**📁 Filename:** {detected_filename}  
+**🔄 Conversion error:** {conversion_error}  
+**🔍 Original format:** {original_mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Try downloading and converting the file to PDF manually before uploading
+• Use a different URL that points to a supported file format
+• Check if the URL points to the actual file (not a webpage)
+
+**🔧 Alternative:** If the file contains mostly text, try saving its content as a .txt file and uploading that instead.
+                        """.strip()
+                        return None, error_msg
+                    else:
+                        update_status("⚠️ PDF conversion failed, processing original file...", 20)
+                        file_bytes = resp.content  # Fall back to original
             else:
                 file_bytes = resp.content
             update_status(f"✅ File downloaded successfully ({len(file_bytes)} bytes)", 20)
@@ -359,6 +452,7 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
     if not file_bytes:
         return None, "No file content or file_url provided, or an error occurred processing the input."
     
+    # Phase 2: Validation & Preprocessing
     update_status("📏 Checking file size and content limits...", 25)
     # Check file size limits (10MB)
     max_size = MAX_FILE_SIZE  # Use the constant from file_security
@@ -394,10 +488,10 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
       # Update status with estimated time information
     update_status(f"📊 AI is analyzing PDF content (Est. time: {estimated_time})", 32)
     
+    # Phase 3: AI Upload & Analysis
     try:
         update_status("🤖 Connecting to Gemini AI...", 35)
         logger.info("Sending request to Gemini AI...")
-        
         update_status(f"📤 Uploading file to AI for analysis... (Est. time: {estimated_time})", 45)
         
         # Determine the appropriate MIME type for the file
@@ -409,27 +503,89 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
             mime_type = get_mime_type(detected_filename or "unknown.bin")
             logger.info(f"Using MIME type: {mime_type} for file: {detected_filename}")
         
+        # Validate that the MIME type is supported by Gemini before proceeding
+        from file_security import GEMINI_SUPPORTED_MIME_TYPES, get_supported_file_types_display
+        if mime_type not in GEMINI_SUPPORTED_MIME_TYPES:
+            # Provide a user-friendly error message explaining supported file types
+            supported_types = get_supported_file_types_display()
+            error_msg = f"""
+🚫 **Unsupported File Type**
+
+The file you uploaded has a format that is not supported by our AI system.
+
+**📁 Your file:** {detected_filename or 'Unknown filename'}  
+**🔍 Detected format:** {mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Convert your file to PDF (recommended for best results)
+• Use a supported format like PNG, JPEG, MP3, MP4, or TXT
+• For office documents: save as PDF or use online converters
+• For unsupported formats: try converting to a text file (.txt) first
+
+**Need help?** Most file types can be converted online for free using tools like PDF converters or Google Docs.
+            """.strip()
+            
+            logger.error(f"Unsupported MIME type: {mime_type} for file: {detected_filename}")
+            return None, error_msg
+        
         # Generate content using Gemini API
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            config=types.GenerateContentConfig(
-                system_instruction=sys_ins,
-                response_mime_type="application/json",
-            ),
-            contents=[
-                types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
-                prompt,
-            ],
-        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-preview-05-20",
+                config=types.GenerateContentConfig(
+                    system_instruction=sys_ins,
+                    response_mime_type="application/json",
+                ),
+                contents=[
+                    types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+                    prompt,
+                ],
+            )
+        except Exception as api_error:
+            # Handle specific errors related to file processing or unsupported content
+            error_str = str(api_error).lower()
+            if any(keyword in error_str for keyword in ['mime', 'unsupported', 'format', 'invalid', 'content-type']):
+                # This is likely a file format/mime type related error
+                supported_types = get_supported_file_types_display()
+                error_msg = f"""
+🚫 **File Processing Error**
+
+There was an issue processing your file. This usually happens with unsupported or corrupted files.
+
+**📁 Your file:** {detected_filename or 'Unknown filename'}  
+**🔍 File format:** {mime_type}
+
+**✅ Supported File Types:**
+{supported_types}
+
+**💡 How to fix this:**
+• Ensure your file is not corrupted or password-protected
+• Convert to PDF for best compatibility (recommended)
+• Try a different file format from the supported list
+• For office documents: export/save as PDF instead of uploading the original format
+
+**🔧 Technical details:** {str(api_error)[:100]}{'...' if len(str(api_error)) > 100 else ''}
+                """.strip()
+                
+                logger.error(f"File processing error for {detected_filename}: {api_error}")
+                return None, error_msg
+            else:
+                # Re-raise other API errors to be handled by the outer exception handler
+                raise api_error
 
         update_status(f"🧠 AI is analyzing content... (Est. time: {estimated_time})", 65)
         if not response.text:
             logger.error("Received empty response from Gemini AI")
             return None, "Empty response from AI model. Please try again."
-        
+
+        # Phase 4: Generation
         update_status("📝 Generating course structure and questions...", 70)
         logger.info(f"Received response from Gemini AI ({len(response.text)} characters)")
-        
+
+        # Phase 5: Parsing & Validation
         update_status("🔧 Processing AI response...", 80)
         try:
             # Try to parse with Pydantic validation first
@@ -439,11 +595,11 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
             if DEBUG_MODE:
                 logger.info(f"Parsed response: {parsed}")
             update_status("🎉 Course generated successfully!", 100)
-            
+
             # Log actual generation time for performance tracking
             actual_time = time.time() - start_time
             logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
-            
+
             return parsed, None
         except ValidationError as ve:
             logger.warning(f"Response schema validation failed: {ve}")
@@ -453,23 +609,22 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
                 raw_data = json.loads(response.text)
                 logger.info("Successfully parsed as raw JSON (schema validation failed)")
                 update_status("🎉 Course generated successfully!", 100)
-                
+
                 # Log actual generation time for performance tracking
                 actual_time = time.time() - start_time
                 logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
-                
+
                 return raw_data, None
             except json.JSONDecodeError as je:
                 logger.error(f"JSON decode error: {je}")
                 return None, f"Failed to parse AI response as valid JSON. Please try again."
-        
     except Exception as e:
         # Log timing even for failed attempts
         actual_time = time.time() - start_time
         logger.error(f"Error generating course after {actual_time:.1f} seconds: {e}")
-        
+
         error_message = str(e)
-        
+
         # Provide more specific error messages for common issues
         if "quota" in error_message.lower():
             error_message = "API quota exceeded. Please check your Gemini API usage limits."
@@ -477,7 +632,7 @@ def generate_course(file_content=None, file_url=None, filename=None, status_call
             error_message = "Invalid API key. Please check your GEMINI_API_KEY in the .env file."
         elif "timeout" in error_message.lower():
             error_message = "Request timed out. The PDF may be too complex or the service is busy."
-        
+
         return None, f"Error generating course: {error_message}"
 
 def extract_text_from_pdf(pdf_bytes):
