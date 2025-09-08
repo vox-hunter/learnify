@@ -755,24 +755,45 @@ def main():
     
     # Background async job handling
     active_job_id = st.session_state.get('active_course_job_id')
-    if active_job_id:
-        job = get_job(active_job_id)
-        if job:
-            progress = job.get('progress', 0)
-            msg = job.get('message', 'Working...')
-            st.progress(progress/100 if progress else 0)
-            status_color = 'info'
-            if job.get('status') == 'error':
-                st.error(f"❌ {job.get('error', msg)}")
+    if active_job_id and not st.session_state.get('generated_course_result'):
+        import time as _t
+        progress_bar = st.progress(0)
+        status_placeholder = st.empty()
+        phase_placeholder = st.empty()
+        PHASES = [
+            (0, "Queued"), (3, "Starting"), (5, "Pre-processing"), (10, "Validating"),
+            (15, "Converting"), (20, "Preparing Prompt"), (25, "AI Generation"), (60, "Parsing"),
+            (80, "Building Quiz"), (95, "Finalizing"), (100, "Done")
+        ]
+        start_ts = _t.time()
+        max_runtime = 1800
+        while True:
+            job = get_job(active_job_id)
+            if not job:
+                status_placeholder.error("❌ Job not found.")
                 st.session_state.pop('active_course_job_id', None)
-            elif job.get('status') == 'done':
-                st.success('✅ Course generated. Finalizing...')
-                # Store result for post-save processing
+                break
+            progress = int(job.get('progress', 0))
+            status = job.get('status')
+            message = job.get('message', 'Working...')
+            progress_bar.progress(progress/100 if progress else 0)
+            current_phase = next((label for thresh, label in reversed(PHASES) if progress >= thresh), "Queued")
+            phase_placeholder.caption(f"Phase: {current_phase} | {progress}%")
+            if status == 'error':
+                status_placeholder.error(f"❌ {job.get('error') or message}")
+                st.session_state.pop('active_course_job_id', None)
+                break
+            if status == 'done':
+                status_placeholder.success("✅ Course generated. Saving…")
                 st.session_state.generated_course_result = job.get('result')
-            else:
-                st.info(f"{msg} ({progress}%)")
-        else:
-            st.info("Initializing generation...")
+                st.rerun()
+                break
+            status_placeholder.info(f"{message} ({progress}%)")
+            if (_t.time() - start_ts) > max_runtime:
+                status_placeholder.error("⏱️ Generation timed out.")
+                st.session_state.pop('active_course_job_id', None)
+                break
+            _t.sleep(0.6)
     elif can_generate:
         has_input = bool(uploaded_file or pdf_url)
         btn_label = "✨ Generate Course" if has_input else "📁 Upload a file or enter a URL"
@@ -823,10 +844,43 @@ def main():
         st.session_state.course_save_in_progress = True
         course_data = st.session_state.pop('generated_course_result')
         try:
-            course_title = getattr(course_data, 'course_title', None) or (
-                course_data.get('course_title') if isinstance(course_data, dict) else 'Generated Course')
-            sections_to_save = getattr(course_data, 'sections', None) or (
-                course_data.get('sections') if isinstance(course_data, dict) else course_data)
+            # Normalize course_data structure
+            def to_dict(obj):
+                if hasattr(obj, 'model_dump'):
+                    try:
+                        return obj.model_dump()
+                    except Exception:
+                        pass
+                if isinstance(obj, dict):
+                    return obj
+                # Fallback minimal serialization
+                return {
+                    'section': getattr(obj, 'section_title', 'Untitled Section'),
+                    'explanation': getattr(obj, 'explanation', ''),
+                    'questions': []
+                }
+
+            course_title = None
+            sections_to_save = []
+
+            if isinstance(course_data, dict):
+                course_title = course_data.get('course_title')
+                maybe_sections = course_data.get('sections')
+                if isinstance(maybe_sections, list):
+                    sections_to_save = [to_dict(s) for s in maybe_sections]
+            elif hasattr(course_data, 'sections'):
+                course_title = getattr(course_data, 'course_title', None)
+                sections_to_save = [to_dict(s) for s in getattr(course_data, 'sections', [])]
+            elif isinstance(course_data, list):
+                sections_to_save = [to_dict(s) for s in course_data]
+
+            if not course_title:
+                # Try first section title as course title
+                if sections_to_save:
+                    course_title = sections_to_save[0].get('section', 'Generated Course')
+                else:
+                    course_title = 'Generated Course'
+
             generated_course_id = None
             if MONGO_AVAILABLE:
                 from mongo_course_manager import get_course_manager, get_session_id
@@ -895,208 +949,225 @@ def show_generation_progress():
         st.error("❌ No file or URL found for generation")
 
 def generate_and_redirect(uploaded_file, pdf_url):
-    """Generate course and redirect to course page with real-time progress"""
-    # Set generation state
+    """Generate course and redirect to course page with improved, live background progress."""
+    import time, urllib.parse
+
+    # Helper: render intuitive phase timeline
+    def render_phase_timeline(progress: int, message: str):
+        PHASES = [
+            (0, "Queued"),
+            (3, "Starting"),
+            (5, "Pre‑processing"),
+            (10, "Validating"),
+            (15, "Converting"),
+            (20, "Preparing AI Prompt"),
+            (25, "AI Generation"),
+            (60, "Parsing Output"),
+            (80, "Building Quiz"),
+            (95, "Finalizing"),
+            (100, "Done")
+        ]
+        timeline = []
+        for thresh, label in PHASES:
+            if progress >= thresh:
+                icon = "✅" if progress >= thresh else "⏳"
+                state_class = "done" if progress >= thresh else "pending"
+                style = "color:#06b6d4;" if progress < 100 and progress >= thresh else "color:#64748b;"
+                if progress >= thresh:
+                    icon = "✅" if progress > thresh or progress == 100 else "🔄"
+                timeline.append(f"<span style='margin-right:8px;{style}'>{icon} {label}</span>")
+        st.markdown(
+            "<div style='display:flex;flex-wrap:wrap;gap:4px;font-size:0.85rem;'>" + "".join(timeline) + "</div>",
+            unsafe_allow_html=True
+        )
+        if message:
+            st.caption(message)
+
     st.session_state.is_generating_course = True
-    
-    # Create progress containers
+
     progress_container = st.container()
     with progress_container:
         progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # Status callback function for real-time updates
-        def status_callback(status_message, progress_percent):
-            """Update progress and status in real-time"""
-            progress_bar.progress(progress_percent / 100)
-            status_text.text(status_message)
-            import time
-            time.sleep(1.5)  # Allow users to read the status
-        
+        status_placeholder = st.empty()
+        phases_placeholder = st.empty()
+
+        # Pre-processing (compression / validation) still synchronous before background thread
+        file_content = None
+        detected_filename = None
+
         try:
-            # Handle file compression if needed before generation
             if uploaded_file:
-                # Check file size and compress if necessary
                 file_content = uploaded_file.read()
+                detected_filename = uploaded_file.name
                 file_size_mb = len(file_content) / (1024 * 1024)
-                
+                status_placeholder.info(f"📄 File received: {detected_filename} ({file_size_mb:.2f} MB)")
+                progress_bar.progress(5)
+
                 if file_size_mb > 10:
-                    status_text.text(f"📦 Large file detected ({file_size_mb:.1f}MB). Compressing...")
-                    progress_bar.progress(5)
-                      # Compress the file
-                    compressed_content, final_size_mb, _, _ = smart_pdf_compression(
-                        file_content, target_size_mb=10
-                    )
-                    
-                    if final_size_mb <= 10:
-                        status_text.text(f"✅ Compression successful: {file_size_mb:.1f}MB → {final_size_mb:.1f}MB")
-                        progress_bar.progress(10)
-                        import time
-                        time.sleep(1.0)  # Show compression success briefly
+                    status_placeholder.warning(f"📦 Large file ({file_size_mb:.1f}MB). Compressing…")
+                    progress_bar.progress(7)
+                    try:
+                        compressed_content, final_size_mb, _, _ = smart_pdf_compression(file_content, target_size_mb=10)
                         file_content = compressed_content
-                    else:
-                        # Compression didn't achieve target, but continue anyway
-                        status_text.text(f"⚠️ Partial compression: {file_size_mb:.1f}MB → {final_size_mb:.1f}MB")
+                        status_placeholder.success(f"✅ Compression: {file_size_mb:.1f}MB → {final_size_mb:.1f}MB")
                         progress_bar.progress(10)
-                        import time
-                        time.sleep(1.0)
-                        file_content = compressed_content                
-                # For large files that were compressed, validate word count on compressed content
+                    except Exception as ce:
+                        status_placeholder.error(f"Compression failed, continuing uncompressed: {ce}")
+                        progress_bar.progress(10)
+
+                # Optional light content analysis only for very large originals
                 if file_size_mb > 10:
-                    status_text.text("📝 Analyzing compressed file content...")
-                    progress_bar.progress(12)
-                    
                     try:
+                        status_placeholder.info("📝 Analyzing text content…")
+                        progress_bar.progress(12)
                         pdf_analysis = analyze_pdf_content(file_content)
-                        word_count = pdf_analysis['word_count']
-                        
-                        if word_count > MAX_CONTENT_WORDS:
-                            status_text.text("❌ Analysis failed: too many words even after compression")
-                            st.error(f"❌ Compressed PDF still contains too many words ({word_count:,}). Maximum allowed: {MAX_CONTENT_WORDS:,} words.")
-                            st.info("💡 **Tip:** Try uploading a shorter document or specific chapters.")
+                        wc = pdf_analysis.get('word_count', 0)
+                        if wc == 0:
+                            st.error("❌ No extractable text found.")
                             st.session_state.is_generating_course = False
-                            st.rerun()  # Rerun to show the main UI again
-                        elif word_count == 0:
-                            status_text.text("❌ Analysis failed: no text found")
-                            st.error("❌ Could not extract text from the compressed PDF. Please try a different file.")
+                            return
+                        if wc > MAX_CONTENT_WORDS:
+                            st.error(f"❌ Too many words ({wc:,} > {MAX_CONTENT_WORDS:,}). Upload a shorter document.")
                             st.session_state.is_generating_course = False
-                            st.rerun()  # Rerun to show the main UI again
-                        else:
-                            status_text.text(f"✅ Content validated: {word_count:,} words found")
-                            progress_bar.progress(14)
-                            
-                    except Exception as e:
-                        status_text.text("❌ Analysis failed: error reading content")
-                        st.error(f"❌ Error analyzing compressed PDF: {str(e)}")
+                            return
+                        status_placeholder.success(f"✅ Content validated: {wc:,} words")
+                        progress_bar.progress(14)
+                    except Exception as ae:
+                        st.error(f"❌ Analysis error: {ae}")
                         st.session_state.is_generating_course = False
-                        st.rerun()  # Rerun to show the main UI again
-                
-                # Reset file pointer and generate course
-                status_text.text("🚀 Starting course generation...")
+                        return
+                status_placeholder.info("🚀 Launching background AI generation…")
                 progress_bar.progress(15)
-                
-                course_data, error_message = generate_course(
-                    file_content=file_content, 
-                    filename=uploaded_file.name if uploaded_file else None,
-                    status_callback=status_callback
-                )
             else:
-                # URL-based generation (no compression needed)
-                # Extract filename from URL for better processing
-                import urllib.parse
-                parsed_url = urllib.parse.urlparse(pdf_url)
-                url_filename = os.path.basename(parsed_url.path)
-                if not url_filename:
-                    url_filename = "downloaded_file"
-                
-                course_data, error_message = generate_course(
-                    file_url=pdf_url,
-                    filename=url_filename,
-                    status_callback=status_callback
+                # URL path
+                parsed = urllib.parse.urlparse(pdf_url)
+                detected_filename = os.path.basename(parsed.path) or "downloaded_file"
+                status_placeholder.info(f"🔗 Using URL source: {pdf_url}")
+                progress_bar.progress(5)
+
+            # Start / resume background job
+            job_id = st.session_state.get('active_course_job_id')
+            if not job_id:
+                job_id = start_course_generation(
+                    file_content=file_content if uploaded_file else None,
+                    file_url=None if uploaded_file else pdf_url,
+                    filename=detected_filename,
+                    generate_course_fn=generate_course
                 )
-            
-            if course_data and not error_message:
-                # Process successful generation
-                progress_bar.progress(100)
-                status_text.text("✅ Course created successfully! Processing save...")
+                st.session_state.active_course_job_id = job_id
 
-                # Extract AI-generated course title or use fallback
-                if hasattr(course_data, 'course_title') and course_data.course_title:
-                    course_title = course_data.course_title
-                elif isinstance(course_data, dict) and 'course_title' in course_data:
-                    course_title = course_data['course_title']
+            # Poll loop
+            last_progress = -1
+            stagnation_start = time.time()
+            while True:
+                job = get_job(job_id)
+                if not job:
+                    status_placeholder.error("❌ Lost track of background job.")
+                    st.session_state.is_generating_course = False
+                    st.session_state.pop('active_course_job_id', None)
+                    return
+                progress = job.get('progress', 0)
+                message = job.get('message', '')
+                progress_bar.progress(int(progress))
+                phases_placeholder.empty()
+                render_phase_timeline(progress, message)
+
+                # Stagnation detection (no progress change for 120s while running)
+                if progress != last_progress:
+                    last_progress = progress
+                    stagnation_start = time.time()
                 else:
-                    # Fallback to file-based naming if AI didn't provide a title
-                    if uploaded_file:
-                        course_title = f"📄 {uploaded_file.name.replace('.pdf', '')}"
+                    if job.get('status') == 'running' and (time.time() - stagnation_start) > 120:
+                        st.warning("Progress appears stalled. You can wait or cancel & retry.")
+
+                if job.get('status') in {"done", "error"}:
+                    break
+                time.sleep(0.8)
+
+            # Terminal states
+            if job.get('status') == 'error':
+                st.error(f"❌ Generation failed: {job.get('error') or job.get('message')}")
+                st.session_state.is_generating_course = False
+                st.session_state.pop('active_course_job_id', None)
+                return
+
+            course_data = job.get('result')
+            if not course_data:
+                st.error("❌ No course data returned.")
+                st.session_state.is_generating_course = False
+                st.session_state.pop('active_course_job_id', None)
+                return
+
+            status_placeholder.success("✅ Course created! Saving…")
+            progress_bar.progress(100)
+
+            # Title extraction fallback logic
+            if hasattr(course_data, 'course_title') and getattr(course_data, 'course_title'):
+                course_title = course_data.course_title
+            elif isinstance(course_data, dict) and 'course_title' in course_data:
+                course_title = course_data['course_title']
+            else:
+                course_title = f"📄 {detected_filename.replace('.pdf','')}" if uploaded_file else "🔗 Course from URL"
+
+            generated_course_id = None
+            save_error = False
+            if MONGO_AVAILABLE:
+                try:
+                    course_manager = get_course_manager()
+                    is_guest = not st.session_state.get('authentication_status', False)
+                    if is_guest:
+                        session_id = get_session_id()
+                        creator = session_id
                     else:
-                        course_title = "🔗 Course from URL"
+                        session_id = None
+                        creator = st.session_state.get('username', 'unknown_user')
 
-                generated_course_id = None  # Will store the ID if successfully saved
-                save_error_occurred = False
+                    if hasattr(course_data, 'sections'):
+                        sections_to_save = course_data.sections
+                    elif isinstance(course_data, dict) and 'sections' in course_data:
+                        sections_to_save = course_data['sections']
+                    else:
+                        sections_to_save = course_data
 
-                if MONGO_AVAILABLE:
-                    try:
-                        course_manager = get_course_manager()
-                        is_guest = not st.session_state.get('authentication_status', False)
-                        
-                        if is_guest:
-                            session_id = get_session_id()
-                            creator = session_id
-                        else:
-                            session_id = None
-                            creator = st.session_state.get('username', 'unknown_user')
-                        
-                        # Extract sections from course_data for saving
-                        if hasattr(course_data, 'sections'):
-                            sections_to_save = course_data.sections
-                        elif isinstance(course_data, dict) and 'sections' in course_data:
-                            sections_to_save = course_data['sections']
-                        else:
-                            # Fallback: assume course_data is already the sections list
-                            sections_to_save = course_data
-                        
-                        temp_mongo_id, save_db_error = course_manager.save_course(
-                            course_data=sections_to_save,
-                            course_title=course_title,
-                            creator=creator,
-                            is_guest=is_guest,
-                            session_id=session_id,
-                            is_public=True 
-                        )
-                        
-                        if save_db_error:
-                            st.error(f"❌ Failed to save course to database: {save_db_error}")
-                            save_error_occurred = True
-                        else:
-                            generated_course_id = temp_mongo_id
-                            if generated_course_id: # Ensure generated_course_id is not None
-                                st.query_params["course_id"] = str(generated_course_id)
-                                status_text.text("✅ Course saved! Redirecting...")
-                            else:
-                                st.error("❌ Failed to get a valid course ID after saving.")
-                                save_error_occurred = True
-                                
-                    except Exception as e_mongo_save:
-                        st.error(f"❌ Critical error during course saving: {e_mongo_save}")
-                        save_error_occurred = True
-                else:
-                    st.warning("⚠️ MongoDB not available. Course generated but not saved persistently.")
-                    # For non-MongoDB (session-based) flow, we might need a different ID mechanism
-                    # For now, if Mongo is the target, this is effectively a save failure for persistence.
-                    save_error_occurred = True 
+                    generated_course_id, save_db_error = course_manager.save_course(
+                        course_data=sections_to_save,
+                        course_title=course_title,
+                        creator=creator,
+                        is_guest=is_guest,
+                        session_id=session_id,
+                        is_public=True
+                    )
+                    if save_db_error:
+                        st.error(f"❌ Failed to save course: {save_db_error}")
+                        save_error = True
+                except Exception as save_exc:
+                    st.error(f"❌ Critical save error: {save_exc}")
+                    save_error = True
+            else:
+                st.warning("⚠️ MongoDB not available. Course not persisted.")
+                save_error = True
 
-                if not save_error_occurred and generated_course_id:
-                    st.session_state.current_course_id = generated_course_id
-                    
-                    if not st.session_state.get('authentication_status'):
-                        increment_guest_course_count()
-                    st.session_state.is_generating_course = False
-                    st.session_state.current_uploaded_file = None
-                    st.session_state.current_pdf_url = None
-                    
-                    import time
-                    time.sleep(1.5) # Allow messages to be seen
-                    st.switch_page("pages/3_Course.py")
-                else:
-                    # Save failed or MONGO_AVAILABLE was false and no alternative ID was generated
-                    status_text.error("Course generation finished, but could not be saved for persistent access.")
-                    st.session_state.is_generating_course = False
-                    st.session_state.current_uploaded_file = None
-                    st.session_state.current_pdf_url = None
-                    # Do not redirect, allow user to see the error and try again.
-                    
-            else:  # error_message from local_backend.generate_course
-                st.error(f"❌ {error_message}")
+            if not save_error and generated_course_id:
+                st.session_state.current_course_id = generated_course_id
+                if not st.session_state.get('authentication_status'):
+                    increment_guest_course_count()
+                # Housekeeping
                 st.session_state.is_generating_course = False
                 st.session_state.current_uploaded_file = None
                 st.session_state.current_pdf_url = None
-                
+                st.session_state.pop('active_course_job_id', None)
+                time.sleep(1.0)
+                st.switch_page("pages/3_Course.py")
+            else:
+                st.error("Course generated but not saved. You may retry.")
+                st.session_state.is_generating_course = False
+                st.session_state.current_uploaded_file = None
+                st.session_state.current_pdf_url = None
+                st.session_state.pop('active_course_job_id', None)
         except Exception as e:
-            st.error(f"❌ Error generating course: {str(e)}")
+            st.error(f"❌ Unexpected error: {e}")
             st.session_state.is_generating_course = False
-            st.session_state.current_uploaded_file = None
-            st.session_state.current_pdf_url = None
+            st.session_state.pop('active_course_job_id', None)
 
 def count_total_questions(course_data):
     """Count total questions in course recursively"""
