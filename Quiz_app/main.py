@@ -436,6 +436,9 @@ if MONGO_AVAILABLE:
             cookies_ready = False
 
     AUTH_COOKIE_NAME = "username"
+    AUTH_VALID_COOKIE = "auth_valid"
+    AUTH_SESSION_COOKIE = "auth_session_v"
+    LOGOUT_SENTINEL = "logged_out"
 
     def get_auth_manager():
         if "auth_manager" not in st.session_state:
@@ -450,30 +453,27 @@ if MONGO_AVAILABLE:
     manager = get_auth_manager()
     
     def auto_login_from_cookie():
-        # Don't auto-login if user just logged out
+        # Block if just logged out during this cycle
         if st.session_state.get('logout_just_occurred'):
-            st.session_state.pop('logout_just_occurred', None)
             return
-            
         if st.session_state.get('authentication_status'):
             return
-        
-        # Safely check if cookies are available and ready
         if not hasattr(st.session_state, 'cookies') or st.session_state.cookies is None:
             return
-        
         try:
             if not st.session_state.cookies.ready():
                 return
-        except (AttributeError, RuntimeError):
+        except Exception:
             return
-            
-        cookie_username = st.session_state.cookies.get(AUTH_COOKIE_NAME)
-        if cookie_username and cookie_username != "logged_out" and manager:
-            user_data = manager.find_user_by_username(cookie_username)
+        u = st.session_state.cookies.get(AUTH_COOKIE_NAME)
+        valid = st.session_state.cookies.get(AUTH_VALID_COOKIE)
+        if not u or u in (LOGOUT_SENTINEL,) or valid != '1':
+            return
+        if manager:
+            user_data = manager.find_user_by_username(u)
             if user_data:
                 st.session_state['authentication_status'] = True
-                st.session_state['username'] = cookie_username
+                st.session_state['username'] = u
                 st.session_state['name'] = user_data.get('name')
                 st.session_state['email'] = user_data.get('email')
 
@@ -482,28 +482,43 @@ if MONGO_AVAILABLE:
     auto_login_from_cookie()
 
     def logout_user():
-        # Set logout flag FIRST to prevent immediate re-login
+        # Mark logout
         st.session_state['logout_just_occurred'] = True
-        
-        # Clear authentication
+        # Preserve infrastructure (cookie manager, auth manager)
+        preserve = {
+            'cookies': st.session_state.get('cookies'),
+            'auth_manager': st.session_state.get('auth_manager'),
+            'logout_just_occurred': True,
+        }
+        st.session_state.clear()
+        for k, v in preserve.items():
+            if v is not None:
+                st.session_state[k] = v
         st.session_state['authentication_status'] = False
-        st.session_state.pop('username', None)
-        st.session_state.pop('name', None)
-        st.session_state.pop('email', None)
-        
-        # Safely check and update cookies
+        st.session_state['username'] = None
+        st.session_state['name'] = None
+        st.session_state['email'] = None
+        # Invalidate cookies
         if hasattr(st.session_state, 'cookies') and st.session_state.cookies is not None:
             try:
                 if st.session_state.cookies.ready():
-                    st.session_state.cookies[AUTH_COOKIE_NAME] = "logged_out"
+                    st.session_state.cookies[AUTH_COOKIE_NAME] = LOGOUT_SENTINEL
+                    st.session_state.cookies[AUTH_VALID_COOKIE] = '0'
+                    st.session_state.cookies[AUTH_SESSION_COOKIE] = 'expired'
                     st.session_state.cookies.save()
-            except (AttributeError, RuntimeError, ValueError):
-                pass  # Ignore cookie errors during logout
-                
-        # Clear any OAuth related query params
+            except Exception:
+                pass
+        # Client-side expiry (best effort)
+        st.markdown(
+            """
+            <script>
+            try {const past='Thu, 01 Jan 1970 00:00:00 GMT';['username','auth_valid','auth_session_v','learnify/auth_username']
+              .forEach(n=>{document.cookie=n+'=; expires='+past+'; path=/; SameSite=Lax;';});} catch(e){}
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
         st.query_params.clear()
-        
-        # Force a complete rerun
         st.rerun()
 else:
     st.session_state['authentication_status'] = False
