@@ -891,12 +891,21 @@ def main():
             status_text = st.empty()
             
             # Status callback function for real-time updates
-            def status_callback(message, progress=None, delay=1.0):
+            def status_callback(message, progress=None, delay: float = 0.0):
+                """Update UI status without adding large artificial delays.
+
+                The previous implementation slept 1s on every status update, which
+                made the app feel frozen (e.g., 25 updates = 25s artificial wait).
+                Now we default to no sleep; if a tiny pause is ever desired for
+                readability, pass a small delay (e.g., 0.05) explicitly.
+                """
                 status_text.text(message)
                 if progress is not None:
                     progress_bar.progress(progress)
-                # Add a small delay to ensure users can see the status
-                time.sleep(delay)  # Show each status for at least the specified delay
+                if delay:
+                    # Keep any optional delay VERY small to avoid perceived hangs
+                    import time as _t
+                    _t.sleep(min(delay, 0.1))
             try:
                 if st.session_state.pending_uploaded_file:
                     course_data, error_message = generate_course(
