@@ -274,6 +274,8 @@ except (AttributeError, TypeError):
     cookies_ready = False
 
 AUTH_COOKIE_NAME = "username" # Name of the cookie storing the username
+AUTH_VALID_COOKIE = "auth_valid"
+AUTH_SESSION_COOKIE = "auth_session_v"
 
 # --- Authentication State Management ---
 def get_auth_manager():
@@ -306,9 +308,12 @@ def login_user(username, user_data):
     if cookies is not None:
         try:
             if cookies.ready():
+                import time as _t
                 cookies["guest_courses_count"] = "0"  # Reset guest course count
                 cookies[AUTH_COOKIE_NAME] = username  # Set auth cookie
-                cookies.save() # Save all cookie changes at once
+                cookies[AUTH_VALID_COOKIE] = '1'
+                cookies[AUTH_SESSION_COOKIE] = str(int(_t.time()))
+                cookies.save() # Persist all
         except (AttributeError, TypeError):
             pass  # Ignore cookie errors during login
     st.rerun()
@@ -341,13 +346,28 @@ def logout_user():
     st.session_state['name'] = None
     st.session_state['email'] = None
     
-    # Update cookies
+    # Update / invalidate cookies (mirror main.py logic)
     if cookies is not None:
         try:
             if cookies.ready():
-                # Set cookie to "logged_out" instead of deleting (more reliable)
-                cookies[AUTH_COOKIE_NAME] = "logged_out"
-                cookies.save()
+                cm = cookies
+                try:
+                    keys = list(cm.keys()) if hasattr(cm, 'keys') else []  # type: ignore
+                except Exception:
+                    keys = []
+                for k in [AUTH_COOKIE_NAME, 'auth_valid', 'auth_session_v', 'guest_courses_count', 'learnify/auth_username']:
+                    if k not in keys:
+                        keys.append(k)
+                for k in keys:
+                    try:
+                        if 'auth' in k.lower() or 'user' in k.lower() or k in ('guest_courses_count',):
+                            cm[k] = 'logged_out' if k != 'auth_valid' else '0'
+                    except Exception:
+                        pass
+                try:
+                    cm.save()
+                except Exception:
+                    pass
         except (AttributeError, TypeError):
             pass  # Ignore cookie errors during logout
     

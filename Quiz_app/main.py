@@ -502,24 +502,102 @@ if MONGO_AVAILABLE:
         if hasattr(st.session_state, 'cookies') and st.session_state.cookies is not None:
             try:
                 if st.session_state.cookies.ready():
-                    st.session_state.cookies[AUTH_COOKIE_NAME] = LOGOUT_SENTINEL
-                    st.session_state.cookies[AUTH_VALID_COOKIE] = '0'
-                    st.session_state.cookies[AUTH_SESSION_COOKIE] = 'expired'
-                    st.session_state.cookies.save()
+                    cm = st.session_state.cookies
+                    # Collect candidate keys
+                    key_getter = []
+                    try:
+                        if hasattr(cm, 'keys'):
+                            key_getter = list(cm.keys())  # type: ignore
+                    except Exception:
+                        pass
+                    # Fallback known keys
+                    for k in [AUTH_COOKIE_NAME, AUTH_VALID_COOKIE, AUTH_SESSION_COOKIE, 'guest_courses_count']:
+                        if k not in key_getter:
+                            key_getter.append(k)
+                    for k in key_getter:
+                        try:
+                            cm[k] = LOGOUT_SENTINEL if k != AUTH_VALID_COOKIE else '0'
+                        except Exception:
+                            pass
+                    try:
+                        cm.save()
+                    except Exception:
+                        pass
             except Exception:
                 pass
         # Client-side expiry (best effort)
         st.markdown(
             """
             <script>
-            try {const past='Thu, 01 Jan 1970 00:00:00 GMT';['username','auth_valid','auth_session_v','learnify/auth_username']
-              .forEach(n=>{document.cookie=n+'=; expires='+past+'; path=/; SameSite=Lax;';});} catch(e){}
+            (function(){
+              try {
+                const SENT='logged_out';
+                const FAR='Fri, 01 Jan 9999 00:00:00 GMT';
+                const targets=[];
+                document.cookie.split(';').forEach(c=>{
+                  const name=c.split('=')[0].trim();
+                  if(/learnify|username|auth_valid|auth_session_v|guest_courses_count/i.test(name)){
+                    targets.push(name);
+                  }
+                });
+                // Ensure explicit known names
+                ['username','auth_valid','auth_session_v','guest_courses_count','learnify/auth_username'].forEach(n=>{if(!targets.includes(n)) targets.push(n);});
+                targets.forEach(n=>{
+                  document.cookie = n+'='+SENT+'; expires='+FAR+'; path=/; SameSite=Lax;';
+                });
+              } catch(e) { console.warn('Logout cookie overwrite failed', e); }
+            })();
             </script>
             """,
             unsafe_allow_html=True
         )
         st.query_params.clear()
         st.rerun()
+
+    # Enforce logout sentinel early (in case previous reload happened before JS ran fully)
+    def _enforce_logout_sentinel():
+        if not st.session_state.get('logout_just_occurred'):
+            return
+        try:
+            if st.session_state.cookies and st.session_state.cookies.ready():
+                cm = st.session_state.cookies
+                # If username still not sentinel, force it and save
+                uname = cm.get(AUTH_COOKIE_NAME)
+                if uname and uname != LOGOUT_SENTINEL:
+                    for k in [AUTH_COOKIE_NAME, AUTH_VALID_COOKIE, AUTH_SESSION_COOKIE]:
+                        try:
+                            if k == AUTH_VALID_COOKIE:
+                                cm[k] = '0'
+                            else:
+                                cm[k] = LOGOUT_SENTINEL
+                        except Exception:
+                            pass
+                    try:
+                        cm.save()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    _enforce_logout_sentinel()
+
+    # Optional debug panel for auth cookie troubleshooting
+    if st.query_params.get('auth_debug') == '1':
+        with st.sidebar.expander("Auth Debug", expanded=True):
+            try:
+                if cookies is not None and cookies.ready():
+                    st.write({
+                        'username_cookie': cookies.get(AUTH_COOKIE_NAME),
+                        'auth_valid_cookie': cookies.get(AUTH_VALID_COOKIE),
+                        'auth_session_cookie': cookies.get(AUTH_SESSION_COOKIE),
+                        'logout_flag_session_state': st.session_state.get('logout_just_occurred'),
+                        'session_auth': st.session_state.get('authentication_status'),
+                        'session_username': st.session_state.get('username'),
+                    })
+                else:
+                    st.write('Cookies not ready')
+            except Exception as _dbg_e:
+                st.write(f'Debug error: {_dbg_e}')
 else:
     st.session_state['authentication_status'] = False
     st.session_state.cookies = None  # Ensure cookies is available even when MONGO is not available
@@ -551,7 +629,10 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
                     if cookies is not None:
                         try:
                             if cookies.ready():
+                                import time as _t
                                 cookies[AUTH_COOKIE_NAME] = existing_user['username']
+                                cookies[AUTH_VALID_COOKIE] = '1'
+                                cookies[AUTH_SESSION_COOKIE] = str(int(_t.time()))
                                 cookies.save()
                         except (AttributeError, TypeError):
                             pass
@@ -587,7 +668,10 @@ if 'code' in query_params and 'state' in query_params and MONGO_AVAILABLE:
                         if cookies is not None:
                             try:
                                 if cookies.ready():
+                                    import time as _t
                                     cookies[AUTH_COOKIE_NAME] = final_username
+                                    cookies[AUTH_VALID_COOKIE] = '1'
+                                    cookies[AUTH_SESSION_COOKIE] = str(int(_t.time()))
                                     cookies.save()
                             except (AttributeError, TypeError):
                                 pass
