@@ -23,6 +23,21 @@ except ImportError:
     STREAMLIT_AVAILABLE = False
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
+PERFORMANCE_LOGGING = os.getenv("LEARNIFY_PERFORMANCE_LOG", "False").lower() in ("true", "1", "yes")  # Performance logging toggle
+
+def log_performance(operation: str, duration: float = None, start_time: float = None):
+    """Log performance metrics if enabled via environment variable"""
+    if PERFORMANCE_LOGGING:
+        if duration is not None:
+            logger.info(f"⏱️ Performance: {operation} took {duration:.2f}s")
+        elif start_time is not None:
+            elapsed = time.time() - start_time
+            logger.info(f"⏱️ Performance: {operation} took {elapsed:.2f}s")
+        else:
+            logger.info(f"🔄 Performance: {operation}")
+
+# Add time module import for performance logging
+import time
 
 def should_convert_to_pdf(filename: str) -> bool:
     """
@@ -117,40 +132,56 @@ if not api_key:
     logger.error("GEMINI_API_KEY not found in Streamlit secrets or environment variables. Please check your configuration.")
     raise ValueError("GEMINI_API_KEY is required but not found in Streamlit secrets or environment variables")
 
-try:
-    client = genai.Client(api_key=api_key)
-    logger.info("Gemini client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Gemini client: {e}")
-    raise
+# Optimized: Cache expensive Gemini client initialization to avoid recreating on every import
+@st.cache_resource
+def get_gemini_client():
+    """Get cached Gemini client to avoid expensive re-initialization"""
+    try:
+        client = genai.Client(api_key=api_key)
+        logger.info("Gemini client initialized successfully (cached)")
+        return client
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini client: {e}")
+        raise
+
+# Initialize client using cached function
+client = get_gemini_client()
 
 # Determine base directory for loading prompt and system instructions
 BASE_DIR = os.path.dirname(__file__)
 PROMPT_PATH = os.path.join(BASE_DIR, "prompt.txt")
 SYS_INS_PATH = os.path.join(BASE_DIR, "sys_ins.txt")
 
-# Load prompt and system instructions with error handling
-try:
-    with open(PROMPT_PATH, "r", encoding='utf-8') as f:
-        prompt = f.read()
-    logger.debug(f"Loaded prompt.txt ({len(prompt)} characters)")
-except FileNotFoundError:
-    logger.error(f"prompt.txt not found at {PROMPT_PATH}")
-    raise
-except Exception as e:
-    logger.error(f"Error reading prompt.txt: {e}")
-    raise
+# Optimized: Cache prompt and system instructions loading to avoid repeated file I/O
+@st.cache_resource
+def load_prompt_files():
+    """Load and cache prompt files to avoid repeated file I/O operations"""
+    try:
+        with open(PROMPT_PATH, "r", encoding='utf-8') as f:
+            prompt_content = f.read()
+        logger.debug(f"Loaded prompt.txt ({len(prompt_content)} characters) [cached]")
+    except FileNotFoundError:
+        logger.error(f"prompt.txt not found at {PROMPT_PATH}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading prompt.txt: {e}")
+        raise
+    
+    try:
+        with open(SYS_INS_PATH, "r", encoding='utf-8') as f:
+            sys_ins_content = f.read()
+        logger.debug(f"Loaded sys_ins.txt ({len(sys_ins_content)} characters) [cached]")
+    except FileNotFoundError:
+        logger.error(f"sys_ins.txt not found at {SYS_INS_PATH}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading sys_ins.txt: {e}")
+        raise
+    
+    return prompt_content, sys_ins_content
 
-try:
-    with open(SYS_INS_PATH, "r", encoding='utf-8') as f:
-        sys_ins = f.read()
-    logger.debug(f"Loaded sys_ins.txt ({len(sys_ins)} characters)")
-except FileNotFoundError:
-    logger.error(f"sys_ins.txt not found at {SYS_INS_PATH}")
-    raise
-except Exception as e:
-    logger.error(f"Error reading sys_ins.txt: {e}")
-    raise
+# Load prompts using cached function (major performance improvement)
+prompt, sys_ins = load_prompt_files()
 
 def validate_pdf_content(pdf_bytes):
     """Validate that the content is actually a PDF"""
@@ -232,7 +263,7 @@ Be fair but accurate in your evaluation.
         logger.error(f"Error in AI validation: {e}")
         return None, f"AI validation error: {str(e)}"
     
-def generate_course(file_content=None, file_stream=None, file_url=None, filename=None, status_callback=None):
+def generate_course(file_content=None, file_stream=None, file_url=None, filename=None, status_callback=None, skip_upfront_analysis=False):
     """
     Generate a course structure from file content or a file URL.
     Supports multiple file formats: PDF, Word docs, images, audio, video, text files, etc.
@@ -242,6 +273,7 @@ def generate_course(file_content=None, file_stream=None, file_url=None, filename
         file_url: URL to a file
         filename: Original filename for MIME type detection (optional)
         status_callback: Optional callback function to report progress status
+        skip_upfront_analysis: If True, skip expensive PDF analysis upfront (performance optimization)
         
     Returns:
         tuple: (course_data, error_message)
@@ -251,12 +283,14 @@ def generate_course(file_content=None, file_stream=None, file_url=None, filename
     # Start timing for performance measurement
     import time
     start_time = time.time()
+    log_performance("Course generation started")
     
     def update_status(message, progress=None):
         """Helper function to update status via callback"""
         if status_callback:
             status_callback(message, progress)
         logger.info(message)
+        log_performance(f"Status: {message}", start_time=start_time)
     
     file_bytes = None
     streamed_chunks = []
@@ -459,12 +493,12 @@ We couldn't convert the downloaded file to a supported format, and the original 
     if len(file_bytes) > max_size:
         return None, f"File is too large ({len(file_bytes)} bytes). Maximum size is {max_size} bytes ({max_size // (1024*1024)}MB)."
     
-    # For PDF files (including converted ones), we can analyze content for word count validation
-    # For other file types, we'll let Gemini handle them directly
+    # Optimized: Skip expensive PDF analysis upfront when requested (performance improvement)
+    # Move analysis to worker thread to return job ID immediately  
     word_count = 0
     estimated_time = "2-4 minutes"
     
-    if detected_filename and detected_filename.lower().endswith('.pdf'):
+    if not skip_upfront_analysis and detected_filename and detected_filename.lower().endswith('.pdf'):
         update_status("📊 Analyzing PDF content and word count...", 30)
         try:
             pdf_analysis = analyze_pdf_content(file_bytes)
@@ -483,6 +517,8 @@ We couldn't convert the downloaded file to a supported format, and the original 
         except Exception as e:
             logger.warning(f"PDF analysis failed: {e}. Proceeding with direct AI processing.")
             update_status("⚠️ PDF analysis failed. AI will use document vision...", 32)
+    elif skip_upfront_analysis:
+        update_status("📊 Skipping upfront analysis - processing in background...", 30)
     else:
         update_status("📊 File will be processed directly by AI...", 30)
       # Update status with estimated time information
@@ -599,6 +635,7 @@ There was an issue processing your file. This usually happens with unsupported o
             # Log actual generation time for performance tracking
             actual_time = time.time() - start_time
             logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
+            log_performance(f"Course generation COMPLETED", actual_time)
 
             return parsed, None
         except ValidationError as ve:
@@ -613,6 +650,7 @@ There was an issue processing your file. This usually happens with unsupported o
                 # Log actual generation time for performance tracking
                 actual_time = time.time() - start_time
                 logger.info(f"Course generation completed in {actual_time:.1f} seconds (Word count: {word_count}, Estimated: {estimated_time})")
+                log_performance(f"Course generation COMPLETED (fallback)", actual_time)
 
                 return raw_data, None
             except json.JSONDecodeError as je:
