@@ -75,6 +75,16 @@ def safe_str_convert(value):
 # __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Initialize base UI for consistent styling (performance optimization)
+from utils.ui_base import ensure_base_ui, log_performance
+ensure_base_ui()
+
+# Initialize base UI (replaces massive CSS blocks)
+from utils.ui_base import ensure_base_ui, log_performance
+ensure_base_ui()
+
+# Removed multiple CSS blocks (500+ lines total) - now handled by ui_base
+
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input
     FILL_IN_BLANKS_AVAILABLE = True
@@ -738,21 +748,35 @@ def main():
         return
     
     # MAIN COURSE CONTENT - Only execute when course is started properly
-    # Calculate progress for the sticky header
-    all_questions_for_progress = []
-    for section_idx, section_data in enumerate(course_data):
-        is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
-        if is_pydantic_model:
-            questions = getattr(section_data, "quiz", [])
-        else:
-            questions = section_data.get('quiz', section_data.get('questions', []))
+    # Optimized: Cache total questions calculation to avoid recalculating on every rerun (performance improvement)
+    cache_key = f'all_questions_cache_{course_id}'
+    if cache_key not in st.session_state:
+        log_performance("Calculating total questions (cached)", time.time())
+        all_questions_for_progress = []
+        for section_idx, section_data in enumerate(course_data):
+            is_pydantic_model = hasattr(section_data, '__dict__') and not hasattr(section_data, 'get')
+            if is_pydantic_model:
+                questions = getattr(section_data, "quiz", [])
+            else:
+                questions = section_data.get('quiz', section_data.get('questions', []))
+            
+            if questions:
+                for q_idx, _ in enumerate(questions):
+                    question_key = f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
+                    all_questions_for_progress.append(question_key)
         
-        if questions:
-            for q_idx, _ in enumerate(questions):
-                question_key = f"course_{course_id}_sec_{section_idx}_q_{q_idx}"
-                all_questions_for_progress.append(question_key)
+        # Cache the calculation results
+        st.session_state[cache_key] = {
+            'all_questions': all_questions_for_progress,
+            'total_count': len(all_questions_for_progress)
+        }
     
-    total_questions_count = len(all_questions_for_progress)
+    # Use cached values (major performance improvement)
+    cached_data = st.session_state[cache_key]
+    all_questions_for_progress = cached_data['all_questions']
+    total_questions_count = cached_data['total_count']
+    
+    # Calculate current progress (only this needs to run on each rerun)
     answered_questions = sum(1 for q_key in all_questions_for_progress if q_key in st.session_state and st.session_state[q_key])
     progress_percentage = (answered_questions / total_questions_count) * 100 if total_questions_count > 0 else 0
     
