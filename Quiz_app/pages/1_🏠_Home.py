@@ -16,273 +16,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Apply modern CSS styling
-st.markdown("""
-<style>
-    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
-    /* Import modern fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    /* Global styling */
-    .stApp {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-        font-family: 'Inter', sans-serif;
-        color: #e2e8f0;
-    }
-    
-    /* Ensure all text is light colored */
-    .stMarkdown, .stText, p, div, span, label {
-        color: #e2e8f0 !important;
-    }
-    
-    /* Dark theme for Streamlit elements */
-    .stSelectbox > div > div > div {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: #e2e8f0 !important;
-    }
-    
-    /* Heading styles */
-    h1, h2, h3, h4, h5, h6 {
-        color: #e2e8f0 !important;
-    }
-    
-    /* Streamlit specific text elements - only for main content */
-    .main .stButton > button,
-    .stMain .stButton > button {
-        color: white !important;
-    }
-    
-    /* Hide cookie manager component that takes up horizontal space */
-    iframe[title*="cookie_manager"], 
-    iframe[src*="cookie_manager"],
-    .stCustomComponentV1:has(iframe[src*="cookie_manager"]) {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        visibility: hidden !important;
-    }
-    
-    /* Hide any empty custom components that might be taking space */
-    .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
-        display: none !important;
-    }
-    
-    /* Main content container */
-    .main-container {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
-        padding: 3rem;
-        margin: 2rem auto;
-        max-width: 1000px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Hero section */
-    .hero-section {
-        text-align: center;
-        margin-bottom: 3rem;
-    }
-    
-    .hero-title {
-        font-size: 3.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #06b6d4, #0891b2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 1rem;
-        line-height: 1.2;
-    }
-    
-    .hero-subtitle {
-        font-size: 1.2rem;
-        color: #cbd5e0;
-        margin-bottom: 2rem;
-        font-weight: 400;
-    }
-    
-    /* Modern card styling */
-    .generation-card {
-        background: transparent;
-        border: none;
-        border-radius: 15px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: rgba(6, 182, 212, 0.1);
-        border-radius: 10px;
-        padding: 4px;
-        margin-bottom: 2rem;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 8px;
-        color: #a0aec0;
-        font-weight: 500;
-        padding: 12px 20px;
-        border: none;
-        font-size: 1rem;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #06b6d4, #0891b2);
-        color: white !important;
-        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
-    }
-    
-    /* Input field styling */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div > div,
-    .stTextArea > div > div > textarea {
-        border-radius: 8px;
-        border: 2px solid rgba(6, 182, 212, 0.2);
-        background: rgba(255, 255, 255, 0.1);
-        color: #e2e8f0;
-        font-weight: 400;
-        padding: 12px 16px;
-    }
-    
-    .stTextInput > div > div > input:focus,
-    .stSelectbox > div > div > div:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #06b6d4;
-        box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
-    }
-    
-    /* File uploader styling */
-    .stFileUploader {
-        background: rgba(6, 182, 212, 0.05);
-        border: 2px dashed rgba(6, 182, 212, 0.3);
-        border-radius: 12px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s ease;
-    }
-    
-    .stFileUploader:hover {
-        border-color: #06b6d4;
-        background: rgba(6, 182, 212, 0.1);
-    }
-    
-    /* Button styling - only for main content area, not sidebar */
-    .main .stButton > button,
-    .stMain .stButton > button {
-        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
-        font-size: 1rem;
-    }
-    
-    .main .stButton > button:hover,
-    .stMain .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
-    }
-    
-    /* Primary button styling - only for main content area */
-    .main .stButton[data-testid="baseButton-primary"] > button,
-    .stMain .stButton[data-testid="baseButton-primary"] > button {
-        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-        font-size: 1.1rem;
-        padding: 1rem 2rem;
-    }
-    
-    /* Success/Error message styling */
-    .stSuccess {
-        background: linear-gradient(135deg, #4CAF50, #45a049);
-        color: white;
-        border-radius: 8px;
-        border: none;
-    }
-    
-    .stError {
-        background: linear-gradient(135deg, #f44336, #d32f2f);
-        color: white;
-        border-radius: 8px;
-        border: none;
-    }
-    
-    .stWarning {
-        background: linear-gradient(135deg, #ff9800, #f57c00);
-        color: white;
-        border-radius: 8px;
-        border: none;
-    }
-    
-    .stInfo {
-        background: linear-gradient(135deg, #2196F3, #1976D2);
-        color: white;
-        border-radius: 8px;
-        border: none;
-    }
-    
-    /* Progress bar styling */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(135deg, #06b6d4, #0891b2);
-        border-radius: 10px;
-    }
-    
-    /* Feature grid */
-    .feature-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-        margin: 2rem 0;
-    }
-    
-    .feature-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-    }
-    
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(6, 182, 212, 0.2);
-    }
-    
-    .feature-icon {
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Limits notice styling */
-    .limits-notice {
-        background: linear-gradient(135deg, #ff9800, #f57c00);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 1rem 0;
-        text-align: center;
-        font-weight: 500;
-    }
-    
-    /* Guest mode styling */
-    .guest-mode {
-        background: rgba(6, 182, 212, 0.1);
-        border: 1px solid rgba(6, 182, 212, 0.3);
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 1rem 0;
-        text-align: center;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Initialize base UI (replaces heavy CSS blocks)
+from utils.ui_base import ensure_base_ui, log_performance
+ensure_base_ui()
+
+# Removed 265+ lines of CSS (lines 21-284) - now handled by ui_base.ensure_base_ui()
+# This significantly reduces rerun time by avoiding redundant CSS injection
 
 # Import loading animation utilities if available
 try:
@@ -456,163 +195,7 @@ def initialize_session_state():
 # Initialize session state
 initialize_session_state()
 
-# Apply modern CSS styling
-st.markdown("""
-<style>
-    /* Global styles */
-    .stApp {
-        background: linear-gradient(135deg, #0a0014 0%, #1a0033 100%);
-    }
-    
-    /* Sidebar styling delegated to main.py */
-    
-    /* Hide default sidebar */
-    .css-1d391kg {
-        padding-top: 1rem;
-    }
-        padding-top: 1rem;
-    }
-    
-    /* Center container */
-    .main-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 2rem;
-        text-align: center;
-    }
-    
-    /* Title styling */
-    .main-title {
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 2rem;
-    }
-      /* Pill button styling - only for main content area */
-    .main .stButton > button,
-    .stMain .stButton > button {
-        background: linear-gradient(135deg, #06b6d4, #0891b2);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 30px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
-        width: 100%;
-        font-size: 1rem;
-    }
-    
-    .main .stButton > button:hover,
-    .stMain .stButton > button:hover {
-        background: linear-gradient(135deg, #0891b2, #0e7490);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
-    }
-    
-    /* Input styling */
-    .stTextInput > div > div > input {
-        background: rgba(26, 0, 51, 0.8);
-        border: 2px solid #9d00ff;
-        border-radius: 25px;
-        color: #ededed;
-        padding: 12px 20px;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #ff6b6b;
-        box-shadow: 0 0 15px rgba(157, 0, 255, 0.3);
-    }
-    
-    /* File uploader enhanced styling */
-    .stFileUploader {
-        background: rgba(255, 255, 255, 0.03);
-        border: 2px dashed #9d00ff;
-        border-radius: 20px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 1rem 0;
-    }
-    
-    .stFileUploader:hover {
-        border-color: #ff6b6b;
-        background: rgba(255, 255, 255, 0.06);
-        transform: translateY(-2px);
-    }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 25px;
-        padding: 5px;
-        gap: 10px;
-        justify-content: center;
-        margin-bottom: 2rem;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 20px;
-        color: rgba(255, 255, 255, 0.7);
-        padding: 12px 24px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        border: none;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #9d00ff, #7a00cc);
-        color: white;
-        box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3);
-    }
-    
-    /* Progress bar styling */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(135deg, #9d00ff, #ff6b6b);
-        border-radius: 10px;
-    }
-    
-    /* Success/Error/Warning message styling */
-    .stSuccess, .stInfo, .stWarning, .stError {
-        border-radius: 15px;
-        border: none;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .stSuccess {
-        background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.1));
-        border-left: 4px solid #00ff00;
-    }
-    
-    .stInfo {
-        background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(0, 100, 255, 0.1));
-        border-left: 4px solid #0096ff;
-    }
-    
-    .stWarning {
-        background: linear-gradient(135deg, rgba(255, 165, 0, 0.1), rgba(255, 140, 0, 0.1));
-        border-left: 4px solid #ffa500;
-    }
-    
-    .stError {
-        background: linear-gradient(135deg, rgba(255, 0, 0, 0.1), rgba(200, 0, 0, 0.1));
-        border-left: 4px solid #ff0000;
-    }
-    
-    /* Top navigation */
-    .top-nav {
-        position: fixed;
-        top: 0;
-        right: 0;
-        padding: 1rem;
-        z-index: 1000;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Removed second CSS block (153+ lines) - redundant styling now handled by ui_base
 
 def main():
     # Always show basic hero section first
@@ -754,46 +337,62 @@ def main():
     can_generate = check_course_limit()
     
     # Background async job handling
+    # Optimized non-blocking job polling (replaces blocking while loop)
     active_job_id = st.session_state.get('active_course_job_id')
     if active_job_id and not st.session_state.get('generated_course_result'):
         import time as _t
-        progress_bar = st.progress(0)
-        status_placeholder = st.empty()
-        phase_placeholder = st.empty()
-        PHASES = [
-            (0, "Queued"), (3, "Starting"), (5, "Pre-processing"), (10, "Validating"),
-            (15, "Converting"), (20, "Preparing Prompt"), (25, "AI Generation"), (60, "Parsing"),
-            (80, "Building Quiz"), (95, "Finalizing"), (100, "Done")
-        ]
-        start_ts = _t.time()
-        max_runtime = 1800
-        while True:
+        
+        # Check if we should poll (avoid too frequent polling)
+        last_poll = st.session_state.get('last_job_poll', 0)
+        current_time = _t.time()
+        
+        if current_time - last_poll >= 1.0:  # Poll at most once per second
+            st.session_state['last_job_poll'] = current_time
+            
+            progress_bar = st.progress(0)
+            status_placeholder = st.empty()
+            phase_placeholder = st.empty()
+            
             job = get_job(active_job_id)
             if not job:
                 status_placeholder.error("❌ Job not found.")
                 st.session_state.pop('active_course_job_id', None)
-                break
-            progress = int(job.get('progress', 0))
-            status = job.get('status')
-            message = job.get('message', 'Working...')
-            progress_bar.progress(progress/100 if progress else 0)
-            current_phase = next((label for thresh, label in reversed(PHASES) if progress >= thresh), "Queued")
-            phase_placeholder.caption(f"Phase: {current_phase} | {progress}%")
-            if status == 'error':
-                status_placeholder.error(f"❌ {job.get('error') or message}")
-                st.session_state.pop('active_course_job_id', None)
-                break
-            if status == 'done':
-                status_placeholder.success("✅ Course generated. Saving…")
-                st.session_state.generated_course_result = job.get('result')
-                st.rerun()
-                break
-            status_placeholder.info(f"{message} ({progress}%)")
-            if (_t.time() - start_ts) > max_runtime:
-                status_placeholder.error("⏱️ Generation timed out.")
-                st.session_state.pop('active_course_job_id', None)
-                break
-            _t.sleep(0.6)
+                st.session_state.pop('last_job_poll', None)
+            else:
+                progress = int(job.get('progress', 0))
+                status = job.get('status')
+                message = job.get('message', 'Working...')
+                
+                progress_bar.progress(progress/100 if progress else 0)
+                
+                PHASES = [
+                    (0, "Queued"), (3, "Starting"), (5, "Pre-processing"), (10, "Validating"),
+                    (15, "Converting"), (20, "Preparing Prompt"), (25, "AI Generation"), (60, "Parsing"),
+                    (80, "Building Quiz"), (95, "Finalizing"), (100, "Done")
+                ]
+                current_phase = next((label for thresh, label in reversed(PHASES) if progress >= thresh), "Queued")
+                phase_placeholder.caption(f"Phase: {current_phase} | {progress}%")
+                
+                if status == 'error':
+                    status_placeholder.error(f"❌ {job.get('error') or message}")
+                    st.session_state.pop('active_course_job_id', None)
+                    st.session_state.pop('last_job_poll', None)
+                elif status == 'done':
+                    status_placeholder.success("✅ Course generated. Saving…")
+                    st.session_state.generated_course_result = job.get('result')
+                    st.session_state.pop('active_course_job_id', None)
+                    st.session_state.pop('last_job_poll', None)
+                    st.rerun()
+                else:
+                    status_placeholder.info(f"{message} ({progress}%)")
+                    # Auto-refresh to continue polling (non-blocking)
+                    _t.sleep(0.1)  # Minimal delay to prevent excessive CPU usage
+                    st.rerun()
+        else:
+            # Show minimal UI during polling delay
+            st.info("Job in progress... (refreshing every second)")
+            _t.sleep(0.5)
+            st.rerun()
     elif can_generate:
         has_input = bool(uploaded_file or pdf_url)
         btn_label = "✨ Generate Course" if has_input else "📁 Upload a file or enter a URL"
@@ -1056,16 +655,26 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 )
                 st.session_state.active_course_job_id = job_id
 
-            # Poll loop
-            last_progress = -1
-            stagnation_start = time.time()
-            while True:
+            # Optimized polling with st.rerun() instead of blocking while loop
+            if not st.session_state.get('job_poll_initialized'):
+                st.session_state.last_progress = -1
+                st.session_state.stagnation_start = time.time()
+                st.session_state.job_poll_initialized = True
+                st.session_state.last_job_poll_time = 0
+            
+            # Throttle polling to avoid excessive API calls
+            current_time = time.time()
+            if current_time - st.session_state.get('last_job_poll_time', 0) >= 1.0:  # Poll every second
+                st.session_state.last_job_poll_time = current_time
+                
                 job = get_job(job_id)
                 if not job:
                     status_placeholder.error("❌ Lost track of background job.")
                     st.session_state.is_generating_course = False
                     st.session_state.pop('active_course_job_id', None)
+                    st.session_state.pop('job_poll_initialized', None)
                     return
+                
                 progress = job.get('progress', 0)
                 message = job.get('message', '')
                 progress_bar.progress(int(progress))
@@ -1073,22 +682,36 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 render_phase_timeline(progress, message)
 
                 # Stagnation detection (no progress change for 120s while running)
-                if progress != last_progress:
-                    last_progress = progress
-                    stagnation_start = time.time()
+                if progress != st.session_state.last_progress:
+                    st.session_state.last_progress = progress
+                    st.session_state.stagnation_start = time.time()
                 else:
-                    if job.get('status') == 'running' and (time.time() - stagnation_start) > 120:
+                    if job.get('status') == 'running' and (time.time() - st.session_state.stagnation_start) > 120:
                         st.warning("Progress appears stalled. You can wait or cancel & retry.")
 
                 if job.get('status') in {"done", "error"}:
-                    break
-                time.sleep(0.8)
-
-            # Terminal states
-            if job.get('status') == 'error':
-                st.error(f"❌ Generation failed: {job.get('error') or job.get('message')}")
-                st.session_state.is_generating_course = False
-                st.session_state.pop('active_course_job_id', None)
+                    # Clean up polling state
+                    st.session_state.pop('job_poll_initialized', None)
+                    st.session_state.pop('last_job_poll_time', None)
+                    
+                    # Handle terminal states
+                    if job.get('status') == 'error':
+                        st.error(f"❌ Generation failed: {job.get('error') or job.get('message')}")
+                        st.session_state.is_generating_course = False
+                        st.session_state.pop('active_course_job_id', None)
+                        return
+                    
+                    # Success case continues below...
+                else:
+                    # Continue polling - use rerun with small delay
+                    time.sleep(0.1)
+                    st.rerun()
+                    return
+            else:
+                # Skip this poll cycle but continue
+                time.sleep(0.2)
+                st.rerun()
+                return
                 return
 
             course_data = job.get('result')
