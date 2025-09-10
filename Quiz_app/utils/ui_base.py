@@ -43,12 +43,12 @@ def inject_minimal_css():
         .stSidebar > div {
             background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
             backdrop-filter: blur(10px);
-            border-right: 1px solid rgba(6, 182, 212, 0.2);
+            border-right: 1px solid rgba(139, 92, 246, 0.2);
         }
         
         /* Button styling - flat design */
         .stButton > button {
-            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
             color: white;
             border: none;
             border-radius: 8px;
@@ -58,7 +58,7 @@ def inject_minimal_css():
         }
         
         .stButton > button:hover {
-            background: linear-gradient(135deg, #0891b2, #0e7490);
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
             transform: translateY(-1px);
         }
         

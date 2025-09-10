@@ -57,7 +57,7 @@ st.markdown("""
     }
     
     h1 {
-        color: #06b6d4;
+        color: #8b5cf6;
         text-align: center;
         margin-bottom: 2rem;
     }

@@ -75,14 +75,14 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        color: #06b6d4;
+        color: #8b5cf6;
         font-weight: 500;
         padding: 8px 16px;
         border: none;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #06b6d4, #0891b2);
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
         color: white !important;
         box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
     }
@@ -110,13 +110,13 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > div:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #06b6d4;
+        border-color: #8b5cf6;
         box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
     }
     
     /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
         color: white;
         border: none;
         border-radius: 8px;
@@ -134,7 +134,7 @@ st.markdown("""
     /* Form submit button styling */
     .stForm .stButton > button {
         width: 100%;
-        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     }
     
     /* Success/Error message styling */

@@ -584,7 +584,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
             if progress >= thresh:
                 icon = "✅" if progress >= thresh else "⏳"
                 state_class = "done" if progress >= thresh else "pending"
-                style = "color:#06b6d4;" if progress < 100 and progress >= thresh else "color:#64748b;"
+                style = "color:#8b5cf6;" if progress < 100 and progress >= thresh else "color:#64748b;"
                 if progress >= thresh:
                     icon = "✅" if progress > thresh or progress == 100 else "🔄"
                 timeline.append(f"<span style='margin-right:8px;{style}'>{icon} {label}</span>")
@@ -716,25 +716,19 @@ def generate_and_redirect(uploaded_file, pdf_url):
                     
                     # Success case continues below...
                 else:
-                    # Use more efficient polling - allow manual refresh and less frequent auto-refresh
-                    if st.button("🔄 Check Progress", key="check_progress_btn"):
-                        st.rerun()
-                        return
-                    
-                    # Auto-refresh every 5 seconds instead of 0.1 seconds
+                    # Smooth polling without manual refresh buttons
+                    # Auto-refresh every 3 seconds with session state tracking
                     current_time = time.time()
                     last_poll_check = st.session_state.get('last_poll_check', 0)
                     
-                    if current_time - last_poll_check > 5:  # 5 second intervals
+                    if current_time - last_poll_check > 3:  # 3 second intervals
                         st.session_state['last_poll_check'] = current_time
                         st.rerun()
                         return
-            else:
-                # Skip this poll cycle but provide manual refresh option
-                st.info("Waiting for next poll cycle...")
-                if st.button("🔄 Check Now", key="check_now_btn"):
-                    st.rerun()
-                    return
+                    else:
+                        # Show smooth progress without rerunning
+                        st.info("🔄 Generating course... please wait")
+                        return
 
             course_data = job.get('result')
             if not course_data:
