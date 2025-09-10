@@ -337,26 +337,19 @@ st.markdown("""
         padding: 2rem 1rem;
     }
     
-    /* Course title with animated gradient */
+    /* Course title with consistent cyan theme */
     .course-title {
         font-size: 3.5rem;
         font-weight: 800;
-        background: linear-gradient(45deg, #06b6d4 0%, #0ea5e9 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%);
-        background-size: 300% 300%;
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
+        background-size: 200% 200%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin-bottom: 2rem;
         text-align: center;
-        animation: gradientShift 8s ease infinite;
         letter-spacing: -0.02em;
         line-height: 1.1;
-    }
-    
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
     }
     
     /* Section title with glow effect */
@@ -376,7 +369,7 @@ st.markdown("""
         left: 0;
         width: 60px;
         height: 4px;
-        background: linear-gradient(90deg, #06b6d4, #0ea5e9);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         border-radius: 2px;
     }
     
@@ -393,7 +386,7 @@ st.markdown("""
     
     /* Modern pill buttons */
     .stButton > button {
-        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: white;
         border: none;
         border-radius: 50px;
@@ -472,7 +465,7 @@ st.markdown("""
     .stat-number {
         font-size: 2rem;
         font-weight: 700;
-        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: block;
@@ -506,9 +499,8 @@ st.markdown("""
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(90deg, #06b6d4, #0ea5e9, #3b82f6);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         background-size: 200% 200%;
-        animation: gradientShift 3s ease infinite;
     }
     
     .question-card:hover {
@@ -520,7 +512,7 @@ st.markdown("""
     
     .question-number {
         display: inline-block;
-        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: white;
         padding: 8px 16px;
         border-radius: 20px;
@@ -636,7 +628,7 @@ st.markdown("""
     .completion-score {
         font-size: 4rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #06b6d4, #0ea5e9, #f093fb);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 1rem 0;
@@ -1251,7 +1243,7 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
             <div style="
                 width: {progress_pct}%;
                 height: 100%;
-                background: linear-gradient(90deg, #06b6d4, #0ea5e9);
+                background: linear-gradient(135deg, #06b6d4, #0891b2);
                 transition: width 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
             "></div>
         </div>
@@ -1275,7 +1267,7 @@ def show_course_navigation(course_data, course_id=None):  # course_id kept for A
         <div style="text-align: center;">
             <div style="
                 display: inline-block;
-                background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                background: linear-gradient(135deg, #06b6d4, #0891b2);
                 color: white;
                 padding: 12px 24px;
                 border-radius: 25px;
@@ -1365,11 +1357,10 @@ def display_course_overview(course_data, course_id):
         font-size: 2.5rem;
         font-weight: 700;
         text-align: center;
-        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #f093fb);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         background-size: 200% 200%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        animation: gradientShift 3s ease infinite;
         margin-bottom: 1rem;
     }
     
@@ -1417,11 +1408,6 @@ def display_course_overview(course_data, course_id):
         padding: 1rem;
         margin: 1rem 0;
         text-align: center;
-    }
-    
-    @keyframes gradientShift {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1641,7 +1627,7 @@ def display_course_completion_stats(course_data, course_id):
         <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;">
             <div style="font-size:2.5rem;">{emoji}</div>
             <div>
-                <h1 style="font-size:2rem;font-weight:700;background:linear-gradient(45deg,#06b6d4,#0ea5e9,#f093fb);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 3s ease infinite;margin:0;">{completion_title}</h1>
+                <h1 style="font-size:2rem;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0;">{completion_title}</h1>
                 <div style="font-size:1.1rem;color:{color};font-weight:600;margin-top:0.5rem;">{message}</div>
             </div>
         </div>
@@ -1862,7 +1848,7 @@ def display_progressive_questions(course_data, course_id):
                     📚 {section_title}
                 </h2>
                 <div style="
-                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                    background: linear-gradient(135deg, #06b6d4, #0891b2);
                     color: white;
                     padding: 6px 12px;
                     border-radius: 15px;
@@ -1935,7 +1921,7 @@ def display_progressive_questions(course_data, course_id):
                 margin-bottom: 1rem;
             ">
                 <div style="
-                    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                    background: linear-gradient(135deg, #06b6d4, #0891b2);
                     color: white;
                     padding: 8px 16px;
                     border-radius: 20px;
@@ -2004,7 +1990,7 @@ def display_progressive_questions(course_data, course_id):
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
             color: white;
             padding: 12px 20px;
             border-radius: 25px;
@@ -2590,7 +2576,7 @@ def display_question(question_item, section_key, question_idx):
                         font-size: 1.1rem;
                     ">
                         <span style="
-                            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                            background: linear-gradient(135deg, #06b6d4, #0891b2);
                             color: white;
                             padding: 4px 8px;
                             border-radius: 6px;
@@ -2662,7 +2648,7 @@ def display_question(question_item, section_key, question_idx):
                     overflow: hidden;
                 ">
                     <div style="
-                        background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+                        background: linear-gradient(135deg, #06b6d4, #0891b2);
                         height: 100%;
                         width: {progress * 100}%;
                         transition: width 0.3s ease;

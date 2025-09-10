@@ -382,17 +382,30 @@ def main():
                     st.session_state.generated_course_result = job.get('result')
                     st.session_state.pop('active_course_job_id', None)
                     st.session_state.pop('last_job_poll', None)
+                    # Job completed successfully
                     st.rerun()
                 else:
                     status_placeholder.info(f"{message} ({progress}%)")
-                    # Auto-refresh to continue polling (non-blocking)
-                    _t.sleep(0.1)  # Minimal delay to prevent excessive CPU usage
-                    st.rerun()
+                    # Use more efficient polling - reduce frequency to improve performance
+                    if st.button("🔄 Refresh Status", key="refresh_progress", help="Click to update progress"):
+                        st.rerun()
+                    
+                    # Auto-refresh every 3 seconds instead of aggressive polling
+                    import time
+                    current_time = time.time()
+                    last_auto_refresh = st.session_state.get('last_auto_refresh', 0)
+                    
+                    if current_time - last_auto_refresh > 3:  # 3 second intervals
+                        st.session_state['last_auto_refresh'] = current_time
+                        st.rerun()
         else:
-            # Show minimal UI during polling delay
-            st.info("Job in progress... (refreshing every second)")
-            _t.sleep(0.5)
-            st.rerun()
+            # Show minimal UI with manual refresh option
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.info("Job in progress... Click refresh to update status")
+            with col2:
+                if st.button("🔄 Refresh", key="manual_refresh"):
+                    st.rerun()
     elif can_generate:
         has_input = bool(uploaded_file or pdf_url)
         btn_label = "✨ Generate Course" if has_input else "📁 Upload a file or enter a URL"
@@ -703,16 +716,25 @@ def generate_and_redirect(uploaded_file, pdf_url):
                     
                     # Success case continues below...
                 else:
-                    # Continue polling - use rerun with small delay
-                    time.sleep(0.1)
+                    # Use more efficient polling - allow manual refresh and less frequent auto-refresh
+                    if st.button("🔄 Check Progress", key="check_progress_btn"):
+                        st.rerun()
+                        return
+                    
+                    # Auto-refresh every 5 seconds instead of 0.1 seconds
+                    current_time = time.time()
+                    last_poll_check = st.session_state.get('last_poll_check', 0)
+                    
+                    if current_time - last_poll_check > 5:  # 5 second intervals
+                        st.session_state['last_poll_check'] = current_time
+                        st.rerun()
+                        return
+            else:
+                # Skip this poll cycle but provide manual refresh option
+                st.info("Waiting for next poll cycle...")
+                if st.button("🔄 Check Now", key="check_now_btn"):
                     st.rerun()
                     return
-            else:
-                # Skip this poll cycle but continue
-                time.sleep(0.2)
-                st.rerun()
-                return
-                return
 
             course_data = job.get('result')
             if not course_data:
@@ -779,7 +801,7 @@ def generate_and_redirect(uploaded_file, pdf_url):
                 st.session_state.current_uploaded_file = None
                 st.session_state.current_pdf_url = None
                 st.session_state.pop('active_course_job_id', None)
-                time.sleep(1.0)
+                # Remove sleep and switch immediately for better performance
                 st.switch_page("pages/3_Course.py")
             else:
                 st.error("Course generated but not saved. You may retry.")
