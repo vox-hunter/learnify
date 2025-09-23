@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-Level Maths: Challenge Problems with AI ✨</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css">
+    <!-- Chosen Palette: Calm Neutrals -->
+    <!-- Application Structure Plan: The application is structured as a single-page dashboard with a tab-based navigation system for the three topics: Quadratics, Functions & Graphs, and Coordinate Geometry. This structure was chosen for its clarity and ease of use, allowing students to focus on one topic at a time without needing to scroll through irrelevant material. Each question is presented in a self-contained card with a toggleable solution. This promotes active learning, as the user must consciously choose to see the answer. The user flow is simple: select a topic, view the questions, and reveal solutions as needed. -->
+    <!-- Visualization & Content Choices: Report Info: Set of 6 math problems. Goal: Create an interactive study tool. Viz/Presentation Method: The primary presentation is through styled text and mathematical notation rendered by KaTeX. For the graph transformation problem, a line chart from Chart.js is used to visually represent both the original and transformed functions on a single canvas. Interaction: Users can switch between topic tabs and toggle the visibility of solutions for each problem. Justification: This approach turns a static document into an engaging and effective revision tool. The Chart.js visualization makes the abstract concept of graph transformation concrete and easy to understand. KaTeX ensures mathematical formulas are rendered clearly and professionally. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+        .katex-display {
+            display: block;
+            margin: 1em 0;
+            text-align: center;
+        }
+        .solution-step {
+            display: flex;
+            align-items: start;
+            gap: 0.5rem;
+        }
+        .explain-btn {
+            flex-shrink: 0;
+            margin-top: 0.25rem;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .loader {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-indigo-700">A-Level Maths</h1>
+            <p class="text-xl text-gray-600 mt-2">Challenge Problems with AI ✨</p>
+        </header>
+
+        <div class="p-4 mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg">
+            <p class="font-bold">Welcome to the AI-Enhanced Version!</p>
+            <p>To use the ✨ features, please enter your Gemini API key in the `apiKey` variable in the script tag at the bottom of this file.</p>
+        </div>
+
+        <nav class="flex justify-center mb-8 bg-white rounded-lg shadow-sm p-2">
+            <button data-topic="quadratics" class="topic-btn active-topic-btn text-sm md:text-base font-semibold py-2 px-4 mx-2 rounded-md focus:outline-none transition-colors duration-300">Quadratics</button>
+            <button data-topic="functions" class="topic-btn text-sm md:text-base font-semibold py-2 px-4 mx-2 rounded-md focus:outline-none transition-colors duration-300">Functions & Graphs</button>
+            <button data-topic="geometry" class="topic-btn text-sm md:text-base font-semibold py-2 px-4 mx-2 rounded-md focus:outline-none transition-colors duration-300">Coordinate Geometry</button>
+        </nav>
+
+        <main id="content-area">
+            <section id="quadratics" class="topic-content space-y-6">
+                <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-4">Introduction</h3>
+                    <p class="text-gray-700">This section focuses on quadratics, particularly how the discriminant ($b^2-4ac$) is used to determine the nature of intersections between lines and curves. These problems require you to form a quadratic equation from a system of equations and then analyze its discriminant to find unknown constants.</p>
+                    <button class="gemini-btn gemini-concept-btn mt-4 bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors duration-300" data-topic-name="Quadratics and the Discriminant">✨ Explain Key Concepts</button>
+                </div>
+                <!-- Question 1: Quadratics -->
+                <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h4 class="font-bold text-lg mb-2 text-indigo-600">Problem 1</h4>
+                    <div class="question-text text-gray-800 space-y-2">
+                        <p>The equation of a curve is <span class="katex-inline" data-expr="y = 4x^2 + kx + 25"></span>, where <span class="katex-inline" data-expr="k"></span> is a constant. The line <span class="katex-inline" data-expr="y = 2x - 3"></span> is a tangent to the curve. Find the possible values of <span class="katex-inline" data-expr="k"></span>.</p>
+                    </div>
+                    <button class="toggle-solution-btn mt-4 bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors duration-300">Toggle Solution</button>
+                    <div class="solution-text hidden mt-4 border-t pt-4 text-gray-700 space-y-4">
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p><strong class="text-indigo-600">Step 1:</strong> Set the equations for the curve and the line equal to each other to find their point(s) of intersection. <span class="katex-display" data-expr="4x^2 + kx + 25 = 2x - 3"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p><strong class="text-indigo-600">Step 2:</strong> Rearrange the equation into the standard quadratic form <span class="katex-inline" data-expr="ax^2 + bx + c = 0"></span>. <span class="katex-display" data-expr="4x^2 + (k-2)x + 28 = 0"></span></p>
+                        </div>
+                         <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p><strong class="text-indigo-600">Step 3:</strong> Since the line is a tangent, there is one real root, so the discriminant must be zero (<span class="katex-inline" data-expr="b^2 - 4ac = 0"></span>). Here, <span class="katex-inline" data-expr="a=4, b=(k-2), c=28"></span>. <span class="katex-display" data-expr="(k-2)^2 - 4(4)(28) = 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p><strong class="text-indigo-600">Step 4:</strong> Solve for <span class="katex-inline" data-expr="k"></span>. <span class="katex-display" data-expr="(k-2)^2 = 448 \implies k-2 = \pm\sqrt{448} \implies k = 2 \pm 8\sqrt{7}"></span></p>
+                        </div>
+                    </div>
+                    <button class="gemini-btn generate-problem-btn mt-4 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300">✨ Generate Similar Problem</button>
+                </div>
+            </section>
+            
+            <section id="functions" class="topic-content hidden space-y-6">
+                 <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-4">Introduction</h3>
+                    <p class="text-gray-700">This section explores composite functions, inverse functions, and graph transformations. The problems require careful algebraic manipulation and a clear understanding of how transformations affect the coordinates of points on a graph. Pay close attention to the order of operations for both composite functions and transformations.</p>
+                    <button class="gemini-btn gemini-concept-btn mt-4 bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors duration-300" data-topic-name="Composite Functions and Graph Transformations">✨ Explain Key Concepts</button>
+                </div>
+                 <!-- Question 1: Functions -->
+                <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h4 class="font-bold text-lg mb-2 text-indigo-600">Problem 1</h4>
+                    <div class="question-text text-gray-800 space-y-2">
+                        <p>The function f is defined by <span class="katex-inline" data-expr="f(x) = 2x^2 + 3"></span> for <span class="katex-inline" data-expr="x \ge 0"></span>.</p>
+                        <p>(a) Find and simplify an expression for <span class="katex-inline" data-expr="ff(x)"></span>.</p>
+                        <p>(b) Solve the equation <span class="katex-inline" data-expr="ff(x) = 34x^2 + 19"></span>.</p>
+                    </div>
+                    <button class="toggle-solution-btn mt-4 bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors duration-300">Toggle Solution</button>
+                    <div class="solution-text hidden mt-4 border-t pt-4 text-gray-700 space-y-4">
+                        <p class="font-bold text-indigo-600">Part (a)</p>
+                         <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>To find <span class="katex-inline" data-expr="ff(x)"></span>, we substitute <span class="katex-inline" data-expr="f(x)"></span> into itself: <span class="katex-display" data-expr="ff(x) = f(f(x)) = 2(2x^2 + 3)^2 + 3"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                             <p>Expand and simplify: <span class="katex-display" data-expr="= 2(4x^4 + 12x^2 + 9) + 3 = 8x^4 + 24x^2 + 21"></span></p>
+                        </div>
+                        <p class="font-bold text-indigo-600 mt-6">Part (b)</p>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Set expressions equal: <span class="katex-display" data-expr="8x^4 + 24x^2 + 21 = 34x^2 + 19 \implies 4x^4 - 5x^2 + 1 = 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Let <span class="katex-inline" data-expr="u = x^2"></span> and factorise: <span class="katex-display" data-expr="4u^2 - 5u + 1 = 0 \implies (4u - 1)(u - 1) = 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Solve for <span class="katex-inline" data-expr="x"></span> considering the domain <span class="katex-inline" data-expr="x \ge 0"></span>: <span class="katex-display" data-expr="x^2 = \frac{1}{4} \implies x=\frac{1}{2}; \quad x^2=1 \implies x=1"></span></p>
+                        </div>
+                    </div>
+                    <button class="gemini-btn generate-problem-btn mt-4 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300">✨ Generate Similar Problem</button>
+                </div>
+            </section>
+            
+            <section id="geometry" class="topic-content hidden space-y-6">
+                <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-4">Introduction</h3>
+                    <p class="text-gray-700">Coordinate geometry problems often integrate concepts from different areas of mathematics. The questions here involve finding the properties of a circle by completing the square, and using the discriminant to solve problems about the intersection of lines with curves and circles. These multi-step problems test both your procedural knowledge and your ability to connect different topics.</p>
+                    <button class="gemini-btn gemini-concept-btn mt-4 bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors duration-300" data-topic-name="Coordinate Geometry of Circles and Lines">✨ Explain Key Concepts</button>
+                </div>
+                <!-- Question 1: Geometry -->
+                <div class="p-6 bg-white rounded-xl shadow-md">
+                    <h4 class="font-bold text-lg mb-2 text-indigo-600">Problem 1</h4>
+                    <div class="question-text text-gray-800 space-y-2">
+                        <p>The equation of a circle is <span class="katex-inline" data-expr="x^2 + y^2 + 6x - 2y - 26 = 0"></span>.</p>
+                        <p>(a) Find the coordinates of the centre of the circle and the radius.</p>
+                        <p>(b) Find the set of values of the constant <span class="katex-inline" data-expr="k"></span> for which the line with equation <span class="katex-inline" data-expr="y = kx - 5"></span> intersects the circle at two distinct points.</p>
+                    </div>
+                    <button class="toggle-solution-btn mt-4 bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors duration-300">Toggle Solution</button>
+                    <div class="solution-text hidden mt-4 border-t pt-4 text-gray-700 space-y-4">
+                        <p class="font-bold text-indigo-600">Part (a)</p>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Complete the square for x and y terms: <span class="katex-display" data-expr="(x^2 + 6x + 9) + (y^2 - 2y + 1) - 9 - 1 - 26 = 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Write in standard circle form: <span class="katex-display" data-expr="(x+3)^2 + (y-1)^2 = 36"></span>. Centre is <span class="katex-inline" data-expr="(-3, 1)"></span>, Radius is <span class="katex-inline" data-expr="\sqrt{36} = 6"></span>.</p>
+                        </div>
+
+                        <p class="font-bold text-indigo-600 mt-6">Part (b)</p>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                             <p>Substitute <span class="katex-inline" data-expr="y = kx - 5"></span> into the circle equation and form a quadratic in x: <span class="katex-display" data-expr="(1+k^2)x^2 + (6-12k)x + 9 = 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                             <p>For two distinct points, <span class="katex-inline" data-expr="b^2 - 4ac > 0"></span>: <span class="katex-display" data-expr="(6-12k)^2 - 4(1+k^2)(9) > 0"></span></p>
+                        </div>
+                        <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>Simplify and solve the inequality: <span class="katex-display" data-expr="108k^2 - 144k > 0 \implies 3k^2 - 4k > 0 \implies k(3k-4) > 0"></span></p>
+                        </div>
+                         <div class="solution-step">
+                            <button class="gemini-btn explain-btn p-1 rounded-full bg-gray-200 hover:bg-gray-300" title="Explain this step">✨</button>
+                            <p>The solution is outside the roots: <span class="katex-inline" data-expr="k < 0"></span> or <span class="katex-inline" data-expr="k > \frac{4}{3}"></span>.</p>
+                        </div>
+                    </div>
+                     <button class="gemini-btn generate-problem-btn mt-4 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300">✨ Generate Similar Problem</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Gemini Modal -->
+    <div id="gemini-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-xl font-bold text-indigo-700">✨ AI Assistant</h3>
+                <button id="modal-close-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div id="modal-content" class="text-gray-700">
+                <!-- Content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // IMPORTANT: Add your Gemini API Key here
+            const apiKey = "AIzaSyAabWqaK9Z5QtQhAeSinhlBU9jf_nlQz8g"; 
+
+            const topicBtns = document.querySelectorAll('.topic-btn');
+            const topicContents = document.querySelectorAll('.topic-content');
+            const toggleSolutionBtns = document.querySelectorAll('.toggle-solution-btn');
+            const geminiBtns = document.querySelectorAll('.gemini-btn');
+            const modal = document.getElementById('gemini-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            
+            const activeClasses = 'bg-indigo-600 text-white';
+            const inactiveClasses = 'bg-white text-indigo-600 hover:bg-indigo-100';
+
+            function renderKatexInElement(element) {
+                element.querySelectorAll('.katex-inline, .katex-display').forEach(el => {
+                    const expression = el.getAttribute('data-expr');
+                    if (expression) {
+                         katex.render(expression, el, {
+                            throwOnError: false,
+                            displayMode: el.classList.contains('katex-display')
+                        });
+                    }
+                });
+            }
+
+            function renderAllKatex() {
+                renderKatexInElement(document.body);
+            }
+
+            renderAllKatex();
+
+            topicBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const topic = btn.dataset.topic;
+                    topicBtns.forEach(b => {
+                        b.classList.remove(...activeClasses.split(' '));
+                        b.classList.add(...inactiveClasses.split(' '));
+                    });
+                    btn.classList.add(...activeClasses.split(' '));
+                    btn.classList.remove(...inactiveClasses.split(' '));
+                    topicContents.forEach(content => {
+                        content.classList.toggle('hidden', content.id !== topic);
+                    });
+                });
+            });
+
+            toggleSolutionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const solution = btn.nextElementSibling;
+                    solution.classList.toggle('hidden');
+                });
+            });
+
+            // --- Gemini API Integration ---
+
+            function showModal(title) {
+                modalTitle.textContent = title;
+                modalContent.innerHTML = '<div class="flex justify-center items-center p-8"><div class="loader"></div></div>';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function hideModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            modalCloseBtn.addEventListener('click', hideModal);
+
+            async function callGeminiAPI(prompt) {
+                if (!apiKey) {
+                    modalContent.innerHTML = '<p class="text-red-600 font-bold">API Key is missing. Please add your Gemini API key to the script tag in this file.</p>';
+                    return;
+                }
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API request failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        // Basic markdown to HTML conversion
+                        let html = text
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            .replace(/`([^`]+)`/g, '<code class="bg-gray-200 p-1 rounded">$1</code>')
+                            .replace(/\n/g, '<br>');
+
+                        modalContent.innerHTML = `<div class="prose max-w-none">${html}</div>`;
+                    } else {
+                        throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    modalContent.innerHTML = `<p class="text-red-500">Sorry, an error occurred: ${error.message}</p>`;
+                }
+            }
+
+            geminiBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const target = e.currentTarget;
+                    
+                    if (target.classList.contains('explain-btn')) {
+                        const stepText = target.closest('.solution-step').textContent.replace('✨', '').trim();
+                        const prompt = `You are an expert A-Level maths tutor. Explain the following mathematical step clearly and concisely, assuming the student has some prior knowledge but needs clarification on this specific part. Do not solve the rest of the problem, just explain this step.\n\nStep: "${stepText}"`;
+                        showModal('✨ Step Explanation');
+                        callGeminiAPI(prompt);
+                    } 
+                    else if (target.classList.contains('generate-problem-btn')) {
+                        const problemText = target.closest('.p-6').querySelector('.question-text').textContent.trim();
+                        const prompt = `You are an expert A-Level maths tutor. Based on the problem below, create one new, similar problem that tests the exact same concepts but uses different numbers and a slightly different setup. After the new problem, provide a full, detailed, step-by-step solution. Format your response clearly with markdown for headings and bold text.\n\nOriginal Problem: "${problemText}"`;
+                        showModal('✨ Generated Problem');
+                        callGeminiAPI(prompt);
+                    }
+                    else if (target.classList.contains('gemini-concept-btn')) {
+                        const topicName = target.dataset.topicName;
+                        const prompt = `You are an expert A-Level maths tutor. Provide a clear and concise explanation of the key concepts related to "${topicName}". Include important formulas and briefly explain how they are applied in typical A-Level problems. Use markdown for formatting.`;
+                        showModal(`✨ Key Concepts: ${topicName}`);
+                        callGeminiAPI(prompt);
+                    }
+                });
+            });
+
+            // Set default active button
+            const defaultActiveBtn = document.querySelector('.topic-btn[data-topic="quadratics"]');
+            defaultActiveBtn.classList.remove(...inactiveClasses.split(' '));
+            defaultActiveBtn.classList.add(...activeClasses.split(' '));
+        });
+    </script>
+</body>
+</html>
+
