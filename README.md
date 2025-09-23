@@ -1,93 +1,106 @@
-# AI Quiz and Course Generator
+# Learnify - AI Course Generator
 
-An application that uses AI to generate quizzes and courses from PDF documents.
+A simplified, single-file HTML application that generates personalized learning courses from your uploaded materials using AI.
 
-## Features
+## 🎯 Overview
 
-- Upload a PDF file or provide a URL to a PDF document
-- Generate a course with quizzes based on the PDF content
-- Interactive quiz with multiple question types:
-  - Multiple choice
-  - Fill in the blank
-  - Short answer
-  - True/False
-  - Matching
-- Track your score as you answer questions
-- Sections and subsections for organized learning
+Learnify transforms your notes, documents, and learning materials into interactive courses with AI-generated content and quizzes. Built as a simple HTML file with no backend dependencies - just open and use!
 
-## How to Use
+## ✨ Features
 
-1. Choose between uploading a PDF file or providing a URL to a PDF document
-2. Click "Generate Course"
-3. Navigate through the sections using the "Previous Section" and "Next Section" buttons
-4. Answer the quiz questions and get immediate feedback
-5. Track your progress with the score meter
+- **Drag & Drop Upload**: Support for PDF, Word docs, text files, and more
+- **AI Course Generation**: Powered by Google's Gemini AI
+- **Interactive Quizzes**: Multiple choice questions with instant feedback
+- **Beautiful UI**: Modern dark theme with glass morphism design
+- **Section Navigation**: Progress through course sections at your own pace
+- **No Installation**: Single HTML file - works in any modern browser
+- **Responsive Design**: Works on desktop and mobile devices
 
-## Technical Details
+## 🚀 Quick Start
 
-This application uses the following technologies:
+1. **Get a Gemini API Key**
+   - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - Create a new API key
 
-- Streamlit for the web interface
-- Google's Gemini AI for content generation
-- Custom Streamlit components for enhanced UI
+2. **Setup**
+   - Download `learnify.html`
+   - Open the file in a text editor
+   - Find the `GEMINI_API_KEY` variable and add your API key:
+     ```javascript
+     const GEMINI_API_KEY = "your_api_key_here";
+     ```
 
-## Getting Started
+3. **Use**
+   - Open `learnify.html` in your web browser
+   - Upload your learning materials
+   - Click "Generate Course"
+   - Learn through your personalized course!
 
-1. Install the dependencies:
+## 📚 How It Works
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. **Upload**: Drag and drop your files or click to browse
+2. **Generate**: AI processes your content and creates structured course sections
+3. **Learn**: Navigate through sections, answer questions, get instant feedback
+4. **Progress**: Track your learning journey section by section
 
-2. Set up your API key:
-   Create a `.env` file in the root directory with the following content:
+## 🎨 Screenshots
 
-   ```plaintext
-   GEMINI_API_KEY=your_api_key_here
-   ```
-   
-3. Run the application:
+### Upload Interface
+Clean, intuitive file upload with drag-and-drop support
 
-   ```bash
-   streamlit run main.py
-   ```
+### Generated Course
+Beautiful course interface with sections, content, and interactive quizzes
 
-## File Structure
+### Interactive Learning
+Answer questions and get immediate feedback with explanations
 
-- `main.py`: Entry point for the application
-- `frontend.py`: User interface implementation
-- `local_backend.py`: Backend processing and AI integration
-- `prompt.txt`: Prompt template for the AI
-- `sys_ins.txt`: System instructions for the AI
-- `st_fill_in_the_blanks/`: Custom Streamlit component for fill-in-the-blank questions
+## 🛠 Technical Details
 
-## Features in Detail
+- **Frontend Only**: Pure HTML, CSS, and JavaScript
+- **AI Integration**: Direct integration with Google's Gemini API
+- **File Processing**: Client-side file reading and content extraction
+- **Responsive**: Tailwind CSS for modern, responsive design
+- **No Dependencies**: Self-contained single file
 
-### Question Types Supported
+## 📁 File Structure
 
-1. **Multiple Choice**: Select from multiple options
-2. **Fill in the Blank**: Custom interactive component with visual blanks
-3. **Short Answer**: Text area for detailed responses  
-4. **True/False**: Binary choice questions
-5. **Matching**: Interactive drag-and-drop style matching interface
+```
+learnify.html          # Complete application in a single file
+├── HTML structure     # Page layout and components
+├── CSS styling        # Modern dark theme with animations
+└── JavaScript logic   # File handling, AI integration, course display
+```
 
-### Scoring System
+## 🎓 Supported File Types
 
-- Real-time score tracking
-- Progress indication across all sections
-- Prevents double-scoring for the same question
-- Visual feedback for correct/incorrect answers
+- **Documents**: PDF, Word (.doc, .docx)
+- **Text Files**: .txt, .md (Markdown)
+- **And more**: The app attempts to read any text-based content
 
-### Course Navigation
+## 🔧 Customization
 
-- Section-based navigation with Previous/Next buttons
-- Support for nested subsections
-- Organized content presentation
+The app is designed to be easily customizable:
 
-## Contributing
+- **Themes**: Modify CSS variables for different color schemes
+- **AI Prompts**: Adjust the course generation prompts for different styles
+- **Question Types**: Extend the quiz system with new question formats
+- **File Support**: Add support for additional file types
 
-Feel free to contribute to this project by submitting issues or pull requests.
+## 🌟 Legacy Python Version
 
-## License
+The `Quiz_app/` directory contains the previous complex Python/Streamlit implementation with MongoDB integration, user authentication, and advanced features. The new simplified version achieves the core functionality with zero complexity.
 
-This project is licensed under the MIT License.
+## 🤝 Contributing
+
+Feel free to contribute:
+- Report bugs or suggest features via GitHub issues
+- Submit pull requests for improvements
+- Share your customizations and use cases
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+**Simple. Powerful. Educational.** 🧠✨
