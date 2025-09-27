@@ -29,30 +29,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Apply custom CSS for consistent theming (fallback for cloud deployment)
-st.markdown("""
-<style>
-    .stApp {{
-        background-color: #0a0014 !important;
-    }}
-    .stSidebar {{
-        background-color: #1a0033 !important;
-    }}
-    .stButton > button {{
-        background-color: #9d00ff !important;
-        color: white !important;
-    }}
-    .stButton > button:hover {{
-        background-color: #7a00cc !important;
-    }}
-    .stFileUploader > div > div {{
-        background-color: #1a0033 !important;
-        border: 2px dashed #9d00ff !important;
-    }}    .stProgress > div > div {{
-        background-color: #9d00ff !important;
-    }}
-</style>
-""", unsafe_allow_html=True)
+# Load consolidated CSS for consistent theming
+try:
+    from utils.css_loader import load_consolidated_css
+    load_consolidated_css()
+except ImportError:
+    st.warning("CSS loader not available - using fallback styles")
 
 # Cookie Manager Initialization
 COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")

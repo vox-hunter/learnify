@@ -44,51 +44,39 @@ st.set_page_config(
 if 'app_loading_complete' not in st.session_state:
     st.session_state['app_loading_complete'] = True  # Disable loading animation completely
 
-# --- Custom CSS to hide navigation links and apply modern styling ---
+# --- Load Consolidated CSS ---
+try:
+    from utils.css_loader import load_consolidated_css
+    load_consolidated_css()
+except ImportError:
+    st.warning("CSS loader not available - using fallback styles")
+
+# --- Main App Specific CSS ---
 st.markdown("""
 <style>
-    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    /* Global styles */
-    .stApp {
-        background: linear-gradient(135deg, #0a0e27 0%, #1a1d35 50%, #252947 100%);
-        font-family: 'Inter', sans-serif;
-    }
-    
+    /* Main app specific styles */
     /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Hide the 'Course' link in the sidebar */
+    /* Hide specific navigation links in sidebar */
     a[data-testid="stSidebarNavLink"][href$="/Course"] {
         display: none;
     }
-    
-    /* Hide Privacy Policy and Terms & Conditions from sidebar navigation */
     a[data-testid="stSidebarNavLink"][href$="/Privacy"] {
         display: none !important;
     }
-    
     a[data-testid="stSidebarNavLink"][href$="/Terms"] {
         display: none !important;
     }
     
-    /* Modern sidebar styling */
+    /* Modern sidebar styling - app specific */
     .stSidebar > div {
         background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
         backdrop-filter: blur(20px);
         border-right: 1px solid rgba(6, 182, 212, 0.2);
     }
-    
-    /* ULTIMATE SIDEBAR BUTTON OVERRIDE - Apply to ALL buttons in sidebar */
-    .stSidebar button,
-    .stSidebar .stButton > button,
-    .stSidebar .stPopover button,
-    .stSidebar [data-testid="stPopover"] button,
-    .stSidebar .element-container button,
-    [data-testid="stSidebar"] button,
     [data-testid="stSidebar"] .stButton > button,
     [data-testid="stSidebar"] .stPopover button,
     [data-testid="stSidebar"] [data-testid="stPopover"] button,
