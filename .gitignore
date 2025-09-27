@@ -269,6 +269,10 @@ secrets.json
 backup/
 *.backup
 *.bak
+*_backup.py
+*_new.py
+*_old.py
+*_temp.py
 
 # Log files
 *.log

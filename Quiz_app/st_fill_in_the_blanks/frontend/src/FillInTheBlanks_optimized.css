@@ -1,0 +1,171 @@
+/* Optimized Fill-in-the-Blanks Component CSS */
+/* Component root styling */
+html, body, #root {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.stApp, .main, [data-testid="stAppViewContainer"] {
+    background: transparent !important;
+}
+
+/* Main container */
+.fill-in-the-blanks-container {
+    display: block;
+    padding: 1.5rem;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    margin: 1rem 0;
+    transition: all 0.3s ease;
+}
+
+.fill-in-the-blanks-container:hover {
+    border-color: rgba(102, 126, 234, 0.5);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Question display */
+.question-display {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    color: #e2e8f0;
+    font-size: 1.1rem;
+}
+
+/* Blank styles */
+.blank-wrapper {
+    position: relative;
+    display: inline-block;
+    margin: 0 4px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.blank-wrapper.current {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.blank-wrapper.correct {
+    background: rgba(72, 187, 120, 0.12);
+    border: 1px solid rgba(72, 187, 120, 0.4);
+}
+
+.blank-wrapper.incorrect {
+    background: rgba(245, 101, 101, 0.12);
+    border: 1px solid rgba(245, 101, 101, 0.4);
+}
+
+/* Input field */
+.blank-input {
+    border: 2px solid rgba(102, 126, 234, 0.6);
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    outline: none;
+    transition: all 0.3s ease;
+    min-width: 100px;
+}
+
+.blank-input:focus {
+    border-color: rgba(102, 126, 234, 0.8);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Completed blanks */
+.completed-blank {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    min-width: 60px;
+    text-align: center;
+}
+
+.blank-wrapper.correct .completed-blank {
+    background: rgba(72, 187, 120, 0.15);
+    color: #e2e8f0;
+    border: 2px solid rgba(72, 187, 120, 0.6);
+}
+
+.blank-wrapper.incorrect .completed-blank {
+    background: rgba(245, 101, 101, 0.15);
+    color: #e2e8f0;
+    border: 2px solid rgba(245, 101, 101, 0.6);
+}
+
+/* Controls */
+.controls-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.button-group {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.check-btn, .give-up-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.check-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.check-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.check-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.give-up-btn {
+    background: linear-gradient(135deg, #ff6b6b, #ff5252);
+    color: white;
+}
+
+.give-up-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Feedback */
+.feedback-section, .completion-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.completion-message.all-correct {
+    background: rgba(72, 187, 120, 0.15);
+    border: 2px solid rgba(72, 187, 120, 0.4);
+    color: #48bb78;
+}
+
+.completion-message.partial {
+    background: rgba(255, 193, 7, 0.15);
+    border: 2px solid rgba(255, 193, 7, 0.4);
+    color: #ffc107;
+}

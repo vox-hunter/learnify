@@ -1,0 +1,164 @@
+/* Consolidated Frontend Styles for Learnify */
+/* Modern fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* === GLOBAL THEME === */
+.stApp {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+    font-family: 'Inter', sans-serif;
+    color: #e2e8f0 !important;
+}
+
+/* Text color consistency */
+.stMarkdown, .stText, p, div, span, label, h1, h2, h3, h4, h5, h6 {
+    color: #e2e8f0 !important;
+}
+
+/* === COMPONENT HIDING === */
+/* Hide cookie manager components */
+iframe[title*="cookie_manager"], 
+iframe[src*="cookie_manager"],
+iframe[title*="streamlit_cookies_manager"],
+iframe[src*="streamlit_cookies_manager"],
+.stCustomComponentV1:has(iframe[src*="cookie_manager"]) {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    visibility: hidden !important;
+}
+
+/* === FORM ELEMENTS === */
+.stTextInput > div > div > input,
+.stSelectbox > div > div > div,
+.stTextArea > div > div > textarea {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #e2e8f0 !important;
+    border: 2px solid rgba(6, 182, 212, 0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.stTextInput > div > div > input:focus,
+.stSelectbox > div > div > div:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: #06b6d4 !important;
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2) !important;
+}
+
+/* === BUTTONS === */
+.main .stButton > button,
+.stMain .stButton > button {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3) !important;
+}
+
+.main .stButton > button:hover,
+.stMain .stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4) !important;
+}
+
+/* === TABS === */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background: rgba(6, 182, 212, 0.1);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 2rem;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: transparent;
+    border-radius: 8px;
+    color: #a0aec0;
+    font-weight: 500;
+    padding: 12px 20px;
+    border: none;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+}
+
+/* === FILE UPLOADER === */
+.stFileUploader {
+    background: rgba(6, 182, 212, 0.05) !important;
+    border: 2px dashed rgba(6, 182, 212, 0.3) !important;
+    border-radius: 12px !important;
+    padding: 2rem !important;
+    text-align: center !important;
+    transition: all 0.3s ease !important;
+}
+
+.stFileUploader:hover {
+    border-color: #06b6d4 !important;
+    background: rgba(6, 182, 212, 0.1) !important;
+}
+
+/* === CONTAINERS === */
+.main-container {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 3rem;
+    margin: 2rem auto;
+    max-width: 1000px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* === MESSAGES === */
+.stSuccess, .stInfo, .stWarning, .stError {
+    border-radius: 15px !important;
+    border: none !important;
+    padding: 1rem !important;
+    margin: 1rem 0 !important;
+}
+
+.stSuccess {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.1)) !important;
+    border-left: 4px solid #00ff00 !important;
+}
+
+.stInfo {
+    background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(0, 100, 255, 0.1)) !important;
+    border-left: 4px solid #0096ff !important;
+}
+
+.stWarning {
+    background: linear-gradient(135deg, rgba(255, 165, 0, 0.1), rgba(255, 140, 0, 0.1)) !important;
+    border-left: 4px solid #ffa500 !important;
+}
+
+.stError {
+    background: linear-gradient(135deg, rgba(255, 0, 0, 0.1), rgba(200, 0, 0, 0.1)) !important;
+    border-left: 4px solid #ff0000 !important;
+}
+
+/* === ANIMATIONS === */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    .main-container {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+}
