@@ -9,6 +9,7 @@ import sys
 from utils.lazy_imports import import_optional, prefetch_modules
 from utils.navigation_cache import record_page_visit, cache_course_list, get_cached_course_list, purge_stale_course_cache, warm_next_pages, remove_course_from_cache
 from utils.common_styles import apply_common_styles, hide_navigation_links
+from utils.performance import setup_performance
 
 # --- Helper Functions ---
 def truncate_course_name(course_name, max_words=4):
@@ -39,6 +40,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"  # Set to expanded - we'll handle collapse via CSS
 )
+
+# --- Performance Optimizations ---
+setup_performance()
 
 # --- Simplified Loading System ---
 # Initialize loading state if not present
