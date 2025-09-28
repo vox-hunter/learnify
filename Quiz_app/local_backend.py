@@ -13,8 +13,6 @@ import PyPDF2
 import pdfplumber
 from file_security import validate_file_security, get_mime_type, MAX_FILE_SIZE, MAX_CONTENT_WORDS
 from document_converter import convert_to_pdf, should_convert_to_pdf, get_conversion_info
-from file_converter import convert_to_pdf
-from document_converter import convert_to_pdf, should_convert_to_pdf
 
 try:
     import streamlit as st
@@ -23,32 +21,6 @@ except ImportError:
     STREAMLIT_AVAILABLE = False
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
-
-def should_convert_to_pdf(filename: str) -> bool:
-    """
-    Determine if a file should be converted to PDF for optimal Gemini processing.
-    Based on Gemini documentation, PDF is the preferred format for document understanding.
-    """
-    if not filename:
-        return False
-    
-    file_ext = os.path.splitext(filename.lower())[1]
-    
-    # Don't convert if already PDF
-    if file_ext == '.pdf':
-        return False
-    
-    # Convert document formats that benefit from PDF conversion
-    convertible_formats = {
-        '.docx', '.doc',        # Word documents
-        '.pptx', '.ppt',        # PowerPoint presentations  
-        '.xlsx', '.xls',        # Excel spreadsheets
-        '.txt', '.md',          # Text and Markdown
-        '.html', '.htm',        # HTML files
-        '.rtf',                 # Rich Text Format
-    }
-    
-    return file_ext in convertible_formats
 
 # Define a Pydantic model for arbitrary key-value mappings
 class ArbitraryMapping(BaseModel):
