@@ -4,6 +4,7 @@ import json
 import re
 import random
 from utils.lazy_imports import lazy_import, import_optional, prefetch_modules
+from utils.common_styles import apply_common_styles
 fill_in_the_blanks_input = import_optional("st_fill_in_the_blanks:fill_in_the_blanks_input")
 local_backend = lazy_import("local_backend")
 EncryptedCookieManager = import_optional("streamlit_cookies_manager:EncryptedCookieManager")
@@ -18,8 +19,6 @@ prefetch_modules([
     "streamlit_cookies_manager",
 ])
 
-
-
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 st.set_page_config(
@@ -29,30 +28,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Apply custom CSS for consistent theming (fallback for cloud deployment)
-st.markdown("""
-<style>
-    .stApp {{
-        background-color: #0a0014 !important;
-    }}
-    .stSidebar {{
-        background-color: #1a0033 !important;
-    }}
-    .stButton > button {{
-        background-color: #9d00ff !important;
-        color: white !important;
-    }}
-    .stButton > button:hover {{
-        background-color: #7a00cc !important;
-    }}
-    .stFileUploader > div > div {{
-        background-color: #1a0033 !important;
-        border: 2px dashed #9d00ff !important;
-    }}    .stProgress > div > div {{
-        background-color: #9d00ff !important;
-    }}
-</style>
-""", unsafe_allow_html=True)
+# Apply centralized styling
+apply_common_styles()
 
 # Cookie Manager Initialization
 COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")

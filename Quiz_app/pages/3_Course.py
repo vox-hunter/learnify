@@ -7,6 +7,10 @@ import time
 import datetime
 import html
 import re
+from utils.common_styles import apply_common_styles
+
+# Apply centralized styling
+apply_common_styles()
 
 def sanitize_inline(text: str) -> str:
     """Return a safe HTML fragment for inline insertion.
