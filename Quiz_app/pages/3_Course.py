@@ -267,6 +267,9 @@ def _mark_section_questions_correct_recursive(section_data, section_key):
 # CSS already applied via centralized styles
 
 # Cache for course data to avoid repeated database calls
+
+st.markdown("""
+<style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
     /* Hide cookies manager and reduce top spacing */
@@ -281,7 +284,12 @@ def _mark_section_questions_correct_recursive(section_data, section_key):
         position: absolute !important;
         left: -9999px !important;
     }
-    
+</style>
+""", unsafe_allow_html=True)
+
+# Additional styles in separate block
+st.markdown("""
+<style>
     /* Hide any empty custom components that might be taking space */
     div[data-testid="stAppViewContainer"] > div:first-child:empty {
         display: none !important;
@@ -2878,6 +2886,9 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
     # Initialize session state for answer tracking if not already present
     if "answers" not in st.session_state:
         st.session_state.answers = {}
+    
+    # Initialize variables to avoid undefined variable errors
+    correct_count = 0
       # For fill-in-the-blank, skip this function as it's handled by dedicated component logic
     if question_type == "fill_in_the_blank":
         return # Let the custom component handle all fill-in-the-blank logic# For other question types, proceed with existing logic
@@ -2985,6 +2996,8 @@ def handle_answer_submission(question_key, correct_answer, question_type, select
                         if item_key in correct_matches_dict and user_matches_dict[item_key] == correct_matches_dict[item_key]:
                             correct_count += 1
                 
+
+                    
                 total_items_to_match = len(correct_matches_dict) # Total number of items that should be matched
 
                 if is_correct_locally:

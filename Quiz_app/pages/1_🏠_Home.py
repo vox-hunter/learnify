@@ -16,6 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Apply centralized styling
 apply_common_styles()
+
+st.markdown("""
+<style>
     .stMain .stButton > button {
         color: white !important;
     }
@@ -34,7 +37,12 @@ apply_common_styles()
     .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
         display: none !important;
     }
-    
+</style>
+""", unsafe_allow_html=True)
+
+# Additional styles in separate block
+st.markdown("""
+<style>
     /* Main content container */
     .main-container {
         background: rgba(255, 255, 255, 0.08);

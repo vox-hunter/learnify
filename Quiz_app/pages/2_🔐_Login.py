@@ -9,10 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # Apply centralized styling
 apply_common_styles()
 
-try:
-    /* Import modern fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
+st.markdown("""
+<style>
     /* Global styling */
     .stApp {
         background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);

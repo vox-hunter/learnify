@@ -163,5 +163,4 @@ def hide_navigation_links():
 def apply_common_styles():
     """Apply all common styles to the current page"""
     import streamlit as st
-    st.markdown(get_base_styles(), unsafe_allow_html=True)
     st.markdown(get_sidebar_styles(), unsafe_allow_html=True)
