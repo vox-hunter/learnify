@@ -4,6 +4,7 @@ import json
 import re
 import random
 from utils.lazy_imports import lazy_import, import_optional, prefetch_modules
+from utils.common_styles import apply_common_styles
 fill_in_the_blanks_input = import_optional("st_fill_in_the_blanks:fill_in_the_blanks_input")
 local_backend = lazy_import("local_backend")
 EncryptedCookieManager = import_optional("streamlit_cookies_manager:EncryptedCookieManager")
@@ -18,8 +19,6 @@ prefetch_modules([
     "streamlit_cookies_manager",
 ])
 
-
-
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 st.set_page_config(
@@ -29,30 +28,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Apply custom CSS for consistent theming (fallback for cloud deployment)
-st.markdown("""
-<style>
-    .stApp {{
-        background-color: #0a0014 !important;
-    }}
-    .stSidebar {{
-        background-color: #1a0033 !important;
-    }}
-    .stButton > button {{
-        background-color: #9d00ff !important;
-        color: white !important;
-    }}
-    .stButton > button:hover {{
-        background-color: #7a00cc !important;
-    }}
-    .stFileUploader > div > div {{
-        background-color: #1a0033 !important;
-        border: 2px dashed #9d00ff !important;
-    }}    .stProgress > div > div {{
-        background-color: #9d00ff !important;
-    }}
-</style>
-""", unsafe_allow_html=True)
+# Apply centralized styling
+apply_common_styles()
 
 # Cookie Manager Initialization
 COOKIE_ENCRYPTION_KEY = st.secrets.get("COOKIE_ENCRYPTION_KEY", "YOUR_STRONG_SECRET_PASSWORD_FOR_COOKIES")
@@ -906,6 +883,10 @@ def main():
                     # Keep any optional delay VERY small to avoid perceived hangs
                     import time as _t
                     _t.sleep(min(delay, 0.1))
+            # Initialize variables before try block
+            course_data = None
+            error_message = None
+            
             try:
                 if st.session_state.pending_uploaded_file:
                     course_data, error_message = generate_course(
@@ -1000,7 +981,9 @@ def main():
 
     if "course_data" in st.session_state and st.session_state.course_data:
         course_data = st.session_state.course_data
-        total_sections = len(course_data)        # Navigation buttons
+        total_sections = len(course_data)
+        
+        # Navigation buttons
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             if st.button("⬅️ Previous Section", disabled=st.session_state.current_section_index == 0):
@@ -1015,9 +998,12 @@ def main():
             st.write(f"Displaying Section {st.session_state.current_section_index + 1} of {total_sections}")
 
         # Display the current top-level section and its content (including subsections)
-        current_section_data = course_data[st.session_state.current_section_index]
-        # The key for a top-level section can just be its index
-        display_section_content(current_section_data, f"sec_{st.session_state.current_section_index}")
+        if isinstance(course_data, list) and len(course_data) > st.session_state.current_section_index:
+            current_section_data = course_data[st.session_state.current_section_index]
+            # The key for a top-level section can just be its index
+            display_section_content(current_section_data, f"sec_{st.session_state.current_section_index}")
+        else:
+            st.error("Invalid course data or section index")
 
     else:
         st.info("Upload a PDF or provide a URL to generate a course.")
