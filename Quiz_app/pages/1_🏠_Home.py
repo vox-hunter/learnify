@@ -7,47 +7,18 @@ import os
 from streamlit_cookies_manager import EncryptedCookieManager
 from utils.background_jobs import start_course_generation, get_job, cleanup_finished
 from utils.lazy_imports import lazy_import
+from utils.common_styles import apply_common_styles
 import io
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-# Add the parent directory (Quiz app) to sys.path to allow imports from it
-# __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Apply modern CSS styling
+# Apply centralized styling
+apply_common_styles()
+
 st.markdown("""
 <style>
-    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
-    /* Import modern fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    /* Global styling */
-    .stApp {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-        font-family: 'Inter', sans-serif;
-        color: #e2e8f0;
-    }
-    
-    /* Ensure all text is light colored */
-    .stMarkdown, .stText, p, div, span, label {
-        color: #e2e8f0 !important;
-    }
-    
-    /* Dark theme for Streamlit elements */
-    .stSelectbox > div > div > div {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: #e2e8f0 !important;
-    }
-    
-    /* Heading styles */
-    h1, h2, h3, h4, h5, h6 {
-        color: #e2e8f0 !important;
-    }
-    
-    /* Streamlit specific text elements - only for main content */
-    .main .stButton > button,
     .stMain .stButton > button {
         color: white !important;
     }
@@ -66,7 +37,12 @@ st.markdown("""
     .stCustomComponentV1[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
         display: none !important;
     }
-    
+</style>
+""", unsafe_allow_html=True)
+
+# Additional styles in separate block
+st.markdown("""
+<style>
     /* Main content container */
     .main-container {
         background: rgba(255, 255, 255, 0.08);
@@ -284,16 +260,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Import loading animation utilities if available
-try:
-    from loading_animation import show_loading_status
-    from streamlit_loading import ensure_loading_cleanup
-    
-    # Ensure loading UI is cleaned up on this page
-    ensure_loading_cleanup()
-except ImportError:
-    def show_loading_status(message, progress=None):
-        pass  # Fallback if loading animation is not available
+# Simplified loading - removed complex animation system
+def show_loading_status(message, progress=None):
+    """Simple loading status fallback"""
+    pass
 
 try:
     from mongo_auth import MongoAuthManager

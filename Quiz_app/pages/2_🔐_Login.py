@@ -1,18 +1,16 @@
 import streamlit as st
 import os
 import sys
-# from streamlit_cookies_manager import EncryptedCookieManager  # Commented out as it's unused
+from utils.common_styles import apply_common_styles
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# Apply modern CSS styling
+# Apply centralized styling
+apply_common_styles()
+
 st.markdown("""
 <style>
-    /* Cache buster: 2025-07-02-14:30 - Force CSS reload */
-    /* Import modern fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
     /* Global styling */
     .stApp {
         background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
