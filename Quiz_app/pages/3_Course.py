@@ -264,10 +264,9 @@ def _mark_section_questions_correct_recursive(section_data, section_key):
             subsection_key = f"{section_key}_sub_{sub_idx}"
             _mark_section_questions_correct_recursive(subsection, subsection_key)
 
-# Apply ultra-modern CSS styling
-st.markdown("""
-<style>
-    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
+# CSS already applied via centralized styles
+
+# Cache for course data to avoid repeated database calls
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
     /* Hide cookies manager and reduce top spacing */
