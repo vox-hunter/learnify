@@ -8,6 +8,7 @@ import os
 import sys
 from utils.lazy_imports import import_optional, prefetch_modules
 from utils.navigation_cache import record_page_visit, cache_course_list, get_cached_course_list, purge_stale_course_cache, warm_next_pages, remove_course_from_cache
+from utils.shared_styles import get_combined_css
 
 # --- Helper Functions ---
 def truncate_course_name(course_name, max_words=4):
@@ -44,252 +45,24 @@ st.set_page_config(
 if 'app_loading_complete' not in st.session_state:
     st.session_state['app_loading_complete'] = True  # Disable loading animation completely
 
-# --- Custom CSS to hide navigation links and apply modern styling ---
+# --- Apply shared CSS styling ---
+st.markdown(get_combined_css('base', 'sidebar'), unsafe_allow_html=True)
+
+# --- Additional CSS for navigation hiding ---
 st.markdown("""
 <style>
-    /* Cache buster: 2025-07-02-14:15 - Force CSS reload */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    /* Global styles */
-    .stApp {
-        background: linear-gradient(135deg, #0a0e27 0%, #1a1d35 50%, #252947 100%);
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Hide Streamlit default elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
     /* Hide the 'Course' link in the sidebar */
     a[data-testid="stSidebarNavLink"][href$="/Course"] {
         display: none;
     }
     
     /* Hide Privacy Policy and Terms & Conditions from sidebar navigation */
-    a[data-testid="stSidebarNavLink"][href$="/Privacy"] {
-        display: none !important;
-    }
-    
+    a[data-testid="stSidebarNavLink"][href$="/Privacy"],
     a[data-testid="stSidebarNavLink"][href$="/Terms"] {
         display: none !important;
     }
-    
-    /* Modern sidebar styling */
-    .stSidebar > div {
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(6, 182, 212, 0.2);
-    }
-    
-    /* ULTIMATE SIDEBAR BUTTON OVERRIDE - Apply to ALL buttons in sidebar */
-    .stSidebar button,
-    .stSidebar .stButton > button,
-    .stSidebar .stPopover button,
-    .stSidebar [data-testid="stPopover"] button,
-    .stSidebar .element-container button,
-    [data-testid="stSidebar"] button,
-    [data-testid="stSidebar"] .stButton > button,
-    [data-testid="stSidebar"] .stPopover button,
-    [data-testid="stSidebar"] [data-testid="stPopover"] button,
-    [data-testid="stSidebar"] .element-container button,
-    .stSidebar button[kind],
-    .stSidebar button[data-testid],
-    .stSidebar button[style],
-    [data-testid="stSidebar"] button[kind],
-    [data-testid="stSidebar"] button[data-testid],
-    [data-testid="stSidebar"] button[style] {
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(6, 182, 212, 0.3) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-        /* Preserve original casing for course buttons in sidebar */
-        [data-testid="stSidebar"] .stButton > button,
-        [data-testid="stSidebarContent"] .stButton > button { text-transform: none !important; }
-    
-    .stSidebar button:hover,
-    .stSidebar .stButton > button:hover,
-    .stSidebar .stPopover button:hover,
-    .stSidebar [data-testid="stPopover"] button:hover,
-    .stSidebar .element-container button:hover,
-    [data-testid="stSidebar"] button:hover,
-    [data-testid="stSidebar"] .stButton > button:hover,
-    [data-testid="stSidebar"] .stPopover button:hover,
-    [data-testid="stSidebar"] [data-testid="stPopover"] button:hover,
-    [data-testid="stSidebar"] .element-container button:hover,
-    .stSidebar button[kind]:hover,
-    .stSidebar button[data-testid]:hover,
-    .stSidebar button[style]:hover,
-    [data-testid="stSidebar"] button[kind]:hover,
-    [data-testid="stSidebar"] button[data-testid]:hover,
-    [data-testid="stSidebar"] button[style]:hover {
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
-        border-color: rgba(6, 182, 212, 0.5) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3) !important;
-    }
-    
-    /* Enhanced Streamlit widgets */
-    .stButton > button {
-        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 24px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
-    }
-    
-    /* Override default Streamlit button colors completely for main content */
-    .stMain button[kind="primary"],
-    .stMain button[data-testid*="stButton"] {
-        background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%) !important;
-        color: white !important;
-        border: none !important;
-    }
-    
-    /* Success/Error/Info styling */
-    .stSuccess {
-        background: linear-gradient(135deg, rgba(72, 187, 120, 0.2), rgba(56, 178, 172, 0.2));
-        border: 1px solid rgba(72, 187, 120, 0.4);
-        border-radius: 12px;
-        backdrop-filter: blur(20px);
-    }
-    
-    .stError {
-        background: linear-gradient(135deg, rgba(245, 101, 101, 0.2), rgba(229, 62, 62, 0.2));
-        border: 1px solid rgba(245, 101, 101, 0.4);
-        border-radius: 12px;
-        backdrop-filter: blur(20px);
-    }
-    
-    .stInfo {
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2));
-        border: 1px solid rgba(6, 182, 212, 0.4);
-        border-radius: 12px;
-        backdrop-filter: blur(20px);
-    }
-    
-    /* Container styling */
-    .main-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-    }
-    
-    /* Modern card styling */
-    .modern-card {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        transition: all 0.3s ease;
-    }
-    
-    .modern-card:hover {
-        border-color: rgba(6, 182, 212, 0.5);
-        background: rgba(255, 255, 255, 0.12);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(6, 182, 212, 0.2);
-    }
-    
-    /* Text styling */
-    .modern-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(45deg, #06b6d4, #0ea5e9, #3b82f6);
-        background-size: 200% 200%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: gradientShift 3s ease infinite;
-        text-align: center;
-        margin-bottom: 1.5rem;
-    }
-    
-    .section-header {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #06b6d4;
-        margin-bottom: 1rem;
-        text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
-    }
-    
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    /* Hide any remaining loading elements */
-    .loading-overlay {
-        display: none !important;
-    }
-    
-    /* Hide cookie manager component that takes up horizontal space */
-    iframe[title*="cookie_manager"], 
-    iframe[src*="cookie_manager"],
-    iframe[title*="streamlit_cookies_manager"],
-    iframe[src*="streamlit_cookies_manager"] {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        left: -9999px !important;
-    }
-    
-    /* Hide any empty custom components that might be taking space */
-    .stCustomComponentV1:has(iframe[height="0"]) {
-        display: none !important;
-    }
-    
-    /* Hide custom components with cookie manager */
-    .st-emotion-cache-8atqhb:has(iframe[src*="cookie_manager"]) {
-        display: none !important;
-    }
-    
-    /* Force CSS re-application on sidebar buttons to prevent caching issues */
-    .stSidebar {
-        --sidebar-btn-bg: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(14, 165, 233, 0.1));
-        --sidebar-btn-border: rgba(6, 182, 212, 0.3);
-        --sidebar-btn-color: #e2e8f0;
-    }
-    
-    /* CSS variable-based styling to force consistent application */
-    .stSidebar *[role="button"],
-    .stSidebar button {
-        background: var(--sidebar-btn-bg) !important;
-        border: 1px solid var(--sidebar-btn-border) !important;
-        color: var(--sidebar-btn-color) !important;
-        border-radius: 12px !important;
-        padding: 8px 16px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stSidebar *[role="button"]:hover,
-    .stSidebar button:hover {
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)) !important;
-        border-color: rgba(6, 182, 212, 0.4) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2) !important;
-    }
 </style>
+""", unsafe_allow_html=True)
 
 <script>
 // Store course titles for tooltip functionality

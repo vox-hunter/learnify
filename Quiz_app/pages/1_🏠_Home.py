@@ -12,9 +12,10 @@ import io
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# Add the parent directory (Quiz app) to sys.path to allow imports from it
-# __file__ is pages/1_🏠_Home.py -> dirname is pages -> dirname is Quiz app
+# Add the parent directory to sys.path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.shared_styles import get_combined_css
 
 # Apply modern CSS styling
 st.markdown("""
