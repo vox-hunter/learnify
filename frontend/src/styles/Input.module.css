@@ -1,0 +1,421 @@
+/* Input Component Styles */
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-700);
+  margin-bottom: var(--spacing-1);
+}
+
+.input {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-900);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-fast);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.input:disabled {
+  background-color: var(--color-gray-50);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--color-gray-400);
+}
+
+/* Input Variants */
+.error {
+  border-color: var(--color-error);
+}
+
+.error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-light);
+}
+
+.success {
+  border-color: var(--color-success);
+}
+
+.success:focus {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 3px var(--color-success-light);
+}
+
+/* Input Sizes */
+.sm {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-xs);
+}
+
+.md {
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+}
+
+.lg {
+  padding: var(--spacing-4) var(--spacing-5);
+  font-size: var(--font-size-base);
+}
+
+/* Textarea */
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.textarea.autoResize {
+  resize: none;
+}
+
+/* Select */
+.select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right var(--spacing-3) center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-right: var(--spacing-10);
+  appearance: none;
+}
+
+/* Input with Icon */
+.inputWithIcon {
+  position: relative;
+}
+
+.inputWithIcon .input {
+  padding-left: var(--spacing-10);
+}
+
+.inputIcon {
+  position: absolute;
+  left: var(--spacing-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--color-gray-400);
+  pointer-events: none;
+}
+
+.inputWithIcon.sm .input {
+  padding-left: var(--spacing-8);
+}
+
+.inputWithIcon.sm .inputIcon {
+  left: var(--spacing-2);
+  width: 14px;
+  height: 14px;
+}
+
+.inputWithIcon.lg .input {
+  padding-left: var(--spacing-12);
+}
+
+.inputWithIcon.lg .inputIcon {
+  left: var(--spacing-4);
+  width: 20px;
+  height: 20px;
+}
+
+/* Help Text */
+.helpText {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
+  margin-top: var(--spacing-1);
+}
+
+.helpText.error {
+  color: var(--color-error);
+}
+
+.helpText.success {
+  color: var(--color-success);
+}
+
+.helpText.warning {
+  color: var(--color-warning);
+}
+
+/* Required Indicator */
+.required::after {
+  content: ' *';
+  color: var(--color-error);
+}
+
+/* Checkbox and Radio */
+.checkbox,
+.radio {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-gray-300);
+  background-color: var(--color-white);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox {
+  border-radius: var(--border-radius-sm);
+}
+
+.radio {
+  border-radius: 50%;
+}
+
+.checkbox:checked,
+.radio:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.checkbox:checked::after {
+  content: '✓';
+  color: var(--color-white);
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.radio:checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-white);
+  display: block;
+  margin: 4px auto;
+}
+
+.checkbox:focus,
+.radio:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* Checkbox and Radio Labels */
+.checkboxLabel,
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+  cursor: pointer;
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switchInput {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-gray-300);
+  transition: var(--transition-fast);
+  border-radius: 24px;
+}
+
+.switchSlider::before {
+  position: absolute;
+  content: '';
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: var(--color-white);
+  transition: var(--transition-fast);
+  border-radius: 50%;
+}
+
+.switchInput:checked + .switchSlider {
+  background-color: var(--color-primary);
+}
+
+.switchInput:focus + .switchSlider {
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.switchInput:checked + .switchSlider::before {
+  transform: translateX(20px);
+}
+
+/* File Input */
+.fileInput {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.fileInputHidden {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.fileInputLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-700);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.fileInputLabel:hover {
+  background-color: var(--color-gray-50);
+  border-color: var(--color-gray-400);
+}
+
+.fileInputLabel:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Input Group */
+.inputGroup {
+  display: flex;
+  align-items: stretch;
+}
+
+.inputGroup .input {
+  border-radius: 0;
+  border-right: none;
+}
+
+.inputGroup .input:first-child {
+  border-top-left-radius: var(--border-radius-md);
+  border-bottom-left-radius: var(--border-radius-md);
+}
+
+.inputGroup .input:last-child {
+  border-top-right-radius: var(--border-radius-md);
+  border-bottom-right-radius: var(--border-radius-md);
+  border-right: 1px solid var(--color-gray-300);
+}
+
+.inputGroupAddon {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  background-color: var(--color-gray-50);
+  border: 1px solid var(--color-gray-300);
+  white-space: nowrap;
+}
+
+.inputGroupAddon:first-child {
+  border-top-left-radius: var(--border-radius-md);
+  border-bottom-left-radius: var(--border-radius-md);
+  border-right: none;
+}
+
+.inputGroupAddon:last-child {
+  border-top-right-radius: var(--border-radius-md);
+  border-bottom-right-radius: var(--border-radius-md);
+  border-left: none;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: var(--color-gray-300);
+  }
+
+  .input {
+    color: var(--color-gray-100);
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+  }
+
+  .input:disabled {
+    background-color: var(--color-gray-700);
+    color: var(--color-gray-500);
+  }
+
+  .input::placeholder {
+    color: var(--color-gray-500);
+  }
+
+  .helpText {
+    color: var(--color-gray-400);
+  }
+
+  .checkbox,
+  .radio {
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+  }
+
+  .checkboxLabel,
+  .radioLabel {
+    color: var(--color-gray-300);
+  }
+
+  .switchSlider {
+    background-color: var(--color-gray-600);
+  }
+
+  .fileInputLabel {
+    color: var(--color-gray-300);
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+  }
+
+  .fileInputLabel:hover {
+    background-color: var(--color-gray-700);
+    border-color: var(--color-gray-500);
+  }
+
+  .inputGroupAddon {
+    color: var(--color-gray-400);
+    background-color: var(--color-gray-700);
+    border-color: var(--color-gray-600);
+  }
+}

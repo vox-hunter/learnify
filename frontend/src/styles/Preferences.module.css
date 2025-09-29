@@ -1,0 +1,421 @@
+/**
+ * Preferences and Settings Styling
+ * Complete styling for user preferences and settings panels
+ */
+
+/* Settings Panel Layout */
+.settings-panel {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-medium);
+}
+
+.settings-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.settings-header h2 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.last-saved {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Settings Tabs */
+.settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-light);
+  overflow-x: auto;
+}
+
+.settings-tabs button {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-tabs button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.settings-tabs button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.settings-tabs button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* Settings Content */
+.settings-content {
+  min-height: 400px;
+  margin-bottom: 2rem;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.settings-group h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Form Controls */
+.settings-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.settings-group label:hover {
+  background: var(--bg-hover);
+}
+
+.settings-group label:has(input:focus-visible) {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.settings-group input[type="checkbox"],
+.settings-group input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.settings-group select {
+  padding: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.settings-group select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-color-alpha);
+}
+
+.settings-group select:hover {
+  border-color: var(--border-medium);
+}
+
+/* Toggle Switch Styling */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 3rem;
+  height: 1.5rem;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-medium);
+  transition: 0.3s;
+  border-radius: 1.5rem;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 1.125rem;
+  width: 1.125rem;
+  left: 0.1875rem;
+  bottom: 0.1875rem;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input:checked + .toggle-slider {
+  background-color: var(--primary-color);
+}
+
+input:focus-visible + .toggle-slider {
+  box-shadow: 0 0 0 3px var(--primary-color-alpha);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(1.5rem);
+}
+
+/* Settings Actions */
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.save-button {
+  padding: 0.75rem 2rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-small);
+}
+
+.save-button:hover {
+  background: var(--primary-color-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-medium);
+}
+
+.save-button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-small);
+}
+
+.save-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-small);
+}
+
+/* Section Styling */
+.settings-section {
+  margin-bottom: 2rem;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-section h3::before {
+  content: '';
+  width: 4px;
+  height: 1rem;
+  background: var(--primary-color);
+  border-radius: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .settings-panel {
+    padding: 1rem;
+    margin: 1rem;
+  }
+
+  .settings-tabs {
+    gap: 0.25rem;
+  }
+
+  .settings-tabs button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .settings-actions {
+    flex-direction: column;
+  }
+
+  .save-button {
+    width: 100%;
+  }
+}
+
+/* Dark Mode Adjustments */
+[data-theme="dark"] {
+  .settings-panel {
+    background: var(--bg-secondary-dark);
+    box-shadow: var(--shadow-dark);
+  }
+
+  .settings-group label {
+    background: var(--bg-tertiary-dark);
+  }
+
+  .settings-group label:hover {
+    background: var(--bg-hover-dark);
+  }
+
+  .settings-group select {
+    background: var(--bg-primary-dark);
+    border-color: var(--border-dark);
+    color: var(--text-primary-dark);
+  }
+
+  .toggle-slider {
+    background-color: var(--border-dark);
+  }
+}
+
+/* High Contrast Mode */
+[data-high-contrast="true"] {
+  .settings-panel {
+    border: 2px solid var(--text-primary);
+  }
+
+  .settings-group label {
+    border: 1px solid var(--border-medium);
+  }
+
+  .settings-group label:focus-within {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .settings-tabs button.active {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .toggle-slider {
+    border: 1px solid var(--text-primary);
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .settings-tabs button,
+  .settings-group label,
+  .settings-group select,
+  .toggle-slider,
+  .toggle-slider:before,
+  .save-button {
+    transition: none;
+  }
+}
+
+/* Focus Indicators Enhancement */
+[data-focus-indicators="true"] {
+  .settings-tabs button:focus-visible,
+  .settings-group input:focus-visible,
+  .settings-group select:focus-visible,
+  .save-button:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 3px;
+  }
+}
+
+/* Loading State */
+.settings-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.settings-loading::before {
+  content: '';
+  width: 2rem;
+  height: 2rem;
+  margin-right: 1rem;
+  border: 2px solid var(--border-light);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.settings-error {
+  padding: 1rem;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  color: var(--error-text);
+  margin-bottom: 1rem;
+}
+
+.settings-error h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-error p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Success State */
+.settings-success {
+  padding: 1rem;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 8px;
+  color: var(--success-text);
+  margin-bottom: 1rem;
+}
