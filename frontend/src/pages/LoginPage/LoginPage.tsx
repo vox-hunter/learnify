@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../hooks/useAuth';
+import styles from '../../styles/LoginPage.module.css';
 
 type AuthMode = 'login' | 'register';
 
@@ -135,27 +136,27 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <div className="login-header">
-          <h1 className="login-title">
-            {mode === 'login' ? 'Welcome Back!' : 'Create Account'}
+    <div className={styles['login-page']}>
+      <div className={styles['login-container']}>
+        <div className={styles['login-header']}>
+          <h1 className={styles['login-title']}>
+            {mode === 'login' ? 'Welcome Back!' : 'Join AI Loom'}
           </h1>
-          <p className="login-subtitle">
+          <p className={styles['login-subtitle']}>
             {mode === 'login' 
-              ? 'Sign in to continue your learning journey'
-              : 'Join thousands of learners transforming documents into knowledge'
+              ? 'Continue your AI-powered learning journey'
+              : 'Transform your documents into interactive knowledge'
             }
           </p>
           
           {message && (
-            <div className="auth-message">
+            <div className={styles['auth-message']}>
               <p>{message}</p>
             </div>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit} className={styles['login-form']}>
           {mode === 'register' && (
             <Input
               type="text"
@@ -209,8 +210,8 @@ export const LoginPage: React.FC = () => {
           )}
 
           {mode === 'login' && (
-            <div className="form-options">
-              <label className="remember-me">
+            <div className={styles['form-options']}>
+              <label className={styles['remember-me']}>
                 <input
                   type="checkbox"
                   name="rememberMe"
@@ -224,31 +225,31 @@ export const LoginPage: React.FC = () => {
           )}
 
           {error && (
-            <div className="error-message">
+            <div className={styles['error-message']}>
               <p>❌ {error}</p>
             </div>
           )}
 
           <Button
             type="submit"
-            variant="primary"
+            variant="gradient"
             size="lg"
             fullWidth
             isLoading={isLoading}
             disabled={isLoading}
-            className="submit-button"
+            className={styles['submit-button']}
           >
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
 
-        <div className="login-footer">
-          <p className="switch-mode">
+        <div className={styles['login-footer']}>
+          <p className={styles['switch-mode']}>
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               type="button"
               onClick={switchMode}
-              className="switch-button"
+              className={styles['switch-button']}
               disabled={isLoading}
             >
               {mode === 'login' ? 'Sign up' : 'Sign in'}
@@ -256,8 +257,8 @@ export const LoginPage: React.FC = () => {
           </p>
 
           {mode === 'login' && (
-            <div className="forgot-password">
-              <button type="button" className="forgot-link">
+            <div className={styles['forgot-password']}>
+              <button type="button" className={styles['forgot-link']}>
                 Forgot your password?
               </button>
             </div>
@@ -265,15 +266,16 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="login-features">
-        <div className="features-content">
-          <h3>Why join Learnify?</h3>
-          <ul className="features-list">
+      <div className={styles['login-features']}>
+        <div className={styles['features-content']}>
+          <h3>Why choose AI Loom?</h3>
+          <ul className={styles['features-list']}>
             <li>🚀 Transform any document into interactive learning</li>
+            <li>🧠 AI-powered personalized questions and feedback</li>
             <li>📊 Track your progress with detailed analytics</li>
-            <li>🎯 AI-powered personalized questions</li>
+            <li>🎯 Adaptive learning that grows with you</li>
             <li>⚡ Instant feedback and explanations</li>
-            <li>📱 Learn anywhere, anytime</li>
+            <li>📱 Learn anywhere, anytime, on any device</li>
           </ul>
         </div>
       </div>
