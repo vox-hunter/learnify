@@ -1,7 +1,8 @@
 import React, { forwardRef } from 'react';
+import styles from '../../styles/Button.module.css';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'gradient';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
@@ -25,11 +26,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>((
   ref
 ) => {
   const buttonClasses = [
-    'button',
-    `button--${variant}`,
-    `button--${size}`,
-    fullWidth ? 'button--full-width' : '',
-    isLoading ? 'button--loading' : '',
+    styles.button,
+    styles[`button--${variant}`],
+    styles[`button--${size}`],
+    fullWidth ? styles['button--full-width'] : '',
+    isLoading ? styles['button--loading'] : '',
     className
   ].filter(Boolean).join(' ');
 
@@ -43,23 +44,23 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>((
       {...props}
     >
       {isLoading && (
-        <span className="button__spinner" aria-hidden="true">
+        <span className={styles.button__spinner} aria-hidden="true">
           ⏳
         </span>
       )}
       
       {!isLoading && leftIcon && (
-        <span className="button__left-icon" aria-hidden="true">
+        <span className={styles.button__left_icon} aria-hidden="true">
           {leftIcon}
         </span>
       )}
       
-      <span className="button__text">
+      <span className={styles.button__text}>
         {children}
       </span>
       
       {!isLoading && rightIcon && (
-        <span className="button__right-icon" aria-hidden="true">
+        <span className={styles.button__right_icon} aria-hidden="true">
           {rightIcon}
         </span>
       )}

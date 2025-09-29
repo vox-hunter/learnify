@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import styles from '../../styles/Navigation.module.css';
 
 export const Navigation: React.FC = () => {
   const location = useLocation();
@@ -28,21 +29,21 @@ export const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className="navigation">
-      <div className="nav-container">
+    <nav className={styles.navigation}>
+      <div className={styles['nav-container']}>
         {/* Logo and Brand */}
-        <div className="nav-brand">
-          <Link to="/" className="brand-link" onClick={closeMobileMenu}>
-            <div className="brand-logo">🤓</div>
-            <span className="brand-name">Learnify</span>
+        <div className={styles['nav-brand']}>
+          <Link to="/" className={styles['brand-link']} onClick={closeMobileMenu}>
+            <div className={styles['brand-logo']}>🚀</div>
+            <span className={styles['brand-name']}>AI Loom</span>
           </Link>
         </div>
 
         {/* Desktop Navigation */}
-        <div className="nav-links desktop-nav">
+        <div className={`${styles['nav-links']} ${styles['desktop-nav']}`}>
           <Link 
             to="/" 
-            className={`nav-link ${isActiveRoute('/') ? 'active' : ''}`}
+            className={`${styles['nav-link']} ${isActiveRoute('/') ? styles.active : ''}`}
           >
             Home
           </Link>
@@ -51,13 +52,13 @@ export const Navigation: React.FC = () => {
             <>
               <Link 
                 to="/dashboard" 
-                className={`nav-link ${isActiveRoute('/dashboard') ? 'active' : ''}`}
+                className={`${styles['nav-link']} ${isActiveRoute('/dashboard') ? styles.active : ''}`}
               >
                 Dashboard
               </Link>
               <Link 
                 to="/courses" 
-                className={`nav-link ${isActiveRoute('/courses') ? 'active' : ''}`}
+                className={`${styles['nav-link']} ${isActiveRoute('/courses') ? styles.active : ''}`}
               >
                 My Courses
               </Link>
@@ -66,16 +67,16 @@ export const Navigation: React.FC = () => {
         </div>
 
         {/* Desktop Auth Section */}
-        <div className="nav-auth desktop-nav">
+        <div className={`${styles['nav-auth']} ${styles['desktop-nav']}`}>
           {isAuthenticated ? (
-            <div className="user-menu">
-              <div className="user-info">
-                <span className="user-name">Hi, {user?.name}</span>
+            <div className={styles['user-menu']}>
+              <div className={styles['user-info']}>
+                <span className={styles['user-name']}>Hi, {user?.name}</span>
                 {user?.avatar && (
                   <img 
                     src={user.avatar} 
                     alt={user.name} 
-                    className="user-avatar"
+                    className={styles['user-avatar']}
                   />
                 )}
               </div>
@@ -83,13 +84,13 @@ export const Navigation: React.FC = () => {
                 onClick={handleLogout}
                 variant="ghost"
                 size="sm"
-                className="logout-button"
+                className={styles['logout-button']}
               >
                 Sign Out
               </Button>
             </div>
           ) : (
-            <div className="auth-buttons">
+            <div className={styles['auth-buttons']}>
               <Button
                 onClick={() => navigate('/login')}
                 variant="ghost"
@@ -110,24 +111,24 @@ export const Navigation: React.FC = () => {
 
         {/* Mobile Menu Button */}
         <button 
-          className="mobile-menu-toggle"
+          className={styles['mobile-menu-toggle']}
           onClick={toggleMobileMenu}
           aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
         >
-          <span className="hamburger-line"></span>
-          <span className="hamburger-line"></span>
-          <span className="hamburger-line"></span>
+          <span className={styles['hamburger-line']}></span>
+          <span className={styles['hamburger-line']}></span>
+          <span className={styles['hamburger-line']}></span>
         </button>
       </div>
 
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="mobile-nav">
-          <div className="mobile-nav-content">
-            <div className="mobile-nav-links">
+        <div className={styles['mobile-nav']}>
+          <div className={styles['mobile-nav-content']}>
+            <div className={styles['mobile-nav-links']}>
               <Link 
                 to="/" 
-                className={`mobile-nav-link ${isActiveRoute('/') ? 'active' : ''}`}
+                className={`${styles['mobile-nav-link']} ${isActiveRoute('/') ? styles.active : ''}`}
                 onClick={closeMobileMenu}
               >
                 🏠 Home
@@ -137,14 +138,14 @@ export const Navigation: React.FC = () => {
                 <>
                   <Link 
                     to="/dashboard" 
-                    className={`mobile-nav-link ${isActiveRoute('/dashboard') ? 'active' : ''}`}
+                    className={`${styles['mobile-nav-link']} ${isActiveRoute('/dashboard') ? styles.active : ''}`}
                     onClick={closeMobileMenu}
                   >
                     📈 Dashboard
                   </Link>
                   <Link 
                     to="/courses" 
-                    className={`mobile-nav-link ${isActiveRoute('/courses') ? 'active' : ''}`}
+                    className={`${styles['mobile-nav-link']} ${isActiveRoute('/courses') ? styles.active : ''}`}
                     onClick={closeMobileMenu}
                   >
                     📚 My Courses
@@ -153,33 +154,33 @@ export const Navigation: React.FC = () => {
               )}
             </div>
 
-            <div className="mobile-nav-auth">
+            <div className={styles['mobile-nav-auth']}>
               {isAuthenticated ? (
-                <div className="mobile-user-section">
-                  <div className="mobile-user-info">
-                    <div className="mobile-user-avatar">
+                <div className={styles['mobile-user-section']}>
+                  <div className={styles['mobile-user-info']}>
+                    <div className={styles['mobile-user-avatar']}>
                       {user?.avatar ? (
                         <img src={user.avatar} alt={user.name} />
                       ) : (
-                        <div className="avatar-placeholder">👤</div>
+                        <div className={styles['avatar-placeholder']}>👤</div>
                       )}
                     </div>
-                    <div className="mobile-user-details">
-                      <span className="mobile-user-name">{user?.name}</span>
-                      <span className="mobile-user-email">{user?.email}</span>
+                    <div className={styles['mobile-user-details']}>
+                      <span className={styles['mobile-user-name']}>{user?.name}</span>
+                      <span className={styles['mobile-user-email']}>{user?.email}</span>
                     </div>
                   </div>
                   <Button
                     onClick={handleLogout}
                     variant="ghost"
                     fullWidth
-                    className="mobile-logout-button"
+                    className={styles['mobile-logout-button']}
                   >
                     Sign Out
                   </Button>
                 </div>
               ) : (
-                <div className="mobile-auth-buttons">
+                <div className={styles['mobile-auth-buttons']}>
                   <Button
                     onClick={() => {
                       navigate('/login');
@@ -207,7 +208,7 @@ export const Navigation: React.FC = () => {
 
           {/* Mobile Menu Overlay */}
           <div 
-            className="mobile-menu-overlay"
+            className={styles['mobile-menu-overlay']}
             onClick={closeMobileMenu}
           />
         </div>
