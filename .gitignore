@@ -315,3 +315,14 @@ Quiz app/st_fill_in_the_blanks/frontend/yarn-error.log*
 **/st_*/frontend/.env*
 **/st_*/frontend/*-debug.log*
 **/st_*/frontend/*-error.log*
+
+# Vue.js frontend
+vue-frontend/node_modules/
+vue-frontend/dist/
+vue-frontend/.env*
+vue-frontend/*.log
+
+# API
+api/__pycache__/
+api/*.pyc
+api/.env
