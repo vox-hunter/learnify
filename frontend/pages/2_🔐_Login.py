@@ -3,8 +3,9 @@ import os
 import sys
 from utils.common_styles import apply_common_styles
 
-# Add parent directory to path to import modules
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add backend directory to path to import modules
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'backend')
+sys.path.insert(0, backend_dir)
 
 # Apply centralized styling
 apply_common_styles()

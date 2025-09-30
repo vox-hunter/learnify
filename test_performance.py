@@ -17,7 +17,7 @@ def test_local_startup():
     # Start Streamlit in background
     try:
         process = subprocess.Popen([
-            sys.executable, "-m", "streamlit", "run", "Quiz_app/main.py",
+            sys.executable, "-m", "streamlit", "run", "frontend/main.py",
             "--server.port", "8502",
             "--server.headless", "true",
             "--logger.level", "error"

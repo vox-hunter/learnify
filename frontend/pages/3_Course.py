@@ -75,9 +75,9 @@ def safe_str_convert(value):
         # If conversion fails, use empty string
         return ""
 
-# Add the parent directory (Quiz app) to sys.path to allow imports from it
-# __file__ is pages/3_📚_Course.py -> dirname is pages -> dirname is Quiz app
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add backend directory to sys.path to allow imports from backend modules
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'backend')
+sys.path.insert(0, backend_dir)
 
 try:
     from st_fill_in_the_blanks import fill_in_the_blanks_input

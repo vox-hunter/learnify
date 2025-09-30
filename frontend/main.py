@@ -97,8 +97,9 @@ observer.observe(document.body, { childList: true, subtree: true });
 """, unsafe_allow_html=True)
 
 
-# Add parent directory to path to allow imports from Quiz_app
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add backend directory to path to allow imports from backend modules
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend')
+sys.path.insert(0, backend_dir)
 
 MongoAuthManager = import_optional("mongo_auth:MongoAuthManager")
 get_course_manager_fn = import_optional("mongo_course_manager:get_course_manager")

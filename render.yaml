@@ -6,7 +6,7 @@ services:
     name: learnify
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run Quiz_app/main.py --server.port=$PORT --server.address=0.0.0.0
+    startCommand: streamlit run frontend/main.py --server.port=$PORT --server.address=0.0.0.0
     
     # URL redirects for multipage routing
     # Redirect all page routes to main app with query parameters

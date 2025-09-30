@@ -8,8 +8,9 @@ import streamlit as st
 import sys
 import os
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add backend directory to path
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'backend')
+sys.path.insert(0, backend_dir)
 
 try:
     from google_oauth_simple import is_google_oauth_configured, get_app_redirect_uri
