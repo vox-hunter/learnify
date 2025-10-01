@@ -41,15 +41,23 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const publicPages = ['/', '/login', '/privacy', '/terms']
-  const authRequired = !publicPages.includes(to.path)
+  // Allow guests to view courses (they have localStorage courses)
+  const isCoursePage = to.path.startsWith('/course/')
+  const authRequired = !publicPages.includes(to.path) && !isCoursePage
+
+  console.log('[Router] Navigation to:', to.path)
+  console.log('[Router] Is authenticated:', authStore.isAuthenticated)
+  console.log('[Router] Auth required:', authRequired)
 
   if (authRequired && !authStore.isAuthenticated) {
+    console.log('[Router] ❌ Redirecting to login - auth required but not authenticated')
     // Redirect to login with return path
     next({
       path: '/login',
       query: { redirect: to.fullPath }
     })
   } else {
+    console.log('[Router] ✅ Allowing navigation')
     next()
   }
 })

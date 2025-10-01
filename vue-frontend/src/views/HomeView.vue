@@ -77,9 +77,40 @@
 
         <!-- Progress -->
         <div v-if="generating" class="progress-section">
+          <div class="progress-header">
+            <span class="progress-title">⚡ Generating Your Course</span>
+            <span class="progress-percentage">{{ progress }}%</span>
+          </div>
+          
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: progress + '%' }"></div>
           </div>
+          
+          <!-- Status Steps -->
+          <div class="status-steps">
+            <div 
+              v-for="(step, index) in generationSteps" 
+              :key="index"
+              class="status-step"
+              :class="{ 
+                'active': currentStep === index, 
+                'completed': currentStep > index 
+              }"
+            >
+              <div class="step-icon">
+                <span v-if="currentStep > index">✓</span>
+                <span v-else-if="currentStep === index" class="spinner-small"></span>
+                <span v-else>{{ index + 1 }}</span>
+              </div>
+              <div class="step-content">
+                <div class="step-title">{{ step.title }}</div>
+                <div v-if="currentStep === index" class="step-description">
+                  {{ step.description }}
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <p class="progress-text">{{ statusMessage }}</p>
         </div>
 
@@ -110,10 +141,13 @@
       </div>
 
       <!-- Guest User Limit Warning -->
-      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 3" class="alert alert-warning">
-        <p><strong>Guest User:</strong> You have {{ courseStore.remainingGuestCourses }} course{{ courseStore.remainingGuestCourses !== 1 ? 's' : '' }} remaining.</p>
+      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" class="alert alert-warning">
+        <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{ courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
         <p v-if="courseStore.remainingGuestCourses === 0">
-          Please <router-link to="/login">log in</router-link> to generate more courses.
+          You've reached the limit of 2 saved courses. Please <router-link to="/login">log in</router-link> to save more.
+        </p>
+        <p v-else>
+          You can generate unlimited courses, but can only save {{ courseStore.remainingGuestCourses }} more as a guest.
         </p>
       </div>
     </div>
@@ -142,6 +176,15 @@ export default {
     const error = ref(null)
     const generatedCourse = ref(null)
     const fileInput = ref(null)
+    const currentStep = ref(-1)
+
+    const generationSteps = [
+      { title: 'Uploading', description: 'Uploading your document to the server...' },
+      { title: 'Processing', description: 'Extracting and analyzing content...' },
+      { title: 'Generating', description: 'Creating course structure and sections...' },
+      { title: 'Quiz Creation', description: 'Generating quiz questions and answers...' },
+      { title: 'Finalizing', description: 'Preparing your course for learning...' }
+    ]
 
     const totalQuestions = computed(() => {
       if (!generatedCourse.value?.sections) return 0
@@ -205,40 +248,52 @@ export default {
       error.value = null
       generating.value = true
       progress.value = 0
+      currentStep.value = 0
       statusMessage.value = 'Starting course generation...'
 
-      // Check if user can generate course
-      if (!courseStore.canGenerateCourse) {
-        error.value = 'You have reached the limit of 3 courses as a guest. Please log in to continue.'
-        generating.value = false
-        router.push('/login')
-        return
-      }
+      // No limit check here - guests can generate unlimited courses
+      // The limit is enforced when trying to SAVE the course
 
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        if (progress.value < 90) {
-          progress.value += Math.random() * 10
-        }
-      }, 1000)
+      // Simulate realistic progress updates through steps
+      const updateProgress = (step, progressValue, message) => {
+        currentStep.value = step
+        progress.value = progressValue
+        statusMessage.value = message
+      }
 
       try {
         let result
+        
+        // Step 0: Uploading
+        updateProgress(0, 10, 'Uploading your document...')
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Step 1: Processing
+        updateProgress(1, 25, 'Extracting and analyzing content...')
+        
         if (inputMethod.value === 'upload' && selectedFile.value) {
-          statusMessage.value = 'Uploading file...'
           result = await courseStore.generateCourse(selectedFile.value)
         } else if (inputMethod.value === 'url' && pdfUrl.value) {
-          statusMessage.value = 'Fetching document...'
           result = await courseStore.generateCourseFromUrl(pdfUrl.value)
         } else {
           throw new Error('Please provide a file or URL')
         }
 
-        clearInterval(progressInterval)
+        // Step 2: Generating
+        updateProgress(2, 50, 'Creating course structure...')
+        await new Promise(resolve => setTimeout(resolve, 800))
+        
+        // Step 3: Quiz Creation
+        updateProgress(3, 75, 'Generating quiz questions...')
+        await new Promise(resolve => setTimeout(resolve, 800))
+        
+        // Step 4: Finalizing
+        updateProgress(4, 95, 'Finalizing your course...')
+        await new Promise(resolve => setTimeout(resolve, 500))
 
         if (result.success) {
           progress.value = 100
-          statusMessage.value = 'Course generated successfully!'
+          statusMessage.value = '✨ Course generated successfully!'
           generatedCourse.value = result.course
           
           // Reset form
@@ -263,19 +318,40 @@ export default {
     }
 
     const startCourse = async () => {
+      console.log('[HomeView] startCourse called')
       if (!generatedCourse.value) return
 
-      // Auto-save the course when starting
-      const result = await courseStore.saveCourse(
-        generatedCourse.value.sections,
-        generatedCourse.value.course_title
-      )
+      try {
+        console.log('[HomeView] Generated course:', generatedCourse.value.course_title)
+        // Auto-save the course when starting
+        const result = await courseStore.saveCourse(
+          generatedCourse.value.sections,
+          generatedCourse.value.course_title
+        )
 
-      if (result.success) {
-        // Navigate to the course
-        router.push(`/course/${result.courseId}`)
-      } else {
-        error.value = result.error || 'Failed to save course'
+        console.log('[HomeView] Save result:', result)
+        if (result.success) {
+          console.log(`[HomeView] Success! Navigating to /course/${result.courseId}`)
+          // Navigate to the course - works for both logged-in and guest users
+          router.push(`/course/${result.courseId}`)
+        } else {
+          // Check if guest limit was reached
+          if (result.requiresLogin) {
+            console.log('[HomeView] Requires login - showing alert')
+            error.value = 'You have reached the limit of 2 saved courses as a guest. Please log in to save more.'
+            // Optional: Auto-redirect to login after showing message
+            setTimeout(() => {
+              console.log('[HomeView] Redirecting to login')
+              router.push('/login')
+            }, 2000)
+          } else {
+            console.error('[HomeView] Error:', result.error)
+            error.value = result.error || 'Failed to save course'
+          }
+        }
+      } catch (err) {
+        console.error('[HomeView] Exception:', err)
+        error.value = err.message || 'Failed to start course'
       }
     }
 
@@ -290,6 +366,8 @@ export default {
       generatedCourse,
       totalQuestions,
       fileInput,
+      currentStep,
+      generationSteps,
       authStore,
       courseStore,
       handleFileChange,
@@ -432,26 +510,190 @@ export default {
 
 .progress-section {
   margin: 2rem 0;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.progress-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.progress-percentage {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .progress-bar {
-  height: 8px;
-  background: rgba(6, 182, 212, 0.2);
-  border-radius: 4px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
   overflow: hidden;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #06b6d4, #0891b2);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.status-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.status-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  opacity: 0.5;
+}
+
+.status-step.active {
+  opacity: 1;
+  background: rgba(102, 126, 234, 0.1);
+  border-color: rgba(102, 126, 234, 0.3);
+  transform: translateX(5px);
+}
+
+.status-step.completed {
+  opacity: 0.7;
+  background: rgba(74, 222, 128, 0.05);
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.step-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-step.active .step-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  animation: pulse 2s ease infinite;
+}
+
+.status-step.completed .step-icon {
+  background: #4ade80;
+  color: white;
+  border-color: transparent;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-title {
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.25rem;
+}
+
+.step-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .progress-text {
   text-align: center;
   color: #cbd5e0;
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .btn-generate {

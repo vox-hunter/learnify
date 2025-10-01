@@ -39,18 +39,35 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post('/auth/login', { username, password })
       user.value = response.data
       
-      // Store username based on remember me preference
+      // Store complete user data as JSON string
+      const userData = JSON.stringify(response.data)
+      
+      // Store based on remember me preference
       if (rememberMe) {
-        // Store in cookie for 30 days
+        // Store in cookie for 30 days (username only for simplicity)
         setCookie('username', username, 30)
         setCookie('rememberMe', 'true', 30)
+        // Store isAdmin flag if present
+        if (response.data.isAdmin) {
+          setCookie('isAdmin', 'true', 30)
+        }
+        // Store full user data in localStorage
+        localStorage.setItem('userData', userData)
       } else {
         // Store in session storage only
         sessionStorage.setItem('username', username)
+        sessionStorage.setItem('userData', userData)
+        if (response.data.isAdmin) {
+          sessionStorage.setItem('isAdmin', 'true')
+        }
       }
       
       // Always store in localStorage for current session
       localStorage.setItem('username', username)
+      localStorage.setItem('userData', userData)
+      if (response.data.isAdmin) {
+        localStorage.setItem('isAdmin', 'true')
+      }
       
       return { success: true }
     } catch (error) {
@@ -78,29 +95,72 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     localStorage.removeItem('authToken')
     localStorage.removeItem('username')
+    localStorage.removeItem('userData')
+    localStorage.removeItem('isAdmin')
     sessionStorage.removeItem('username')
+    sessionStorage.removeItem('userData')
+    sessionStorage.removeItem('isAdmin')
     deleteCookie('username')
     deleteCookie('rememberMe')
+    deleteCookie('isAdmin')
   }
 
   // Initialize user from localStorage/cookies if available
   function initialize() {
-    // Check cookie first (for remember me)
-    let storedUsername = getCookie('username')
-    const rememberMe = getCookie('rememberMe') === 'true'
-    
-    // Fall back to localStorage/sessionStorage
-    if (!storedUsername) {
-      storedUsername = localStorage.getItem('username') || sessionStorage.getItem('username')
+    // Priority 1: Try to restore full user data from localStorage
+    const localUserData = localStorage.getItem('userData')
+    if (localUserData) {
+      try {
+        user.value = JSON.parse(localUserData)
+        return
+      } catch (e) {
+        console.error('Failed to parse userData:', e)
+      }
     }
     
-    if (storedUsername) {
-      user.value = { username: storedUsername }
-      
-      // If we found username but not in cookie, and remember me is not set, it's a session login
-      if (!rememberMe && !getCookie('username')) {
-        // This is a session login, don't persist to cookie
+    // Priority 2: Try sessionStorage
+    const sessionUserData = sessionStorage.getItem('userData')
+    if (sessionUserData) {
+      try {
+        user.value = JSON.parse(sessionUserData)
+        return
+      } catch (e) {
+        console.error('Failed to parse sessionUserData:', e)
       }
+    }
+    
+    // Fallback: Check old storage format (username only)
+    const cookieUsername = getCookie('username')
+    const rememberMe = getCookie('rememberMe') === 'true'
+    const cookieIsAdmin = getCookie('isAdmin') === 'true'
+    
+    const localUsername = localStorage.getItem('username')
+    const localIsAdmin = localStorage.getItem('isAdmin') === 'true'
+    
+    const sessionUsername = sessionStorage.getItem('username')
+    const sessionIsAdmin = sessionStorage.getItem('isAdmin') === 'true'
+    
+    const storedUsername = cookieUsername || localUsername || sessionUsername
+    const isAdmin = cookieIsAdmin || localIsAdmin || sessionIsAdmin
+    
+    if (storedUsername) {
+      // Restore user object with admin flag (fallback format)
+      user.value = { 
+        username: storedUsername,
+        isAdmin: isAdmin
+      }
+      
+      // If remember me is true, ensure cookie is set
+      if (rememberMe && !cookieUsername) {
+        setCookie('username', storedUsername, 30)
+        if (isAdmin) {
+          setCookie('isAdmin', 'true', 30)
+        }
+      }
+    } else {
+      // No stored auth, clear everything
+      user.value = null
+      token.value = null
     }
   }
 

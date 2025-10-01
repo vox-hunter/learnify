@@ -148,12 +148,18 @@ class MongoAuthManager:
             return None, f"An unexpected error occurred: {e}"
 
     def find_user_by_username(self, username):
+        """Find user by username OR email (for flexible login)"""
         if not self._ensure_connection():
             return None
         try:
-            return self.users_collection.find_one({"username": username})
+            # Try to find by username first, then by email
+            user = self.users_collection.find_one({"username": username})
+            if not user:
+                # If not found by username, try email
+                user = self.users_collection.find_one({"email": username})
+            return user
         except pymongo_errors.PyMongoError as e:
-            _log_error(f"MongoDB error finding user by username: {e}")
+            _log_error(f"MongoDB error finding user by username/email: {e}")
             return None
         except Exception as e:
             _log_error(f"Unexpected error finding user: {e}")

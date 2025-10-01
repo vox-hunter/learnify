@@ -136,11 +136,15 @@ async def login(credentials: UserLogin):
     if not user or not auth_manager.verify_password(credentials.password, user.get("password", "")):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
+    # Check if user is admin (specific email)
+    is_admin = user.get("email") == "vidyutsanthosh4@gmail.com"
+    
     return {
         "success": True,
         "username": user["username"],
         "name": user.get("name"),
-        "email": user.get("email")
+        "email": user.get("email"),
+        "isAdmin": is_admin
     }
 
 # Course generation endpoints

@@ -246,7 +246,17 @@ export default {
       if (typeof answer === 'object' && !Array.isArray(answer)) {
         return JSON.stringify(answer, null, 2)
       }
-      return String(answer)
+      
+      // For fill-in-the-blank with multiple answers, format nicely
+      const answerStr = String(answer)
+      if (isFillInBlank.value && answerStr.includes(',')) {
+        const answers = answerStr.split(',').map(a => a.trim())
+        if (answers.length > 1) {
+          return `Any of: ${answers.join(', ')}`
+        }
+      }
+      
+      return answerStr
     }
 
     const selectAnswer = (answer) => {
@@ -256,7 +266,15 @@ export default {
 
     const submitFillInBlank = () => {
       if (!userAnswer.value.trim()) return
-      const correct = userAnswer.value.trim().toLowerCase() === String(props.question.answer).toLowerCase()
+      
+      // Handle multiple correct answers separated by commas
+      const correctAnswers = String(props.question.answer)
+        .split(',')
+        .map(ans => ans.trim().toLowerCase())
+      
+      const userAnswerLower = userAnswer.value.trim().toLowerCase()
+      const correct = correctAnswers.includes(userAnswerLower)
+      
       checkAnswer(userAnswer.value, correct)
     }
 
@@ -309,7 +327,11 @@ export default {
         if (isMultipleChoice.value || isTrueFalse.value) {
           correct = answer === props.question.answer
         } else if (isFillInBlank.value) {
-          correct = String(answer).toLowerCase().trim() === String(props.question.answer).toLowerCase().trim()
+          // Handle multiple correct answers separated by commas
+          const correctAnswers = String(props.question.answer)
+            .split(',')
+            .map(ans => ans.trim().toLowerCase())
+          correct = correctAnswers.includes(String(answer).toLowerCase().trim())
         }
       }
       
@@ -326,13 +348,25 @@ export default {
       })
     }
 
-    // Initialize matching answers
-    watch(() => props.question, (newQuestion) => {
-      if (isMatching.value && newQuestion.answer) {
-        matchingAnswers.value = Object.keys(newQuestion.answer).reduce((acc, key) => {
+    // Reset state when question or section changes
+    watch(() => [props.question, props.sectionIndex, props.subsectionIndex, props.questionIndex], () => {
+      // Reset all state
+      selectedAnswer.value = null
+      userAnswer.value = ''
+      isAnswered.value = false
+      isCorrect.value = false
+      explanation.value = ''
+      expectedAnswer.value = null
+      validating.value = false
+      
+      // Initialize matching answers if needed
+      if (isMatching.value && props.question.answer) {
+        matchingAnswers.value = Object.keys(props.question.answer).reduce((acc, key) => {
           acc[key] = ''
           return acc
         }, {})
+      } else {
+        matchingAnswers.value = {}
       }
     }, { immediate: true })
 
@@ -500,40 +534,104 @@ export default {
 
 .matching-instructions {
   color: #cbd5e0;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-left: 3px solid #667eea;
+  border-radius: 0.5rem;
 }
 
 .matching-pairs {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .matching-row {
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+
+.matching-row:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .matching-key {
   flex: 1;
-  padding: 0.75rem 1rem;
-  background: rgba(6, 182, 212, 0.1);
-  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05));
+  border: 2px solid rgba(6, 182, 212, 0.2);
+  border-radius: 0.75rem;
   color: #e2e8f0;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .matching-select {
   flex: 1;
+  padding: 1rem 1.25rem;
+  background: rgba(30, 41, 59, 0.8);
+  border: 2px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.75rem;
+  color: #e2e8f0;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2306b6d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  padding-right: 3rem;
+}
+
+.matching-select:hover:not(:disabled) {
+  border-color: rgba(6, 182, 212, 0.4);
+  background-color: rgba(30, 41, 59, 0.9);
+}
+
+.matching-select:focus {
+  outline: none;
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+}
+
+.matching-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.matching-select option {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 0.75rem;
 }
 
 .matching-result {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  width: 2rem;
+  width: 2.5rem;
   text-align: center;
+  animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .feedback {

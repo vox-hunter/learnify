@@ -41,13 +41,18 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from './stores/auth'
 
 export default {
   name: 'App',
   setup() {
     const authStore = useAuthStore()
+    
+    // Initialize auth on app mount (restore from cookies/localStorage)
+    onMounted(() => {
+      authStore.initialize()
+    })
     
     const isAuthenticated = computed(() => authStore.isAuthenticated)
     const username = computed(() => authStore.user?.username)

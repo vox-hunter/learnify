@@ -11,13 +11,15 @@ export const useCourseStore = defineStore('course', () => {
   const guestCourseCount = ref(parseInt(localStorage.getItem('guestCourseCount') || '0'))
 
   // Guest user limit
-  const GUEST_COURSE_LIMIT = 3
+  const GUEST_COURSE_LIMIT = 2
 
   const canGenerateCourse = computed(() => {
     const authStore = useAuthStore()
     if (authStore.isAuthenticated) {
+      console.log('[Course Store] User authenticated, unlimited courses')
       return true
     }
+    console.log(`[Course Store] Guest check: ${guestCourseCount.value}/${GUEST_COURSE_LIMIT} courses saved`)
     return guestCourseCount.value < GUEST_COURSE_LIMIT
   })
 
@@ -32,21 +34,33 @@ export const useCourseStore = defineStore('course', () => {
 
   function saveToLocalStorage(course) {
     try {
+      const courseId = Date.now().toString()
+      console.log('[Course Store] saveToLocalStorage - generating ID:', courseId)
       const storedCourses = JSON.parse(localStorage.getItem('guestCourses') || '[]')
-      storedCourses.push({
+      console.log('[Course Store] Current stored courses:', storedCourses.length)
+      const newCourse = {
         ...course,
-        course_id: Date.now().toString(),
+        course_id: courseId,
         created_at: new Date().toISOString()
-      })
+      }
+      storedCourses.push(newCourse)
       localStorage.setItem('guestCourses', JSON.stringify(storedCourses))
+      console.log('[Course Store] ✅ Saved to localStorage successfully')
+      return courseId
     } catch (e) {
       console.error('Failed to save course to localStorage:', e)
+      return null
     }
   }
 
   function loadFromLocalStorage() {
     try {
-      return JSON.parse(localStorage.getItem('guestCourses') || '[]')
+      const courses = JSON.parse(localStorage.getItem('guestCourses') || '[]')
+      console.log('[Course Store] loadFromLocalStorage - found', courses.length, 'courses')
+      if (courses.length > 0) {
+        console.log('[Course Store] Course IDs:', courses.map(c => c.course_id))
+      }
+      return courses
     } catch (e) {
       console.error('Failed to load courses from localStorage:', e)
       return []
@@ -56,11 +70,8 @@ export const useCourseStore = defineStore('course', () => {
   async function generateCourse(file) {
     const authStore = useAuthStore()
     
-    // Check guest limit
-    if (!authStore.isAuthenticated && !canGenerateCourse.value) {
-      error.value = 'You have reached the limit of 3 courses as a guest. Please log in to generate more courses.'
-      return { success: false, error: error.value, requiresLogin: true }
-    }
+    // Don't check limit here - check when saving instead
+    // This allows guests to generate courses but limits saving
 
     loading.value = true
     error.value = null
@@ -77,10 +88,7 @@ export const useCourseStore = defineStore('course', () => {
       
       currentCourse.value = response.data.course_data
       
-      // Increment guest course count if not authenticated
-      if (!authStore.isAuthenticated) {
-        incrementGuestCourseCount()
-      }
+      // Don't increment count here - it will be incremented when course is saved
       
       return { success: true, course: response.data.course_data }
     } catch (err) {
@@ -94,11 +102,8 @@ export const useCourseStore = defineStore('course', () => {
   async function generateCourseFromUrl(url) {
     const authStore = useAuthStore()
     
-    // Check guest limit
-    if (!authStore.isAuthenticated && !canGenerateCourse.value) {
-      error.value = 'You have reached the limit of 3 courses as a guest. Please log in to generate more courses.'
-      return { success: false, error: error.value, requiresLogin: true }
-    }
+    // Don't check limit here - check when saving instead
+    // This allows guests to generate courses but limits saving
 
     loading.value = true
     error.value = null
@@ -107,10 +112,7 @@ export const useCourseStore = defineStore('course', () => {
       const response = await api.post('/course/generate/url', { file_url: url })
       currentCourse.value = response.data.course_data
       
-      // Increment guest course count if not authenticated
-      if (!authStore.isAuthenticated) {
-        incrementGuestCourseCount()
-      }
+      // Don't increment count here - it will be incremented when course is saved
       
       return { success: true, course: response.data.course_data }
     } catch (err) {
@@ -123,15 +125,37 @@ export const useCourseStore = defineStore('course', () => {
 
   async function saveCourse(courseData, courseTitle, isPublic = true) {
     const authStore = useAuthStore()
+    console.log('[Course Store] saveCourse called')
+    console.log('[Course Store] Is authenticated:', authStore.isAuthenticated)
+    console.log('[Course Store] Course title:', courseTitle)
+    console.log('[Course Store] Guest course count:', guestCourseCount.value)
     
     // If not authenticated, save to localStorage
     if (!authStore.isAuthenticated) {
-      saveToLocalStorage({
+      console.log('[Course Store] Guest user - checking limit')
+      console.log('[Course Store] canGenerateCourse.value:', canGenerateCourse.value)
+      // Check if guest has reached the limit
+      if (!canGenerateCourse.value) {
+        console.log('[Course Store] ❌ Guest limit reached! Requiring login.')
+        error.value = 'You have reached the limit of 2 saved courses as a guest. Please log in to save more courses.'
+        return { 
+          success: false, 
+          error: error.value,
+          requiresLogin: true
+        }
+      }
+      
+      console.log('[Course Store] ✅ Guest within limit - saving to localStorage')
+      const courseId = saveToLocalStorage({
         course_title: courseTitle,
         sections: courseData,
         is_public: isPublic
       })
-      return { success: true, courseId: Date.now().toString(), isLocal: true }
+      console.log('[Course Store] Saved with ID:', courseId)
+      // Increment guest course count when course is actually saved
+      incrementGuestCourseCount()
+      console.log('[Course Store] New guest course count:', guestCourseCount.value)
+      return { success: true, courseId: courseId, isLocal: true }
     }
     
     try {
@@ -176,11 +200,40 @@ export const useCourseStore = defineStore('course', () => {
 
   async function loadCourse(courseId) {
     loading.value = true
+    const authStore = useAuthStore()
+    console.log(`[Course Store] loadCourse called with courseId: ${courseId}`)
+    console.log(`[Course Store] User authenticated: ${authStore.isAuthenticated}`)
+    
     try {
+      // For guest users, try localStorage first
+      if (!authStore.isAuthenticated) {
+        console.log('[Course Store] Guest user - checking localStorage')
+        const localCourses = loadFromLocalStorage()
+        console.log(`[Course Store] Found ${localCourses.length} courses in localStorage`)
+        const localCourse = localCourses.find(c => c.course_id === courseId)
+        
+        if (localCourse) {
+          console.log('[Course Store] Found course in localStorage:', localCourse.course_title)
+          // Transform localStorage format to match API format
+          currentCourse.value = {
+            course_id: localCourse.course_id,
+            course_title: localCourse.course_title,
+            sections: localCourse.sections
+          }
+          return { success: true, course: currentCourse.value }
+        } else {
+          console.log('[Course Store] Course NOT found in localStorage')
+        }
+      }
+      
+      // Try loading from API (for authenticated users or if not found in localStorage)
+      console.log('[Course Store] Attempting to load from API')
       const response = await api.get(`/course/${courseId}`)
       currentCourse.value = response.data
+      console.log('[Course Store] Successfully loaded from API')
       return { success: true, course: response.data }
     } catch (err) {
+      console.error('[Course Store] Error loading course:', err)
       error.value = err.response?.data?.detail || 'Failed to load course'
       return { success: false, error: error.value }
     } finally {

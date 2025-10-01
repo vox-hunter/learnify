@@ -23,13 +23,13 @@
         <!-- Login Form -->
         <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="auth-form">
           <div class="form-group">
-            <label class="form-label">Username</label>
+            <label class="form-label">Username or Email</label>
             <input
               v-model="loginForm.username"
               type="text"
               class="form-input"
               required
-              placeholder="Enter your username"
+              placeholder="Enter your username or email"
             />
           </div>
 
