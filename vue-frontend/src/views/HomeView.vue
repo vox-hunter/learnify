@@ -38,7 +38,7 @@
             <input
               ref="fileInput"
               type="file"
-              accept=".pdf"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
               @change="handleFileChange"
               class="file-input"
               id="file-upload"
@@ -47,7 +47,7 @@
               <div class="upload-icon">📄</div>
               <div v-if="!selectedFile" class="upload-text">
                 <p class="upload-title">Click to upload or drag and drop</p>
-                <p class="upload-subtitle">PDF files only (max 20MB)</p>
+                <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
               </div>
               <div v-else class="selected-file">
                 <p class="file-name">{{ selectedFile.name }}</p>
@@ -103,13 +103,18 @@
         </p>
         
         <div class="course-actions">
-          <button @click="saveCourse" class="btn btn-primary">
-            💾 Save Course
-          </button>
-          <button @click="startCourse" class="btn btn-secondary">
+          <button @click="startCourse" class="btn btn-primary">
             ▶️ Start Learning
           </button>
         </div>
+      </div>
+
+      <!-- Guest User Limit Warning -->
+      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 3" class="alert alert-warning">
+        <p><strong>Guest User:</strong> You have {{ courseStore.remainingGuestCourses }} course{{ courseStore.remainingGuestCourses !== 1 ? 's' : '' }} remaining.</p>
+        <p v-if="courseStore.remainingGuestCourses === 0">
+          Please <router-link to="/login">log in</router-link> to generate more courses.
+        </p>
       </div>
     </div>
   </div>
@@ -119,12 +124,14 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
+import { useAuthStore } from '../stores/auth'
 
 export default {
   name: 'HomeView',
   setup() {
     const router = useRouter()
     const courseStore = useCourseStore()
+    const authStore = useAuthStore()
 
     const inputMethod = ref('upload')
     const selectedFile = ref(null)
@@ -161,8 +168,25 @@ export default {
           selectedFile.value = null
           return
         }
-        if (file.type !== 'application/pdf') {
-          error.value = 'Only PDF files are supported'
+        // Allow common document formats
+        const allowedTypes = [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/msword', // .doc
+          'text/plain',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+          'application/vnd.ms-powerpoint', // .ppt
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/markdown',
+          'application/rtf'
+        ]
+        
+        const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.pptx', '.ppt', '.xlsx', '.xls', '.md', '.rtf']
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
+        
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+          error.value = 'File type not supported. Please upload PDF, Word, PowerPoint, Excel, or Text files.'
           selectedFile.value = null
           return
         }
@@ -182,6 +206,14 @@ export default {
       generating.value = true
       progress.value = 0
       statusMessage.value = 'Starting course generation...'
+
+      // Check if user can generate course
+      if (!courseStore.canGenerateCourse) {
+        error.value = 'You have reached the limit of 3 courses as a guest. Please log in to continue.'
+        generating.value = false
+        router.push('/login')
+        return
+      }
 
       // Simulate progress updates
       const progressInterval = setInterval(() => {
@@ -216,6 +248,9 @@ export default {
             fileInput.value.value = ''
           }
         } else {
+          if (result.requiresLogin) {
+            router.push('/login')
+          }
           throw new Error(result.error)
         }
       } catch (err) {
@@ -227,26 +262,21 @@ export default {
       }
     }
 
-    const saveCourse = async () => {
+    const startCourse = async () => {
       if (!generatedCourse.value) return
 
+      // Auto-save the course when starting
       const result = await courseStore.saveCourse(
         generatedCourse.value.sections,
         generatedCourse.value.course_title
       )
 
       if (result.success) {
-        alert('Course saved successfully!')
+        // Navigate to the course
         router.push(`/course/${result.courseId}`)
       } else {
-        error.value = result.error
+        error.value = result.error || 'Failed to save course'
       }
-    }
-
-    const startCourse = () => {
-      // Store current course in the store and navigate
-      courseStore.currentCourse = generatedCourse.value
-      router.push('/courses')
     }
 
     return {
@@ -260,10 +290,11 @@ export default {
       generatedCourse,
       totalQuestions,
       fileInput,
+      authStore,
+      courseStore,
       handleFileChange,
       formatFileSize,
       generateCourse,
-      saveCourse,
       startCourse
     }
   }

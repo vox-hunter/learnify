@@ -23,12 +23,12 @@
       <div v-else class="courses-grid">
         <div 
           v-for="course in courses" 
-          :key="course.course_id"
+          :key="course.course_id || course._id"
           class="course-card card"
-          @click="openCourse(course.course_id)"
+          @click="openCourse(course.course_id || course._id)"
         >
           <div class="course-card-header">
-            <h3 class="course-card-title">{{ course.course_title }}</h3>
+            <h3 class="course-card-title">{{ course.course_title || 'Untitled Course' }}</h3>
           </div>
           <div class="course-card-meta">
             <span class="meta-badge">

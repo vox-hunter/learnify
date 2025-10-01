@@ -44,6 +44,17 @@
             />
           </div>
 
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                v-model="loginForm.rememberMe"
+                type="checkbox"
+                class="checkbox-input"
+              />
+              <span>Remember me</span>
+            </label>
+          </div>
+
           <div v-if="error" class="alert alert-error">
             {{ error }}
           </div>
@@ -157,7 +168,8 @@ export default {
 
     const loginForm = ref({
       username: '',
-      password: ''
+      password: '',
+      rememberMe: false
     })
 
     const registerForm = ref({
@@ -174,7 +186,8 @@ export default {
 
       const result = await authStore.login(
         loginForm.value.username,
-        loginForm.value.password
+        loginForm.value.password,
+        loginForm.value.rememberMe
       )
 
       loading.value = false

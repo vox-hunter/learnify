@@ -2,25 +2,61 @@
 MongoDB Course Management System
 Handles course storage, retrieval, and management with support for both authenticated and guest users.
 """
-import streamlit as st
+import os
 import pymongo
 import pymongo.errors
 from bson.objectid import ObjectId
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import uuid
+from dotenv import load_dotenv
 
+# Try to import streamlit, but make it optional
 try:
-    MONGODB_URI = st.secrets["MONGODB_URI"]
-    DB_NAME = "learnify_courses"
-    COURSES_COLLECTION = "courses"
-    USER_COURSES_COLLECTION = "user_courses"
-except (KeyError, AttributeError) as e:
-    st.error(f"Missing secret: {e}. Please ensure MONGODB_URI is set in your Streamlit secrets.")
-    st.stop()
-except (ValueError, TypeError) as e:
-    st.error(f"An error occurred while loading secrets: {e}")
-    st.stop()
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
+# Load environment variables from multiple possible locations
+api_env_path = os.path.join(os.path.dirname(__file__), '..', 'api', '.env')
+if os.path.exists(api_env_path):
+    load_dotenv(api_env_path)
+else:
+    load_dotenv()
+
+def _log_error(message):
+    """Log error using Streamlit if available, otherwise use print/logging"""
+    if STREAMLIT_AVAILABLE:
+        _log_error(message)
+    else:
+        print(f"ERROR: {message}")
+
+MONGODB_URI = None
+DB_NAME = "learnify_courses"
+COURSES_COLLECTION = "courses"
+USER_COURSES_COLLECTION = "user_courses"
+
+# Try Streamlit secrets first
+if STREAMLIT_AVAILABLE:
+    try:
+        MONGODB_URI = st.secrets["MONGODB_URI"]
+        DB_NAME = st.secrets.get("DB_NAME_COURSES", "learnify_courses")
+    except (KeyError, AttributeError, FileNotFoundError, Exception):
+        pass  # Fall through to environment variables
+
+# Fallback to environment variables
+if not MONGODB_URI:
+    MONGODB_URI = os.getenv("MONGODB_URI")
+    DB_NAME = os.getenv("DB_NAME_COURSES", "learnify_courses")
+
+if not MONGODB_URI:
+    error_msg = "Missing MONGODB_URI. Please ensure MONGODB_URI is set in your environment variables or Streamlit secrets."
+    if STREAMLIT_AVAILABLE:
+        _log_error(error_msg)
+        st.stop()
+    else:
+        raise ValueError(error_msg)
 
 class MongoCourseManager:
     def __init__(self):
@@ -34,37 +70,49 @@ class MongoCourseManager:
             # Create indexes for better performance
             self._create_indexes()
         except pymongo.errors.ConfigurationError as e:
-            st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
+            error_msg = f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI."
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
-            st.stop()
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
         except pymongo.errors.ConnectionFailure as e:
-            st.error(f"Failed to connect to MongoDB: {e}")
+            error_msg = f"Failed to connect to MongoDB: {e}"
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
-            st.stop()
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
         except Exception as e:
-            st.error(f"An unexpected error occurred during MongoDB initialization: {e}")
+            error_msg = f"An unexpected error occurred during MongoDB initialization: {e}"
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
-            st.stop()
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
 
     def _ensure_connection(self):
         """Ensure MongoDB connection is active"""
         if self.client is None or self.db is None:
-            st.error("MongoDB connection is not available.")
+            _log_error("MongoDB connection is not available.")
             return False
         try:
             self.client.admin.command('ping')
             return True
         except pymongo.errors.ConnectionFailure:
-            st.error("MongoDB connection lost. Please try again later.")
+            _log_error("MongoDB connection lost. Please try again later.")
             return False
 
     def _create_indexes(self):
@@ -169,10 +217,10 @@ class MongoCourseManager:
                 return None, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error saving course: {e}")
+            _log_error(f"MongoDB error saving course: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error saving course: {e}")
+            _log_error(f"Unexpected error saving course: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def get_course(self, course_id: str) -> Tuple[Optional[Dict], Optional[str]]:
@@ -185,6 +233,11 @@ class MongoCourseManager:
                 course = self.courses_collection.find_one({"course_id": course_id})
                 if course:
                     course.pop('_id', None)
+                    # Transform MongoDB structure to API structure
+                    if 'title' in course:
+                        course['course_title'] = course.pop('title')
+                    if 'content' in course:
+                        course['sections'] = course.pop('content')
                     return course, None
                 else:
                     return None, "Course not found."
@@ -192,10 +245,10 @@ class MongoCourseManager:
                 return None, "Database connection error."
                 
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error retrieving course: {e}")
+            _log_error(f"MongoDB error retrieving course: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error retrieving course: {e}")
+            _log_error(f"Unexpected error retrieving course: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def get_user_courses(self, user_identifier: str, is_guest: bool = False, 
@@ -216,15 +269,22 @@ class MongoCourseManager:
                     {"_id": 0}
                 ).sort("created_at", -1))
                 
+                # Transform MongoDB structure to API structure for each course
+                for course in courses:
+                    if 'title' in course:
+                        course['course_title'] = course.pop('title')
+                    if 'content' in course:
+                        course['sections'] = course.pop('content')
+                
                 return courses, None
             else:
                 return None, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error retrieving user courses: {e}")
+            _log_error(f"MongoDB error retrieving user courses: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error retrieving user courses: {e}")
+            _log_error(f"Unexpected error retrieving user courses: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def get_course_stats(self, user_identifier: str, is_guest: bool = False, session_id: Optional[str] = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -259,10 +319,10 @@ class MongoCourseManager:
                 return None, "Database connection error."
 
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error retrieving course stats: {e}")
+            _log_error(f"MongoDB error retrieving course stats: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error retrieving course stats: {e}")
+            _log_error(f"Unexpected error retrieving course stats: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def transfer_guest_courses(self, session_id: str, new_user_identifier: str) -> Tuple[int, Optional[str]]:
@@ -298,10 +358,10 @@ class MongoCourseManager:
                 return 0, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error transferring courses: {e}")
+            _log_error(f"MongoDB error transferring courses: {e}")
             return 0, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error transferring courses: {e}")
+            _log_error(f"Unexpected error transferring courses: {e}")
             return 0, f"An unexpected error occurred: {e}"
 
     def delete_course(self, course_id: str, user_identifier: str, is_guest: bool = False) -> Tuple[bool, Optional[str]]:
@@ -331,10 +391,10 @@ class MongoCourseManager:
                 return False, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error deleting course: {e}")
+            _log_error(f"MongoDB error deleting course: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error deleting course: {e}")
+            _log_error(f"Unexpected error deleting course: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def update_course_privacy(self, course_id: str, user_identifier: str, is_public: bool) -> Tuple[bool, Optional[str]]:
@@ -362,10 +422,10 @@ class MongoCourseManager:
                 return False, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error updating course privacy: {e}")
+            _log_error(f"MongoDB error updating course privacy: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error updating course privacy: {e}")
+            _log_error(f"Unexpected error updating course privacy: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def update_course_memory_strength(self, course_id: str, new_strength: int, time_spent: float) -> Tuple[bool, Optional[str]]:
@@ -395,10 +455,10 @@ class MongoCourseManager:
                 return False, "Database connection error."
 
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error updating memory strength: {e}")
+            _log_error(f"MongoDB error updating memory strength: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error updating memory strength: {e}")
+            _log_error(f"Unexpected error updating memory strength: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def can_access_course(self, course_id: str, user_identifier: Optional[str] = None, 
@@ -427,10 +487,10 @@ class MongoCourseManager:
                 return False, "Database connection error."
             
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error checking course access: {e}")
+            _log_error(f"MongoDB error checking course access: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error checking course access: {e}")
+            _log_error(f"Unexpected error checking course access: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def _add_to_user_courses(self, user_identifier: str, course_id: str, is_guest: bool):
@@ -482,7 +542,7 @@ def get_course_manager() -> MongoCourseManager:
     return globals()['_course_manager']
 
 def get_session_id() -> str:
-    """Get or create session ID for guest users"""
-    if 'guest_session_id' not in st.session_state:
-        st.session_state.guest_session_id = str(uuid.uuid4())
-    return st.session_state.guest_session_id
+    """Generate a new session ID for guest users"""
+    # In FastAPI context, generate a new UUID each time
+    # The frontend will manage session persistence via localStorage
+    return str(uuid.uuid4())

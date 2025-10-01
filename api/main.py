@@ -240,8 +240,9 @@ async def save_course(request: SaveCourseRequest, username: Optional[str] = None
     if not course_manager:
         raise HTTPException(status_code=503, detail="Course manager unavailable")
     
-    session_id = get_session_id()
     is_guest = username is None
+    # Only generate session_id for guest users
+    session_id = get_session_id() if is_guest else None
     
     course_id, error = course_manager.save_course(
         course_data=request.course_data,
@@ -266,9 +267,17 @@ async def get_course(course_id: str):
     if not course_manager:
         raise HTTPException(status_code=503, detail="Course manager unavailable")
     
-    course = course_manager.get_course(course_id)
+    course, error = course_manager.get_course(course_id)
+    if error:
+        raise HTTPException(status_code=500, detail=error)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Convert ObjectId to string
+    if '_id' in course:
+        course['_id'] = str(course['_id'])
+    if 'course_id' in course:
+        course['course_id'] = str(course['course_id'])
     
     return course
 
@@ -279,10 +288,23 @@ async def list_courses(username: Optional[str] = None):
         raise HTTPException(status_code=503, detail="Course manager unavailable")
     
     if username:
-        courses = course_manager.get_user_courses(username)
+        courses, error = course_manager.get_user_courses(username, is_guest=False)
     else:
         session_id = get_session_id()
-        courses = course_manager.get_guest_courses(session_id)
+        courses, error = course_manager.get_user_courses(session_id, is_guest=True, session_id=session_id)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    # Ensure courses is a list and convert ObjectId to string
+    if courses is None:
+        courses = []
+    
+    for course in courses:
+        if '_id' in course:
+            course['_id'] = str(course['_id'])
+        if 'course_id' in course:
+            course['course_id'] = str(course['course_id'])
     
     return {"courses": courses}
 
