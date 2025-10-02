@@ -10,8 +10,18 @@ def load_verification_template():
     """Load the verification email HTML template"""
     template_path = os.path.join(os.path.dirname(__file__), "verification.html")
     try:
+        # Try UTF-8 first
         with open(template_path, "r", encoding="utf-8") as file:
             return file.read()
+    except UnicodeDecodeError:
+        # If UTF-8 fails, try with UTF-8-sig (handles BOM) or latin-1
+        try:
+            with open(template_path, "r", encoding="utf-8-sig") as file:
+                return file.read()
+        except Exception:
+            # Last resort: read as binary and decode, ignoring errors
+            with open(template_path, "rb") as file:
+                return file.read().decode("utf-8", errors="ignore")
     except FileNotFoundError:
         # Clean, spam-resistant fallback template with professional styling
         return """
