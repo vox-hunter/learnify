@@ -1,39 +1,39 @@
-# Render deployment configuration
-# This file configures URL redirects for proper multipage routing
+# Render deployment configuration for Learnify
+# This configures both the FastAPI backend and Vue.js frontend
 
 services:
+  # FastAPI Backend Service
   - type: web
-    name: learnify
+    name: learnify-backend
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run frontend/main.py --server.port=$PORT --server.address=0.0.0.0
-    
-    # URL redirects for multipage routing
-    # Redirect all page routes to main app with query parameters
-    redirects:
-      - source: /privacy
-        destination: /?page=privacy
-        type: 301
-      - source: /terms
-        destination: /?page=terms
-        type: 301
-      - source: /course
-        destination: /?page=course
-        type: 301
-      - source: /login
-        destination: /?page=login
-        type: 301
-      
-      # Case variations
-      - source: /Privacy
-        destination: /?page=privacy
-        type: 301
-      - source: /Terms
-        destination: /?page=terms
-        type: 301
-      - source: /Course
-        destination: /?page=course
-        type: 301
-      - source: /Login
-        destination: /?page=login
-        type: 301
+    buildCommand: |
+      pip install -r api/requirements.txt
+    startCommand: |
+      cd api && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: DEBUG_MODE
+        value: "False"
+      - key: COOKIE_ENCRYPTION_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # Vue.js Frontend Service (Static Site)
+  - type: web
+    name: learnify-frontend
+    env: static
+    buildCommand: |
+      cd vue-frontend && npm install && npm run build
+    staticPublishPath: ./vue-frontend/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://learnify-backend.onrender.com/api/*
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
