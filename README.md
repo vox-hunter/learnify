@@ -49,17 +49,31 @@ This application uses the following technologies:
 3. Run the application:
 
    ```bash
-   streamlit run main.py
+   streamlit run frontend/main.py
    ```
 
 ## File Structure
 
-- `main.py`: Entry point for the application
-- `frontend.py`: User interface implementation
-- `local_backend.py`: Backend processing and AI integration
-- `prompt.txt`: Prompt template for the AI
-- `sys_ins.txt`: System instructions for the AI
-- `st_fill_in_the_blanks/`: Custom Streamlit component for fill-in-the-blank questions
+The repository is organized into separate frontend and backend directories:
+
+### Frontend (`frontend/`)
+- `main.py`: Entry point for the Streamlit application
+- `frontend.py`: Main user interface implementation
+- `pages/`: Streamlit pages for different app sections
+- `utils/`: Frontend utilities (lazy imports, styling, navigation)
+- `st_fill_in_the_blanks/`: Custom React component for fill-in-the-blank questions
+- `.streamlit/`: Streamlit configuration files
+- `*.html`: Static HTML pages and templates
+
+### Backend (`backend/`)
+- `local_backend.py`: Core AI processing and course generation
+- `mongo_auth.py`: Authentication system
+- `mongo_course_manager.py`: Course data management
+- `file_security.py`, `file_converter.py`: File processing and security
+- `google_oauth.py`: OAuth authentication
+- `email_verification.py`: Email services
+- `prompt.txt`, `sys_ins.txt`: AI prompt templates and system instructions
+- `test_consolidated.py`: Backend tests
 
 ## Features in Detail
 
@@ -83,6 +97,31 @@ This application uses the following technologies:
 - Section-based navigation with Previous/Next buttons
 - Support for nested subsections
 - Organized content presentation
+
+## Deployment
+
+### Production Deployment on Render
+
+This application can be deployed to Render web service with both the Vue.js frontend and FastAPI backend.
+
+**Quick Start:**
+1. See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for complete deployment guide
+2. See [DEPLOYMENT_COMMANDS.md](DEPLOYMENT_COMMANDS.md) for quick command reference
+
+**Key Files:**
+- `render.yaml` - Automated deployment configuration
+- `api/requirements.txt` - Backend dependencies
+- `vue-frontend/package.json` - Frontend dependencies
+
+**Build Commands:**
+- Backend: `pip install -r api/requirements.txt`
+- Frontend: `cd vue-frontend && npm install && npm run build`
+
+**Start Commands:**
+- Backend: `cd api && uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Frontend: Static site from `vue-frontend/dist`
+
+For detailed instructions, environment variables, and troubleshooting, see the full deployment guides.
 
 ## Contributing
 

@@ -3,6 +3,13 @@ import streamlit.components.v1 as components
 import json
 import re
 import random
+import os
+import sys
+
+# Add backend directory to path to allow imports from backend modules
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend')
+sys.path.insert(0, backend_dir)
+
 from utils.lazy_imports import lazy_import, import_optional, prefetch_modules
 from utils.common_styles import apply_common_styles
 fill_in_the_blanks_input = import_optional("st_fill_in_the_blanks:fill_in_the_blanks_input")

@@ -94,8 +94,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from multiple possible locations
+# Try api/.env first (for FastAPI backend), then current directory
+api_env_path = os.path.join(os.path.dirname(__file__), '..', 'api', '.env')
+if os.path.exists(api_env_path):
+    load_dotenv(api_env_path)
+    logger.info(f"Loaded environment variables from {api_env_path}")
+else:
+    load_dotenv()  # Fallback to default behavior
+    logger.info("Loaded environment variables from default location")
 
 # Validate API key - try Streamlit secrets first, then environment variables
 api_key = None
@@ -104,7 +111,7 @@ if STREAMLIT_AVAILABLE:
     try:
         api_key = st.secrets.GEMINI_API_KEY
         logger.info("Successfully loaded API key from Streamlit secrets")
-    except (KeyError, FileNotFoundError):
+    except (KeyError, FileNotFoundError, AttributeError, Exception):
         logger.info("Streamlit secrets not available or key not found, trying environment variables")
 
 # Fallback to environment variables if Streamlit secrets not available
