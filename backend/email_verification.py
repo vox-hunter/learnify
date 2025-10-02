@@ -8,7 +8,7 @@ resend.api_key = os.environ.get("RESEND_API_KEY", "your-resend-api-key-here")
 # Load HTML template
 def load_verification_template():
     """Load the verification email HTML template"""
-    template_path = os.path.join(os.path.dirname(__file__), "..", "verification.html")
+    template_path = os.path.join(os.path.dirname(__file__), "verification.html")
     try:
         with open(template_path, "r", encoding="utf-8") as file:
             return file.read()
