@@ -6,7 +6,6 @@ services:
   - type: web
     name: learnify-backend
     env: python
-    region: oregon
     plan: free
     buildCommand: |
       pip install -r api/requirements.txt
@@ -28,7 +27,6 @@ services:
   - type: web
     name: learnify-frontend
     env: static
-    region: oregon
     plan: free
     buildCommand: |
       cd vue-frontend && npm install && npm run build
