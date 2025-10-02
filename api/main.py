@@ -226,6 +226,101 @@ async def verify_email(request: VerifyEmailRequest):
         "message": "Email verified successfully"
     }
 
+# Forgot password endpoints
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
+@app.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Send password reset code to email"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Check if user exists with this email
+    user = auth_manager.find_user_by_email(request.email)
+    if not user:
+        # Don't reveal if email exists or not for security
+        # Return success anyway to prevent email enumeration
+        return {
+            "success": True,
+            "message": "If an account exists with this email, a reset code has been sent"
+        }
+    
+    # Import email_verification module
+    from email_verification import send_verification_email, generate_verification_code
+    
+    # Generate code
+    code = generate_verification_code()
+    
+    # Store code in database with password_reset purpose
+    success, error = auth_manager.store_verification_code(
+        email=request.email,
+        code=code,
+        purpose="password_reset"
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Failed to store verification code")
+    
+    # Send email with password_reset purpose
+    email_sent, email_message = send_verification_email(
+        email=request.email,
+        code=code,
+        purpose="password_reset"
+    )
+    
+    if not email_sent:
+        raise HTTPException(status_code=500, detail=email_message)
+    
+    return {
+        "success": True,
+        "message": "If an account exists with this email, a reset code has been sent"
+    }
+
+@app.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password with verification code"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Verify code
+    success, error = auth_manager.verify_code(
+        email=request.email,
+        entered_code=request.code,
+        purpose="password_reset"
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Invalid or expired verification code")
+    
+    # Find user by email
+    user = auth_manager.find_user_by_email(request.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update password
+    from bcrypt import hashpw, gensalt
+    hashed_password = hashpw(request.new_password.encode('utf-8'), gensalt()).decode('utf-8')
+    
+    # Update password in database
+    try:
+        auth_manager.users.update_one(
+            {"email": request.email},
+            {"$set": {"password": hashed_password}}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to update password")
+    
+    return {
+        "success": True,
+        "message": "Password has been reset successfully"
+    }
+
 # Account management endpoints
 class UpdateProfileRequest(BaseModel):
     username: str

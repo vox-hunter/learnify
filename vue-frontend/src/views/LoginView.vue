@@ -45,14 +45,23 @@
           </div>
 
           <div class="form-group">
-            <label class="checkbox-label">
-              <input
-                v-model="loginForm.rememberMe"
-                type="checkbox"
-                class="checkbox-input"
-              />
-              <span>Remember me</span>
-            </label>
+            <div class="form-row">
+              <label class="checkbox-label">
+                <input
+                  v-model="loginForm.rememberMe"
+                  type="checkbox"
+                  class="checkbox-input"
+                />
+                <span>Remember me</span>
+              </label>
+              <button 
+                type="button" 
+                @click="showForgotPassword = true; activeTab = 'forgot'"
+                class="btn-link forgot-link"
+              >
+                Forgot password?
+              </button>
+            </div>
           </div>
 
           <div v-if="error" class="alert alert-error">
@@ -63,6 +72,118 @@
             {{ loading ? 'Logging in...' : 'Login' }}
           </button>
         </form>
+
+        <!-- Forgot Password - Step 1: Enter Email -->
+        <form v-if="activeTab === 'forgot' && !showResetVerification" @submit.prevent="handleForgotPassword" class="auth-form">
+          <div class="forgot-header">
+            <h2 class="verification-title">🔐 Reset Password</h2>
+            <p class="verification-text">
+              Enter your email address and we'll send you a verification code
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input
+              v-model="forgotPasswordForm.email"
+              type="email"
+              class="form-input"
+              required
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div v-if="error" class="alert alert-error">
+            {{ error }}
+          </div>
+
+          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+            {{ loading ? 'Sending code...' : 'Send Verification Code' }}
+          </button>
+
+          <button @click="activeTab = 'login'; showForgotPassword = false; error = null" class="btn-link" type="button">
+            ← Back to login
+          </button>
+        </form>
+
+        <!-- Forgot Password - Step 2: Verify Code & Reset -->
+        <div v-if="activeTab === 'forgot' && showResetVerification" class="auth-form">
+          <div class="verification-header">
+            <h2 class="verification-title">🔐 Reset Password</h2>
+            <p class="verification-text">
+              We've sent a 6-digit code to <strong>{{ forgotPasswordForm.email }}</strong>
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Verification Code</label>
+            <input
+              v-model="forgotPasswordForm.code"
+              type="text"
+              class="form-input verification-input"
+              required
+              placeholder="Enter 6-digit code"
+              maxlength="6"
+              pattern="[0-9]{6}"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input
+              v-model="forgotPasswordForm.newPassword"
+              type="password"
+              class="form-input"
+              required
+              placeholder="Enter new password"
+              minlength="6"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <input
+              v-model="forgotPasswordForm.confirmPassword"
+              type="password"
+              class="form-input"
+              required
+              placeholder="Confirm new password"
+              minlength="6"
+            />
+          </div>
+
+          <div v-if="error" class="alert alert-error">
+            {{ error }}
+          </div>
+
+          <div v-if="success" class="alert alert-success">
+            {{ success }}
+          </div>
+
+          <button 
+            @click="handleResetPassword" 
+            :disabled="loading || forgotPasswordForm.code.length !== 6"
+            class="btn btn-primary btn-block"
+            type="button"
+          >
+            {{ loading ? 'Resetting...' : 'Reset Password' }}
+          </button>
+
+          <div class="resend-section">
+            <button 
+              @click="handleResendResetCode" 
+              :disabled="resetResendCooldown > 0"
+              class="btn-link"
+              type="button"
+            >
+              {{ resetResendCooldown > 0 ? `Resend code in ${resetResendCooldown}s` : 'Resend verification code' }}
+            </button>
+          </div>
+
+          <button @click="showResetVerification = false; error = null; success = null" class="btn-link" type="button">
+            ← Back to email entry
+          </button>
+        </div>
 
         <!-- Register Form - Step 1: User Details -->
         <form v-if="activeTab === 'register' && !showVerification" @submit.prevent="handleRegister" class="auth-form">
@@ -220,6 +341,9 @@ export default {
     const showVerification = ref(false)
     const verificationCode = ref('')
     const resendCooldown = ref(0)
+    const showForgotPassword = ref(false)
+    const showResetVerification = ref(false)
+    const resetResendCooldown = ref(0)
 
     const loginForm = ref({
       username: '',
@@ -233,6 +357,13 @@ export default {
       name: '',
       password: '',
       marketing_consent: false
+    })
+
+    const forgotPasswordForm = ref({
+      email: '',
+      code: '',
+      newPassword: '',
+      confirmPassword: ''
     })
 
     const handleLogin = async () => {
@@ -355,6 +486,106 @@ export default {
       }, 1000)
     }
 
+    const startResetResendCooldown = () => {
+      resetResendCooldown.value = 60
+      const interval = setInterval(() => {
+        resetResendCooldown.value--
+        if (resetResendCooldown.value <= 0) {
+          clearInterval(interval)
+        }
+      }, 1000)
+    }
+
+    const handleForgotPassword = async () => {
+      loading.value = true
+      error.value = null
+      success.value = null
+
+      try {
+        // Send password reset verification code
+        const response = await api.post('/auth/forgot-password', {
+          email: forgotPasswordForm.value.email
+        })
+
+        if (response.data.success) {
+          showResetVerification.value = true
+          success.value = 'Verification code sent! Check your email.'
+          startResetResendCooldown()
+        }
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Failed to send verification code'
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const handleResetPassword = async () => {
+      loading.value = true
+      error.value = null
+      success.value = null
+
+      // Validate passwords match
+      if (forgotPasswordForm.value.newPassword !== forgotPasswordForm.value.confirmPassword) {
+        error.value = 'Passwords do not match'
+        loading.value = false
+        return
+      }
+
+      try {
+        // Verify code and reset password
+        const response = await api.post('/auth/reset-password', {
+          email: forgotPasswordForm.value.email,
+          code: forgotPasswordForm.value.code,
+          new_password: forgotPasswordForm.value.newPassword
+        })
+
+        if (response.data.success) {
+          success.value = 'Password reset successfully! Redirecting to login...'
+          
+          // Clear form
+          forgotPasswordForm.value = {
+            email: '',
+            code: '',
+            newPassword: '',
+            confirmPassword: ''
+          }
+          
+          // Switch to login tab after 2 seconds
+          setTimeout(() => {
+            activeTab.value = 'login'
+            showForgotPassword.value = false
+            showResetVerification.value = false
+            success.value = null
+          }, 2000)
+        }
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Failed to reset password'
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const handleResendResetCode = async () => {
+      loading.value = true
+      error.value = null
+      success.value = null
+
+      try {
+        const response = await api.post('/auth/forgot-password', {
+          email: forgotPasswordForm.value.email
+        })
+
+        if (response.data.success) {
+          success.value = 'Verification code resent!'
+          startResetResendCooldown()
+        }
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Failed to resend code'
+      } finally {
+        loading.value = false
+      }
+    }
+
     return {
       activeTab,
       loading,
@@ -363,12 +594,19 @@ export default {
       showVerification,
       verificationCode,
       resendCooldown,
+      showForgotPassword,
+      showResetVerification,
+      resetResendCooldown,
       loginForm,
       registerForm,
+      forgotPasswordForm,
       handleLogin,
       handleRegister,
       handleVerifyEmail,
-      handleResendCode
+      handleResendCode,
+      handleForgotPassword,
+      handleResetPassword,
+      handleResendResetCode
     }
   }
 }
@@ -486,7 +724,31 @@ export default {
   opacity: 0.6;
 }
 
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.forgot-link {
+  color: #06b6d4;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.forgot-link:hover {
+  color: #0891b2;
+  text-decoration: underline;
+}
+
 .verification-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.forgot-header {
   margin-bottom: 2rem;
   text-align: center;
 }
@@ -498,12 +760,29 @@ export default {
   margin-bottom: 0.75rem;
 }
 
+.forgot-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
 .verification-text {
   color: #cbd5e0;
   line-height: 1.6;
 }
 
+.forgot-text {
+  color: #cbd5e0;
+  line-height: 1.6;
+}
+
 .verification-text strong {
+  color: #06b6d4;
+  font-weight: 600;
+}
+
+.forgot-text strong {
   color: #06b6d4;
   font-weight: 600;
 }
