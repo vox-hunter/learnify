@@ -90,6 +90,13 @@ class UpdateProgressRequest(BaseModel):
     question_index: int
     is_correct: bool
 
+class SendVerificationRequest(BaseModel):
+    email: EmailStr
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -151,6 +158,72 @@ async def login(credentials: UserLogin):
         "name": user.get("name"),
         "email": user.get("email"),
         "isAdmin": is_admin
+    }
+
+# Email verification endpoints
+@app.post("/auth/send-verification")
+async def send_verification(request: SendVerificationRequest):
+    """Send verification code to email"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Import email_verification module
+    from email_verification import send_verification_email, generate_verification_code
+    
+    # Generate code
+    code = generate_verification_code()
+    
+    # Store code in database
+    success, error = auth_manager.store_verification_code(
+        email=request.email,
+        code=code,
+        purpose="registration"
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Failed to store verification code")
+    
+    # Send email
+    email_sent, email_message = send_verification_email(
+        email=request.email,
+        code=code,
+        purpose="registration"
+    )
+    
+    if not email_sent:
+        raise HTTPException(status_code=500, detail=email_message)
+    
+    return {
+        "success": True,
+        "message": "Verification code sent to your email"
+    }
+
+@app.post("/auth/verify-email")
+async def verify_email(request: VerifyEmailRequest):
+    """Verify email with code"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Verify code
+    success, error = auth_manager.verify_code(
+        email=request.email,
+        entered_code=request.code,
+        purpose="registration"
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Invalid verification code")
+    
+    # Mark email as verified
+    marked, mark_error = auth_manager.mark_email_verified(request.email)
+    if not marked:
+        # Code was valid but marking failed - still return success
+        # since the code was consumed
+        pass
+    
+    return {
+        "success": True,
+        "message": "Email verified successfully"
     }
 
 # Account management endpoints

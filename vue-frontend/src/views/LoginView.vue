@@ -64,19 +64,8 @@
           </button>
         </form>
 
-        <!-- Register Form -->
-        <form v-if="activeTab === 'register'" @submit.prevent="handleRegister" class="auth-form">
-          <div class="form-group">
-            <label class="form-label">Username</label>
-            <input
-              v-model="registerForm.username"
-              type="text"
-              class="form-input"
-              required
-              placeholder="Choose a username"
-            />
-          </div>
-
+        <!-- Register Form - Step 1: User Details -->
+        <form v-if="activeTab === 'register' && !showVerification" @submit.prevent="handleRegister" class="auth-form">
           <div class="form-group">
             <label class="form-label">Email</label>
             <input
@@ -85,6 +74,18 @@
               class="form-input"
               required
               placeholder="Enter your email"
+            />
+            <p class="form-hint">We'll send a verification code to this email</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input
+              v-model="registerForm.username"
+              type="text"
+              class="form-input"
+              required
+              placeholder="Choose a username"
             />
           </div>
 
@@ -126,14 +127,64 @@
             {{ error }}
           </div>
 
+          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+            {{ loading ? 'Sending verification code...' : 'Continue' }}
+          </button>
+        </form>
+
+        <!-- Register Form - Step 2: Email Verification -->
+        <div v-if="activeTab === 'register' && showVerification" class="auth-form">
+          <div class="verification-header">
+            <h2 class="verification-title">📧 Verify Your Email</h2>
+            <p class="verification-text">
+              We've sent a 6-digit code to <strong>{{ registerForm.email }}</strong>
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Verification Code</label>
+            <input
+              v-model="verificationCode"
+              type="text"
+              class="form-input verification-input"
+              required
+              placeholder="Enter 6-digit code"
+              maxlength="6"
+              pattern="[0-9]{6}"
+            />
+          </div>
+
+          <div v-if="error" class="alert alert-error">
+            {{ error }}
+          </div>
+
           <div v-if="success" class="alert alert-success">
             {{ success }}
           </div>
 
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
-            {{ loading ? 'Creating account...' : 'Create Account' }}
+          <button 
+            @click="handleVerifyEmail" 
+            :disabled="loading || verificationCode.length !== 6"
+            class="btn btn-primary btn-block"
+          >
+            {{ loading ? 'Verifying...' : 'Verify & Complete Registration' }}
           </button>
-        </form>
+
+          <div class="resend-section">
+            <button 
+              @click="handleResendCode" 
+              :disabled="resendCooldown > 0"
+              class="btn-link"
+              type="button"
+            >
+              {{ resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend verification code' }}
+            </button>
+          </div>
+
+          <button @click="showVerification = false; error = null" class="btn-link" type="button">
+            ← Back to registration
+          </button>
+        </div>
 
         <!-- OAuth Options (placeholder for future implementation) -->
         <div class="oauth-section">
@@ -153,6 +204,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import api from '../services/api'
 
 export default {
   name: 'LoginView',
@@ -165,6 +217,9 @@ export default {
     const loading = ref(false)
     const error = ref(null)
     const success = ref(null)
+    const showVerification = ref(false)
+    const verificationCode = ref('')
+    const resendCooldown = ref(0)
 
     const loginForm = ref({
       username: '',
@@ -206,27 +261,98 @@ export default {
       error.value = null
       success.value = null
 
-      const result = await authStore.register(registerForm.value)
+      try {
+        // Step 1: Send verification email
+        const response = await api.post('/auth/send-verification', {
+          email: registerForm.value.email
+        })
 
-      loading.value = false
-
-      if (result.success) {
-        success.value = 'Account created successfully! You can now login.'
-        // Clear form
-        registerForm.value = {
-          username: '',
-          email: '',
-          name: '',
-          password: '',
-          marketing_consent: false
+        if (response.data.success) {
+          showVerification.value = true
+          success.value = 'Verification code sent! Check your email.'
+          startResendCooldown()
         }
-        // Switch to login tab after 2 seconds
-        setTimeout(() => {
-          activeTab.value = 'login'
-        }, 2000)
-      } else {
-        error.value = result.error
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Failed to send verification code'
+      } finally {
+        loading.value = false
       }
+    }
+
+    const handleVerifyEmail = async () => {
+      loading.value = true
+      error.value = null
+      success.value = null
+
+      try {
+        // Step 2: Verify email code
+        const verifyResponse = await api.post('/auth/verify-email', {
+          email: registerForm.value.email,
+          code: verificationCode.value
+        })
+
+        if (verifyResponse.data.success) {
+          // Step 3: Complete registration
+          const result = await authStore.register(registerForm.value)
+
+          if (result.success) {
+            success.value = 'Account created successfully! You can now login.'
+            // Clear form
+            registerForm.value = {
+              username: '',
+              email: '',
+              name: '',
+              password: '',
+              marketing_consent: false
+            }
+            verificationCode.value = ''
+            showVerification.value = false
+            
+            // Switch to login tab after 2 seconds
+            setTimeout(() => {
+              activeTab.value = 'login'
+              success.value = null
+            }, 2000)
+          } else {
+            error.value = result.error
+          }
+        }
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Verification failed'
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const handleResendCode = async () => {
+      loading.value = true
+      error.value = null
+      success.value = null
+
+      try {
+        const response = await api.post('/auth/send-verification', {
+          email: registerForm.value.email
+        })
+
+        if (response.data.success) {
+          success.value = 'Verification code resent!'
+          startResendCooldown()
+        }
+      } catch (err) {
+        error.value = err.response?.data?.detail || 'Failed to resend code'
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const startResendCooldown = () => {
+      resendCooldown.value = 60
+      const interval = setInterval(() => {
+        resendCooldown.value--
+        if (resendCooldown.value <= 0) {
+          clearInterval(interval)
+        }
+      }, 1000)
     }
 
     return {
@@ -234,10 +360,15 @@ export default {
       loading,
       error,
       success,
+      showVerification,
+      verificationCode,
+      resendCooldown,
       loginForm,
       registerForm,
       handleLogin,
-      handleRegister
+      handleRegister,
+      handleVerifyEmail,
+      handleResendCode
     }
   }
 }
@@ -353,5 +484,77 @@ export default {
   color: #cbd5e0;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.verification-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.verification-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.verification-text {
+  color: #cbd5e0;
+  line-height: 1.6;
+}
+
+.verification-text strong {
+  color: #06b6d4;
+  font-weight: 600;
+}
+
+.verification-input {
+  text-align: center;
+  font-size: 1.5rem;
+  letter-spacing: 0.5rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 600;
+}
+
+.resend-section {
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #06b6d4;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.btn-link:hover:not(:disabled) {
+  color: #0891b2;
+  text-decoration: underline;
+}
+
+.btn-link:disabled {
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  font-size: 0.875rem;
+  color: #a0aec0;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 2rem;
+  }
+
+  .verification-input {
+    font-size: 1.25rem;
+    letter-spacing: 0.25rem;
+  }
 }
 </style>
