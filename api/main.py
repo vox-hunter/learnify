@@ -109,7 +109,7 @@ async def health_check():
     }
 
 # Authentication endpoints
-@app.post("/api/auth/register")
+@app.post("/auth/register")
 async def register(user: UserRegister):
     """Register a new user"""
     if not auth_manager:
@@ -132,7 +132,7 @@ async def register(user: UserRegister):
         "user_id": str(user_id)
     }
 
-@app.post("/api/auth/login")
+@app.post("/auth/login")
 async def login(credentials: UserLogin):
     """Login user"""
     if not auth_manager:
@@ -154,7 +154,7 @@ async def login(credentials: UserLogin):
     }
 
 # Course generation endpoints
-@app.post("/api/course/generate/upload")
+@app.post("/course/generate/upload")
 async def generate_course_from_upload(
     file: UploadFile = File(...),
 ):
@@ -198,7 +198,7 @@ async def generate_course_from_upload(
         "course_data": course_dict
     }
 
-@app.post("/api/course/generate/url")
+@app.post("/course/generate/url")
 async def generate_course_from_url(request: CourseGenerationRequest):
     """Generate a course from a URL"""
     if not request.file_url:
@@ -226,7 +226,7 @@ async def generate_course_from_url(request: CourseGenerationRequest):
     }
 
 # Quiz validation endpoints
-@app.post("/api/quiz/validate-answer")
+@app.post("/quiz/validate-answer")
 async def validate_answer(request: ValidateAnswerRequest):
     """Validate a short answer using AI"""
     is_correct, explanation = validate_short_answer_with_ai(
@@ -244,7 +244,7 @@ async def validate_answer(request: ValidateAnswerRequest):
     }
 
 # Course management endpoints
-@app.post("/api/course/save")
+@app.post("/course/save")
 async def save_course(request: SaveCourseRequest, username: Optional[str] = None):
     """Save a course to the database"""
     if not course_manager:
@@ -271,7 +271,7 @@ async def save_course(request: SaveCourseRequest, username: Optional[str] = None
         "course_id": course_id
     }
 
-@app.get("/api/course/{course_id}")
+@app.get("/course/{course_id}")
 async def get_course(course_id: str):
     """Get a course by ID"""
     if not course_manager:
@@ -291,7 +291,7 @@ async def get_course(course_id: str):
     
     return course
 
-@app.get("/api/courses")
+@app.get("/courses")
 async def list_courses(username: Optional[str] = None):
     """List all courses for a user"""
     if not course_manager:
@@ -318,7 +318,7 @@ async def list_courses(username: Optional[str] = None):
     
     return {"courses": courses}
 
-@app.post("/api/course/{course_id}/progress")
+@app.post("/course/{course_id}/progress")
 async def update_progress(course_id: str, request: UpdateProgressRequest, username: Optional[str] = None):
     """Update user progress on a course"""
     if not course_manager:
@@ -340,7 +340,7 @@ async def update_progress(course_id: str, request: UpdateProgressRequest, userna
     
     return {"success": success}
 
-@app.get("/api/course/{course_id}/progress")
+@app.get("/course/{course_id}/progress")
 async def get_progress(course_id: str, username: Optional[str] = None):
     """Get user progress on a course"""
     if not course_manager:
@@ -352,7 +352,7 @@ async def get_progress(course_id: str, username: Optional[str] = None):
     return progress or {"progress": {}}
 
 # Analytics endpoints
-@app.get("/api/analytics/courses")
+@app.get("/analytics/courses")
 async def get_course_analytics(username: Optional[str] = None):
     """Get analytics for user's courses"""
     if not course_manager:
