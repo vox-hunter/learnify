@@ -8,7 +8,7 @@
           <section class="section">
             <h2>Introduction</h2>
             <p>
-              This Privacy Policy describes how Learnify ("we", "us", or "our") collects, uses, 
+              This Privacy Policy describes how AI Loom ("we", "us", or "our") collects, uses, 
               and protects your personal information when you use our AI-powered learning platform.
             </p>
           </section>

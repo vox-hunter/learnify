@@ -3,9 +3,12 @@
     <div class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <h1 class="hero-title">AI-Powered Learning</h1>
+        <div class="hero-logo">
+          <img src="/logo.png" alt="AI Loom" class="logo-large" />
+        </div>
+        <h1 class="hero-title">AI Loom</h1>
         <p class="hero-subtitle">
-          Transform your documents into interactive courses with quizzes
+          Smart Learning Platform - Transform your documents into interactive courses with quizzes
         </p>
       </section>
 
@@ -389,6 +392,30 @@ export default {
   margin-bottom: 3rem;
 }
 
+.hero-logo {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo-large {
+  height: 120px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.3));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
 .hero-title {
   font-size: 3.5rem;
   font-weight: 700;
@@ -402,7 +429,7 @@ export default {
 .hero-subtitle {
   font-size: 1.25rem;
   color: #cbd5e0;
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
 }
 

@@ -5,8 +5,8 @@
         <nav class="navbar">
           <div class="brand">
             <router-link to="/" class="brand-link">
-              <span class="brand-icon">🧠</span>
-              <span class="brand-name">Learnify</span>
+              <img src="/logo.png" alt="AI Loom" class="brand-logo" />
+              <span class="brand-name">AI Loom</span>
             </router-link>
           </div>
           <div class="nav-links">
@@ -30,7 +30,13 @@
     <footer class="app-footer">
       <div class="container">
         <div class="footer-content">
-          <p>&copy; 2024 Learnify. All rights reserved.</p>
+          <div class="footer-brand">
+            <img src="/logo.png" alt="AI Loom" class="footer-logo" />
+            <div>
+              <p class="footer-title">AI Loom</p>
+              <p class="footer-copyright">&copy; 2025 AI Loom. All rights reserved.</p>
+            </div>
+          </div>
           <div class="footer-links">
             <router-link to="/privacy" class="footer-link">Privacy Policy</router-link>
             <router-link to="/terms" class="footer-link">Terms & Conditions</router-link>
@@ -116,8 +122,10 @@ export default {
   transform: scale(1.05);
 }
 
-.brand-icon {
-  font-size: 2rem;
+.brand-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .brand-name {
@@ -191,7 +199,34 @@ export default {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+.footer-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+.footer-title {
+  font-weight: 700;
+  font-size: 1.25rem;
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.25rem;
+}
+
+.footer-copyright {
+  color: #cbd5e0;
+  font-size: 0.875rem;
 }
 
 .footer-links {

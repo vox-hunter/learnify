@@ -24,7 +24,7 @@ from file_security import validate_file_security
 
 # Create FastAPI app
 app = FastAPI(
-    title="Learnify API",
+    title="AI Loom API",
     description="AI-powered course and quiz generation API",
     version="1.0.0"
 )
@@ -101,7 +101,7 @@ class VerifyEmailRequest(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "message": "Learnify API",
+        "message": "AI Loom API",
         "version": "1.0.0",
         "status": "running"
     }

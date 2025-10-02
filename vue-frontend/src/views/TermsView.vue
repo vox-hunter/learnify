@@ -1,5 +1,6 @@
-<template>
-  <div class="terms-view">
+<template            <p>
+              By accessing and using AI Loom, you accept and agree to be bound by these Terms and Conditions. 
+              If you do not agree to these terms, please do not use our service.  <div class="terms-view">
     <div class="container-sm">
       <div class="content-card card">
         <h1 class="page-title">Terms & Conditions</h1>
@@ -86,7 +87,7 @@
           <section class="section">
             <h2>7. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by law, Learnify shall not be liable for:
+              To the maximum extent permitted by law, AI Loom shall not be liable for:
             </p>
             <ul>
               <li>Any indirect, incidental, special, or consequential damages</li>
