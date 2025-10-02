@@ -6,7 +6,6 @@ services:
   - type: web
     name: learnify-backend
     env: python
-    plan: free
     buildCommand: |
       pip install -r api/requirements.txt
     startCommand: |
@@ -27,7 +26,6 @@ services:
   - type: web
     name: learnify-frontend
     env: static
-    plan: free
     buildCommand: |
       cd vue-frontend && npm install && npm run build
     staticPublishPath: ./vue-frontend/dist
