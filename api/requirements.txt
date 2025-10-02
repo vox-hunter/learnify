@@ -1,0 +1,63 @@
+# FastAPI Backend Requirements
+# Core FastAPI
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic[email]==2.11.5
+
+# CORS
+python-dotenv==1.1.0
+
+# All backend dependencies from original requirements.txt
+pymongo==4.8.0
+bcrypt==4.3.0
+PyJWT==2.10.1
+
+# Google AI and API
+google-genai==1.17.0
+google-generativeai==0.8.5
+google-ai-generativelanguage==0.6.15
+google-api-core==2.25.0rc1
+google-api-python-client==2.170.0
+google-auth==2.40.2
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+googleapis-common-protos==1.70.0
+grpcio==1.71.0
+grpcio-status==1.71.0
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.10.4
+pdfminer.six==20221105
+pypdfium2==4.30.1
+
+# Document conversion
+python-docx==1.1.2
+openpyxl==3.1.5
+python-pptx==0.6.23
+markdown2==2.5.1
+reportlab==4.2.5
+weasyprint==62.3
+
+# Image processing
+Pillow==11.2.1
+
+# File security
+python-magic==0.4.27
+
+# HTTP clients
+requests==2.32.3
+httpx==0.28.1
+httpcore==1.0.9
+
+# Other utilities
+python-dateutil==2.9.0.post0
+dnspython==2.7.0
+certifi==2025.4.26
+charset-normalizer==3.4.2
+idna==3.10
+urllib3==2.4.0
+
+# Email
+resend==2.11.0

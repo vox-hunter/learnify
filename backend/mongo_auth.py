@@ -1,20 +1,56 @@
-import streamlit as st
+import os
 import pymongo
 from pymongo import errors as pymongo_errors
 import bcrypt  # For password hashing
 from datetime import datetime  # For timestamps
+from dotenv import load_dotenv
+
+# Try to import streamlit, but make it optional
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
+# Load environment variables from multiple possible locations
+api_env_path = os.path.join(os.path.dirname(__file__), '..', 'api', '.env')
+if os.path.exists(api_env_path):
+    load_dotenv(api_env_path)
+else:
+    load_dotenv()
 
 # It's good practice to load secrets at the beginning and provide clear error messages if they are missing.
-try:
-    MONGODB_URI = st.secrets["MONGODB_URI"]
-    DB_NAME = "learnify_auth"  # Or get from secrets if it varies
-    USER_COLLECTION = "users"
-except KeyError as e:
-    st.error(f"Missing secret: {e}. Please ensure MONGODB_URI is set in your Streamlit secrets.")
-    st.stop() # Stop execution if critical secrets are missing
-except Exception as e:
-    st.error(f"An error occurred while loading secrets: {e}")
-    st.stop()
+MONGODB_URI = None
+DB_NAME = "learnify_auth"  # Or get from secrets if it varies
+USER_COLLECTION = "users"
+
+# Try Streamlit secrets first
+if STREAMLIT_AVAILABLE:
+    try:
+        MONGODB_URI = st.secrets["MONGODB_URI"]
+        DB_NAME = st.secrets.get("DB_NAME", "learnify_auth")
+    except (KeyError, FileNotFoundError, AttributeError, Exception):
+        pass  # Fall through to environment variables
+
+# Fallback to environment variables
+if not MONGODB_URI:
+    MONGODB_URI = os.getenv("MONGODB_URI")
+    DB_NAME = os.getenv("DB_NAME", "learnify_auth")
+
+if not MONGODB_URI:
+    error_msg = "Missing MONGODB_URI. Please ensure MONGODB_URI is set in your environment variables or Streamlit secrets."
+    if STREAMLIT_AVAILABLE:
+        _log_error(error_msg)
+        st.stop()
+    else:
+        raise ValueError(error_msg)
+
+def _log_error(message):
+    """Log error using Streamlit if available, otherwise use print/logging"""
+    if STREAMLIT_AVAILABLE:
+        _log_error(message)
+    else:
+        print(f"ERROR: {message}")
 
 class MongoAuthManager:
     def __init__(self):
@@ -25,35 +61,47 @@ class MongoAuthManager:
             # Test connection
             self.client.admin.command('ping')
         except pymongo_errors.ConfigurationError as e:
-            st.error(f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI.")
+            error_msg = f"MongoDB Configuration Error: {e}. Please check your MONGODB_URI."
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.users_collection = None
-            st.stop()
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
         except pymongo_errors.ConnectionFailure as e:
-            st.error(f"Failed to connect to MongoDB: {e}")
+            error_msg = f"Failed to connect to MongoDB: {e}"
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.users_collection = None
-            st.stop() # Stop if DB connection fails
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
         except Exception as e:
-            st.error(f"An unexpected error occurred during MongoDB initialization: {e}")
+            error_msg = f"An unexpected error occurred during MongoDB initialization: {e}"
+            _log_error(error_msg)
             self.client = None
             self.db = None
             self.users_collection = None
-            st.stop()
+            if STREAMLIT_AVAILABLE:
+                st.stop()
+            else:
+                raise RuntimeError(error_msg)
 
 
     def _ensure_connection(self):
         if self.client is None or self.db is None or self.users_collection is None:
-            st.error("MongoDB connection is not available.")
+            _log_error("MongoDB connection is not available.")
             return False
         try:
             # Ping the database to ensure the connection is active
             self.client.admin.command('ping')
             return True
         except pymongo_errors.ConnectionFailure:
-            st.error("MongoDB connection lost. Please try again later.")
+            _log_error("MongoDB connection lost. Please try again later.")
             # Optionally, try to reconnect here
             return False
 
@@ -93,22 +141,28 @@ class MongoAuthManager:
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error adding user: {e}")
+            _log_error(f"MongoDB error adding user: {e}")
             return None, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error adding user: {e}")
+            _log_error(f"Unexpected error adding user: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def find_user_by_username(self, username):
+        """Find user by username OR email (for flexible login)"""
         if not self._ensure_connection():
             return None
         try:
-            return self.users_collection.find_one({"username": username})
+            # Try to find by username first, then by email
+            user = self.users_collection.find_one({"username": username})
+            if not user:
+                # If not found by username, try email
+                user = self.users_collection.find_one({"email": username})
+            return user
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error finding user by username: {e}")
+            _log_error(f"MongoDB error finding user by username/email: {e}")
             return None
         except Exception as e:
-            st.error(f"Unexpected error finding user: {e}")
+            _log_error(f"Unexpected error finding user: {e}")
             return None
             
     def find_user_by_email(self, email):
@@ -117,10 +171,10 @@ class MongoAuthManager:
         try:
             return self.users_collection.find_one({"email": email})
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error finding user by email: {e}")
+            _log_error(f"MongoDB error finding user by email: {e}")
             return None
         except Exception as e:
-            st.error(f"Unexpected error finding user by email: {e}")
+            _log_error(f"Unexpected error finding user by email: {e}")
             return None
 
     def find_user_by_google_id(self, google_id):
@@ -130,10 +184,10 @@ class MongoAuthManager:
         try:
             return self.users_collection.find_one({"google_id": google_id})
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error finding user by Google ID: {e}")
+            _log_error(f"MongoDB error finding user by Google ID: {e}")
             return None
         except Exception as e:
-            st.error(f"Unexpected error finding user by Google ID: {e}")
+            _log_error(f"Unexpected error finding user by Google ID: {e}")
             return None
 
     def link_google_account(self, username, google_id):
@@ -162,10 +216,10 @@ class MongoAuthManager:
             else:
                 return False, "User not found or account already linked."
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error linking Google account: {e}")
+            _log_error(f"MongoDB error linking Google account: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error linking Google account: {e}")
+            _log_error(f"Unexpected error linking Google account: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def unlink_google_account(self, username):
@@ -186,10 +240,10 @@ class MongoAuthManager:
             else:
                 return False, "User not found or Google account not linked."
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error unlinking Google account: {e}")
+            _log_error(f"MongoDB error unlinking Google account: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error unlinking Google account: {e}")
+            _log_error(f"Unexpected error unlinking Google account: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def create_google_user(self, google_user_info, base_username, marketing_consent=False):
@@ -236,10 +290,10 @@ class MongoAuthManager:
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None, final_username
         except pymongo_errors.PyMongoError as e:
-            st.error(f"MongoDB error creating Google user: {e}")
+            _log_error(f"MongoDB error creating Google user: {e}")
             return None, f"Database error: {e}", None
         except Exception as e:
-            st.error(f"Unexpected error creating Google user: {e}")
+            _log_error(f"Unexpected error creating Google user: {e}")
             return None, f"An unexpected error occurred: {e}", None
 
     def _generate_unique_username(self, base_username):
@@ -270,10 +324,10 @@ class MongoAuthManager:
             else:
                 return False, "User not found or password not updated."
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error updating password: {e}")
+            _log_error(f"MongoDB error updating password: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error updating password: {e}")
+            _log_error(f"Unexpected error updating password: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     def update_user_details(self, username, updates):
@@ -309,10 +363,10 @@ class MongoAuthManager:
             else:
                 return False, "User not found."
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error updating user details: {e}")
+            _log_error(f"MongoDB error updating user details: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
-            st.error(f"Unexpected error updating user details: {e}")
+            _log_error(f"Unexpected error updating user details: {e}")
             return False, f"An unexpected error occurred: {e}"
 
     # --- Config loading/saving methods (adapted from original 2_🔐_Login.py) ---
@@ -338,10 +392,10 @@ class MongoAuthManager:
                 return config_doc
             return None # Or return a default config dict
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error loading config: {e}")
+            _log_error(f"MongoDB error loading config: {e}")
             return None
         except Exception as e:
-            st.error(f"Unexpected error loading config from MongoDB: {e}")
+            _log_error(f"Unexpected error loading config from MongoDB: {e}")
             return None
 
     def save_config(self, config_data):
@@ -359,10 +413,10 @@ class MongoAuthManager:
             )
             return True
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error saving config: {e}")
+            _log_error(f"MongoDB error saving config: {e}")
             return False
         except Exception as e:
-            st.error(f"Unexpected error saving config to MongoDB: {e}")
+            _log_error(f"Unexpected error saving config to MongoDB: {e}")
             return False
 
     # --- Email Verification Methods ---
@@ -405,7 +459,7 @@ class MongoAuthManager:
             return True, None
             
         except Exception as e:
-            st.error(f"Error storing verification code: {e}")
+            _log_error(f"Error storing verification code: {e}")
             return False, f"Database error: {e}"
     
     def verify_code(self, email, entered_code, purpose="registration"):
@@ -448,7 +502,7 @@ class MongoAuthManager:
         except ValueError:
             return False, "Invalid code format."
         except Exception as e:
-            st.error(f"Error verifying code: {e}")
+            _log_error(f"Error verifying code: {e}")
             return False, f"Database error: {e}"
 
     def mark_email_verified(self, email):
@@ -463,7 +517,7 @@ class MongoAuthManager:
             )
             return result.modified_count > 0, None
         except Exception as e:
-            st.error(f"Error marking email as verified: {e}")
+            _log_error(f"Error marking email as verified: {e}")
             return False, f"Database error: {e}"
     
     def cleanup_expired_codes(self):
@@ -476,7 +530,7 @@ class MongoAuthManager:
                 "expires_at": {"$lt": datetime.utcnow()}
             })
         except Exception as e:
-            st.error(f"Error cleaning up expired codes: {e}")
+            _log_error(f"Error cleaning up expired codes: {e}")
 
     def delete_user_account(self, username, confirm_username):
         """
@@ -545,13 +599,13 @@ class MongoAuthManager:
                     return True, f"Account deleted successfully. Removed {courses_result.deleted_count} courses and {user_courses_result.deleted_count} course associations."
                     
         except pymongo.errors.PyMongoError as e:
-            st.error(f"MongoDB error deleting account: {e}")
+            _log_error(f"MongoDB error deleting account: {e}")
             return False, f"Database error: {e}"
         except (ValueError, TypeError, AttributeError) as e:
-            st.error(f"Error deleting account: {e}")
+            _log_error(f"Error deleting account: {e}")
             return False, f"Error during account deletion: {e}"
         except Exception as e:  # pylint: disable=broad-except
-            st.error(f"Unexpected error deleting account: {e}")
+            _log_error(f"Unexpected error deleting account: {e}")
             return False, f"An unexpected error occurred: {e}"
 
 # Example usage (optional, for testing this file directly)
@@ -587,11 +641,11 @@ if __name__ == '__main__':
 
             if submitted_add:
                 if not all([new_username, new_password, new_email, new_name]):
-                    st.error("All fields are required.")
+                    _log_error("All fields are required.")
                 else:
                     user_id, error = manager.add_user(new_username, new_password, new_email, new_name)
                     if error:
-                        st.error(f"Failed to add user: {error}")
+                        _log_error(f"Failed to add user: {error}")
                     else:
                         st.success(f"User added successfully with ID: {user_id}")
 
@@ -619,7 +673,7 @@ if __name__ == '__main__':
                     if manager.verify_password(verify_password, user.get("password")):
                         st.success("Password verified!")
                     else:
-                        st.error("Incorrect password.")
+                        _log_error("Incorrect password.")
                 else:
                     st.warning("User not found.")
             else:
@@ -638,9 +692,9 @@ if __name__ == '__main__':
                     if success:
                         st.success("Password updated successfully.")
                     else:
-                        st.error(f"Failed to update password: {error}")
+                        _log_error(f"Failed to update password: {error}")
                 else:
-                    st.error("Username and new password are required.")
+                    _log_error("Username and new password are required.")
                     
         # Test Update User Details
         with st.form("update_details_form"):
@@ -663,11 +717,11 @@ if __name__ == '__main__':
                         if success:
                             st.success(f"User details updated. {error if error else ''}")
                         else:
-                            st.error(f"Failed to update details: {error}")
+                            _log_error(f"Failed to update details: {error}")
                     else:
                         st.info("No details provided to update.")
                 else:
-                    st.error("Username is required to update details.")
+                    _log_error("Username is required to update details.")
         
         # Test Delete User Account
         with st.form("delete_account_form"):
@@ -682,9 +736,9 @@ if __name__ == '__main__':
                     if success:
                         st.success(message)
                     else:
-                        st.error(message)
+                        _log_error(message)
                 else:
-                    st.error("Username and confirmation are required.")
+                    _log_error("Username and confirmation are required.")
     else:
-        st.error("Failed to initialize MongoAuthManager. Cannot run tests.")
+        _log_error("Failed to initialize MongoAuthManager. Cannot run tests.")
 
