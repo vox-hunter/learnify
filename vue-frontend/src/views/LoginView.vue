@@ -404,7 +404,13 @@ export default {
           startResendCooldown()
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Failed to send verification code'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Failed to send verification code'
+        }
       } finally {
         loading.value = false
       }
@@ -449,7 +455,13 @@ export default {
           }
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Verification failed'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Verification failed'
+        }
       } finally {
         loading.value = false
       }
@@ -470,7 +482,13 @@ export default {
           startResendCooldown()
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Failed to resend code'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Failed to resend code'
+        }
       } finally {
         loading.value = false
       }
@@ -513,7 +531,13 @@ export default {
           startResetResendCooldown()
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Failed to send verification code'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Failed to send verification code'
+        }
       } finally {
         loading.value = false
       }
@@ -559,7 +583,13 @@ export default {
           }, 2000)
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Failed to reset password'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Failed to reset password'
+        }
       } finally {
         loading.value = false
       }
@@ -580,7 +610,13 @@ export default {
           startResetResendCooldown()
         }
       } catch (err) {
-        error.value = err.response?.data?.detail || 'Failed to resend code'
+        if (err.response) {
+          error.value = err.response.data?.detail || `Server error: ${err.response.status}`
+        } else if (err.request) {
+          error.value = 'Cannot connect to server. Please check if the backend is running.'
+        } else {
+          error.value = err.message || 'Failed to resend code'
+        }
       } finally {
         loading.value = false
       }

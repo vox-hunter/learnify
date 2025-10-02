@@ -71,9 +71,22 @@ export const useAuthStore = defineStore('auth', () => {
       
       return { success: true }
     } catch (error) {
+      let errorMessage = 'Login failed'
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.detail || `Server error: ${error.response.status}`
+      } else if (error.request) {
+        // Request made but no response received
+        errorMessage = 'Cannot connect to server. Please check if the backend is running.'
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Login failed'
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Login failed' 
+        error: errorMessage
       }
     }
   }
@@ -83,9 +96,22 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post('/auth/register', userData)
       return { success: true, data: response.data }
     } catch (error) {
+      let errorMessage = 'Registration failed'
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.detail || `Server error: ${error.response.status}`
+      } else if (error.request) {
+        // Request made but no response received
+        errorMessage = 'Cannot connect to server. Please check if the backend is running.'
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Registration failed'
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Registration failed' 
+        error: errorMessage
       }
     }
   }

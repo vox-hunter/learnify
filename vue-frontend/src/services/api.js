@@ -1,7 +1,26 @@
 import axios from 'axios'
 
-// Use environment variable for API URL, fallback to relative path for local development
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// Configure API URL based on environment
+// Production: Use the Render backend URL
+// Development: Use localhost:8000
+const getApiBaseUrl = () => {
+  // Check if VITE_API_URL is set in environment variables
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Check if we're in production (deployed)
+  if (import.meta.env.PROD) {
+    return 'https://ai-loom-backend.onrender.com'
+  }
+  
+  // Local development - backend runs on port 8000
+  return 'http://localhost:8000'
+}
+
+const API_BASE_URL = getApiBaseUrl()
+
+console.log('API Base URL:', API_BASE_URL) // Debug log
 
 const api = axios.create({
   baseURL: API_BASE_URL,
