@@ -82,14 +82,14 @@ export default {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
   color: #e2e8f0;
 }
 
 .app-header {
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  border-bottom: 1px solid rgba(119, 51, 255, 0.2);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -131,7 +131,7 @@ export default {
 .brand-name {
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -152,7 +152,7 @@ export default {
 
 .nav-link:hover,
 .nav-link.router-link-active {
-  color: #06b6d4;
+  color: #7733ff;
 }
 
 .user-menu {
@@ -162,7 +162,7 @@ export default {
 }
 
 .username {
-  color: #06b6d4;
+  color: #7733ff;
   font-weight: 600;
 }
 
@@ -188,8 +188,8 @@ export default {
 }
 
 .app-footer {
-  background: rgba(15, 23, 42, 0.95);
-  border-top: 1px solid rgba(6, 182, 212, 0.2);
+  background: rgba(0, 0, 0, 0.95);
+  border-top: 1px solid rgba(119, 51, 255, 0.2);
   padding: 2rem 0;
   margin-top: 4rem;
 }
@@ -217,7 +217,7 @@ export default {
 .footer-title {
   font-weight: 700;
   font-size: 1.25rem;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -242,7 +242,7 @@ export default {
 }
 
 .footer-link:hover {
-  color: #06b6d4;
+  color: #7733ff;
 }
 
 @media (max-width: 768px) {

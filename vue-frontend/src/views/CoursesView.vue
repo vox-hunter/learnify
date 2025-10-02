@@ -167,7 +167,7 @@ export default {
 .course-card-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #06b6d4;
+  color: #7733ff;
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }

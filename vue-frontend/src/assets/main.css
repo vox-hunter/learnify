@@ -30,14 +30,14 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #5a1fd9);
   color: white;
-  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+  box-shadow: 0 6px 20px rgba(119, 51, 255, 0.4);
 }
 
 .btn-primary:active {
@@ -45,14 +45,14 @@ body {
 }
 
 .btn-secondary {
-  background: rgba(6, 182, 212, 0.1);
-  color: #06b6d4;
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: rgba(119, 51, 255, 0.1);
+  color: #7733ff;
+  border: 1px solid rgba(119, 51, 255, 0.3);
 }
 
 .btn-secondary:hover {
-  background: rgba(6, 182, 212, 0.2);
-  border-color: rgba(6, 182, 212, 0.5);
+  background: rgba(119, 51, 255, 0.2);
+  border-color: rgba(119, 51, 255, 0.5);
 }
 
 .btn-danger {
@@ -99,7 +99,7 @@ body {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
-  border: 2px solid rgba(6, 182, 212, 0.2);
+  border: 2px solid rgba(119, 51, 255, 0.2);
   background: rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
   font-size: 1rem;
@@ -110,8 +110,8 @@ body {
 .form-textarea:focus,
 .form-select:focus {
   outline: none;
-  border-color: #06b6d4;
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+  border-color: #7733ff;
+  box-shadow: 0 0 0 3px rgba(119, 51, 255, 0.2);
 }
 
 .form-textarea {
@@ -152,8 +152,8 @@ body {
 
 /* Loading spinner */
 .spinner {
-  border: 3px solid rgba(6, 182, 212, 0.2);
-  border-top: 3px solid #06b6d4;
+  border: 3px solid rgba(119, 51, 255, 0.2);
+  border-top: 3px solid #7733ff;
   border-radius: 50%;
   width: 40px;
   height: 40px;

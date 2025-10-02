@@ -868,13 +868,13 @@ export default {
 .section-title {
   font-size: 2rem;
   font-weight: 600;
-  color: #06b6d4;
+  color: #7733ff;
 }
 
 .section-progress {
   color: #cbd5e0;
   font-size: 0.875rem;
-  background: rgba(6, 182, 212, 0.1);
+  background: rgba(119, 51, 255, 0.1);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   display: flex;
@@ -906,8 +906,8 @@ export default {
 .section-explanation {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: rgba(6, 182, 212, 0.05);
-  border-left: 4px solid #06b6d4;
+  background: rgba(119, 51, 255, 0.05);
+  border-left: 4px solid #7733ff;
   border-radius: 0.5rem;
   color: #cbd5e0;
   line-height: 1.6;
@@ -950,7 +950,7 @@ export default {
 .subsection-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #0891b2;
+  color: #7733ff;
   margin-bottom: 1rem;
 }
 

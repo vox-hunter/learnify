@@ -665,7 +665,7 @@ export default {
   font-size: 2.5rem;
   font-weight: 700;
   text-align: center;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -675,7 +675,7 @@ export default {
 .tabs {
   display: flex;
   gap: 0.5rem;
-  background: rgba(6, 182, 212, 0.1);
+  background: rgba(119, 51, 255, 0.1);
   border-radius: 0.75rem;
   padding: 0.25rem;
   margin-bottom: 2rem;
@@ -694,9 +694,9 @@ export default {
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   color: white;
-  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
 }
 
 .auth-form {
@@ -768,14 +768,14 @@ export default {
 }
 
 .forgot-link {
-  color: #06b6d4;
+  color: #7733ff;
   font-size: 0.875rem;
   text-decoration: none;
   transition: all 0.2s;
 }
 
 .forgot-link:hover {
-  color: #0891b2;
+  color: #9d5dff;
   text-decoration: underline;
 }
 
@@ -814,12 +814,12 @@ export default {
 }
 
 .verification-text strong {
-  color: #06b6d4;
+  color: #7733ff;
   font-weight: 600;
 }
 
 .forgot-text strong {
-  color: #06b6d4;
+  color: #7733ff;
   font-weight: 600;
 }
 
@@ -839,7 +839,7 @@ export default {
 .btn-link {
   background: none;
   border: none;
-  color: #06b6d4;
+  color: #7733ff;
   cursor: pointer;
   padding: 0.5rem;
   font-size: 0.875rem;
@@ -847,7 +847,7 @@ export default {
 }
 
 .btn-link:hover:not(:disabled) {
-  color: #0891b2;
+  color: #9d5dff;
   text-decoration: underline;
 }
 

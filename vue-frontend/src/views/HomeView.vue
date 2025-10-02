@@ -419,7 +419,7 @@ export default {
 .hero-title {
   font-size: 3.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -471,9 +471,9 @@ export default {
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #7733ff, #9d5dff);
   color: white;
-  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
 }
 
 .input-section {
@@ -491,17 +491,17 @@ export default {
 .file-upload-label {
   display: block;
   padding: 3rem;
-  border: 2px dashed rgba(6, 182, 212, 0.3);
+  border: 2px dashed rgba(119, 51, 255, 0.3);
   border-radius: 1rem;
-  background: rgba(6, 182, 212, 0.05);
+  background: rgba(119, 51, 255, 0.05);
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
 }
 
 .file-upload-label:hover {
-  border-color: #06b6d4;
-  background: rgba(6, 182, 212, 0.1);
+  border-color: #7733ff;
+  background: rgba(119, 51, 255, 0.1);
 }
 
 .upload-icon {
@@ -522,7 +522,7 @@ export default {
 }
 
 .selected-file {
-  color: #06b6d4;
+  color: #7733ff;
 }
 
 .file-name {
@@ -746,7 +746,7 @@ export default {
 
 .course-title {
   font-size: 1.5rem;
-  color: #06b6d4;
+  color: #7733ff;
   margin: 1rem 0;
 }
 
