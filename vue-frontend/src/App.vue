@@ -15,7 +15,7 @@
             <router-link v-if="!isAuthenticated" to="/login" class="nav-link">Login</router-link>
             <div v-else class="user-menu">
               <router-link to="/account" class="nav-link account-link">👤 Account</router-link>
-              <span class="username">{{ username }}</span>
+                <span class="username">Welcome, {{ username }}</span>
               <button @click="logout" class="logout-btn">Logout</button>
             </div>
           </div>
