@@ -4,6 +4,7 @@
 The frontend was unable to login after deployment to Render because:
 1. Frontend was using relative path `/api` instead of absolute backend URL
 2. Backend CORS was only configured for localhost, not production frontend
+3. **Backend routes had `/api` prefix causing double prefix issue** (e.g., `/api/auth/login` became `/api/api/auth/login`)
 
 ## Solution Applied
 
@@ -18,7 +19,14 @@ The frontend was unable to login after deployment to Render because:
 - Added production frontend URL to allowed origins
 - Now accepts requests from: `https://ai-loom-frontend.onrender.com`
 
-### 3. Build Script Created (✅ Created)
+### 3. Backend Route Paths (✅ Fixed)
+**File**: `api/main.py`
+- Removed `/api` prefix from all backend routes
+- Changed `/api/auth/login` → `/auth/login`
+- Frontend baseURL already adds `/api`, so routes shouldn't have it
+- This prevents double prefix: `/api` + `/api/auth/login` = `/api/api/auth/login` ❌
+
+### 4. Build Script Created (✅ Created)
 **File**: `vue-frontend/build-render.sh`
 - Sets VITE_API_URL environment variable during build
 - Can be used as build command on Render
