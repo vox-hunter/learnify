@@ -11,6 +11,11 @@ from typing import Optional, List, Dict, Any
 import sys
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Add backend directory to path
 backend_dir = Path(__file__).parent.parent / "backend"
@@ -168,7 +173,11 @@ async def send_verification(request: SendVerificationRequest):
         raise HTTPException(status_code=503, detail="Authentication service unavailable")
     
     # Import email_verification module
-    from email_verification import send_verification_email, generate_verification_code
+    try:
+        from email_verification import send_verification_email, generate_verification_code
+    except Exception as e:
+        print(f"Error importing email_verification: {e}")
+        raise HTTPException(status_code=500, detail=f"Email service initialization failed: {str(e)}")
     
     # Generate code
     code = generate_verification_code()
@@ -184,11 +193,15 @@ async def send_verification(request: SendVerificationRequest):
         raise HTTPException(status_code=500, detail=error or "Failed to store verification code")
     
     # Send email
-    email_sent, email_message = send_verification_email(
-        email=request.email,
-        code=code,
-        purpose="registration"
-    )
+    try:
+        email_sent, email_message = send_verification_email(
+            email=request.email,
+            code=code,
+            purpose="registration"
+        )
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
     
     if not email_sent:
         raise HTTPException(status_code=500, detail=email_message)
@@ -252,7 +265,11 @@ async def forgot_password(request: ForgotPasswordRequest):
         }
     
     # Import email_verification module
-    from email_verification import send_verification_email, generate_verification_code
+    try:
+        from email_verification import send_verification_email, generate_verification_code
+    except Exception as e:
+        print(f"Error importing email_verification: {e}")
+        raise HTTPException(status_code=500, detail=f"Email service initialization failed: {str(e)}")
     
     # Generate code
     code = generate_verification_code()
@@ -268,11 +285,15 @@ async def forgot_password(request: ForgotPasswordRequest):
         raise HTTPException(status_code=500, detail=error or "Failed to store verification code")
     
     # Send email with password_reset purpose
-    email_sent, email_message = send_verification_email(
-        email=request.email,
-        code=code,
-        purpose="password_reset"
-    )
+    try:
+        email_sent, email_message = send_verification_email(
+            email=request.email,
+            code=code,
+            purpose="password_reset"
+        )
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
     
     if not email_sent:
         raise HTTPException(status_code=500, detail=email_message)
