@@ -98,6 +98,31 @@ The repository is organized into separate frontend and backend directories:
 - Support for nested subsections
 - Organized content presentation
 
+## Deployment
+
+### Production Deployment on Render
+
+This application can be deployed to Render web service with both the Vue.js frontend and FastAPI backend.
+
+**Quick Start:**
+1. See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for complete deployment guide
+2. See [DEPLOYMENT_COMMANDS.md](DEPLOYMENT_COMMANDS.md) for quick command reference
+
+**Key Files:**
+- `render.yaml` - Automated deployment configuration
+- `api/requirements.txt` - Backend dependencies
+- `vue-frontend/package.json` - Frontend dependencies
+
+**Build Commands:**
+- Backend: `pip install -r api/requirements.txt`
+- Frontend: `cd vue-frontend && npm install && npm run build`
+
+**Start Commands:**
+- Backend: `cd api && uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Frontend: Static site from `vue-frontend/dist`
+
+For detailed instructions, environment variables, and troubleshooting, see the full deployment guides.
+
 ## Contributing
 
 Feel free to contribute to this project by submitting issues or pull requests.
