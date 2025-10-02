@@ -324,31 +324,24 @@ async def reset_password(request: ResetPasswordRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Update password
+    # Update password using the auth manager method
+    success, error = auth_manager.update_user_password_by_email(
+        email=request.email,
+        new_password=request.new_password
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Failed to update password")
+    
+    # Delete the used verification code
     try:
-        from bcrypt import hashpw, gensalt
-        hashed_password = hashpw(request.new_password.encode('utf-8'), gensalt()).decode('utf-8')
-        
-        # Update password in database
-        result = auth_manager.users.update_one(
-            {"email": request.email},
-            {"$set": {"password": hashed_password}}
-        )
-        
-        if result.modified_count == 0:
-            print(f"Warning: Password update for {request.email} modified 0 documents")
-        
-        # Delete the used verification code
         auth_manager.verification_codes.delete_many({
             "email": request.email,
             "purpose": "password_reset"
         })
-        
     except Exception as e:
-        print(f"Error updating password: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to update password: {str(e)}")
+        # Log but don't fail if code cleanup fails
+        print(f"Warning: Failed to delete verification code: {e}")
     
     return {
         "success": True,

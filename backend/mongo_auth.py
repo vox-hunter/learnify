@@ -330,6 +330,27 @@ class MongoAuthManager:
             _log_error(f"Unexpected error updating password: {e}")
             return False, f"An unexpected error occurred: {e}"
 
+    def update_user_password_by_email(self, email, new_password):
+        """Update user password by email address (for password reset)"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        hashed_pw = self.hash_password(new_password)
+        try:
+            result = self.users_collection.update_one(
+                {"email": email},
+                {"$set": {"password": hashed_pw}}
+            )
+            if result.modified_count > 0:
+                return True, None
+            else:
+                return False, "User not found or password not updated."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error updating password: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error updating password: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
     def update_user_details(self, username, updates):
         # Updates should be a dict of fields to update, e.g., {"name": "New Name", "email": "new@example.com"}
         if not self._ensure_connection():
