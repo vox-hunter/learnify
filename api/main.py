@@ -153,6 +153,96 @@ async def login(credentials: UserLogin):
         "isAdmin": is_admin
     }
 
+# Account management endpoints
+class UpdateProfileRequest(BaseModel):
+    username: str
+    name: str
+    email: EmailStr
+
+class ChangePasswordRequest(BaseModel):
+    username: str
+    current_password: str
+    new_password: str
+
+class DeleteAccountRequest(BaseModel):
+    username: str
+
+@app.put("/account/profile")
+async def update_profile(request: UpdateProfileRequest):
+    """Update user profile information"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Verify username exists
+    user = auth_manager.find_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user details
+    success, error = auth_manager.update_user_details(
+        username=request.username,
+        updates={
+            "name": request.name,
+            "email": request.email
+        }
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Failed to update profile")
+    
+    return {
+        "success": True,
+        "message": "Profile updated successfully"
+    }
+
+@app.put("/account/password")
+async def change_password(request: ChangePasswordRequest):
+    """Change user password"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Verify current password
+    user = auth_manager.find_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not auth_manager.verify_password(request.current_password, user.get("password", "")):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Update password
+    success, error = auth_manager.update_user_password(
+        username=request.username,
+        new_password=request.new_password
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Failed to change password")
+    
+    return {
+        "success": True,
+        "message": "Password changed successfully"
+    }
+
+@app.delete("/account")
+async def delete_account(request: DeleteAccountRequest):
+    """Delete user account"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Delete account (passes username twice for confirmation)
+    success, error = auth_manager.delete_user_account(
+        username=request.username,
+        confirm_username=request.username
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Failed to delete account")
+    
+    return {
+        "success": True,
+        "message": "Account deleted successfully"
+    }
+
 # Course generation endpoints
 @app.post("/course/generate/upload")
 async def generate_course_from_upload(

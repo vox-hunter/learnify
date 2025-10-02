@@ -14,6 +14,7 @@
             <router-link to="/courses" class="nav-link">My Courses</router-link>
             <router-link v-if="!isAuthenticated" to="/login" class="nav-link">Login</router-link>
             <div v-else class="user-menu">
+              <router-link to="/account" class="nav-link account-link">👤 Account</router-link>
               <span class="username">{{ username }}</span>
               <button @click="logout" class="logout-btn">Logout</button>
             </div>
