@@ -1,13 +1,9 @@
-import streamlit as st
 import resend
 import random
 import os
 
-# Configure resend API key from secrets
-try:
-    resend.api_key = st.secrets.get("RESEND_API_KEY", "your-resend-api-key-here")
-except (KeyError, AttributeError):  # More specific exception handling
-    resend.api_key = "your-resend-api-key-here"
+# Configure resend API key from environment variables
+resend.api_key = os.environ.get("RESEND_API_KEY", "your-resend-api-key-here")
 
 # Load HTML template
 def load_verification_template():
