@@ -325,17 +325,30 @@ async def reset_password(request: ResetPasswordRequest):
         raise HTTPException(status_code=404, detail="User not found")
     
     # Update password
-    from bcrypt import hashpw, gensalt
-    hashed_password = hashpw(request.new_password.encode('utf-8'), gensalt()).decode('utf-8')
-    
-    # Update password in database
     try:
-        auth_manager.users.update_one(
+        from bcrypt import hashpw, gensalt
+        hashed_password = hashpw(request.new_password.encode('utf-8'), gensalt()).decode('utf-8')
+        
+        # Update password in database
+        result = auth_manager.users.update_one(
             {"email": request.email},
             {"$set": {"password": hashed_password}}
         )
+        
+        if result.modified_count == 0:
+            print(f"Warning: Password update for {request.email} modified 0 documents")
+        
+        # Delete the used verification code
+        auth_manager.verification_codes.delete_many({
+            "email": request.email,
+            "purpose": "password_reset"
+        })
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to update password")
+        print(f"Error updating password: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to update password: {str(e)}")
     
     return {
         "success": True,
