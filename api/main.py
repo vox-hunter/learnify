@@ -114,6 +114,7 @@ class GoogleOAuthCallbackRequest(BaseModel):
     code: str
     redirect_uri: str
     state: str
+    username: Optional[str] = None  # Optional override username for new users
 
 class GoogleAuthUrlRequest(BaseModel):
     redirect_uri: str
@@ -418,19 +419,55 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "*"
-            }
-        )
-    
-    if not auth_manager:
-        raise HTTPException(status_code=503, detail="Authentication service unavailable")
-    
-    if not verify_oauth_config():
-        raise HTTPException(status_code=503, detail="Google OAuth not configured")
-    
-    try:
-        # Exchange code for token
-        token_response = exchange_code_for_token(
-            code=request.code,
+            try:
+                # Exchange code for token and get Google user info
+                token_data = exchange_code_for_token(request.code, request.redirect_uri)
+                user_info = get_user_info(token_data['access_token'])
+                # If username override provided, create user now
+                if request.username:
+                    user_id, error, final_username = auth_manager.create_google_user(
+                        google_user_info=user_info,
+                        base_username=request.username,
+                        marketing_consent=False
+                    )
+                    if error:
+                        raise HTTPException(status_code=400, detail=error)
+                    return {
+                        "success": True,
+                        "is_new_user": True,
+                        "username": final_username,
+                        "name": user_info.get('name'),
+                        "email": user_info.get('email'),
+                        "picture": user_info.get('picture')
+                    }
+                # No username override: check if user exists
+                existing = auth_manager.find_user_by_email(user_info.get('email'))
+                if existing:
+                    # login existing Google user
+                    user = existing
+                    is_new = False
+                    uname = user['username']
+                else:
+                    # suggest username
+                    suggested = validate_google_oauth_user(user_info)
+                    return {
+                        "success": True,
+                        "is_new_user": True,
+                        "suggested_username": suggested,
+                        "name": user_info.get('name'),
+                        "email": user_info.get('email'),
+                        "picture": user_info.get('picture')
+                    }
+                # Standard login flow
+                return {
+                    "success": True,
+                    "is_new_user": False,
+                    "username": uname,
+                    "name": user.get('name'),
+                    "email": user.get('email'),
+                    "picture": user.get('picture'),
+                    "isAdmin": user.get('isAdmin', False)
+                }
             redirect_uri=request.redirect_uri
         )
         

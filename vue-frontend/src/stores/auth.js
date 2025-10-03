@@ -37,7 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username, password, rememberMe = false) {
     try {
       const response = await api.post('/auth/login', { username, password })
-      user.value = response.data
+  user.value = response.data
+  // Mark as traditional local-auth user
+  user.value.provider = 'local'
       
       // Store complete user data as JSON string
       const userData = JSON.stringify(response.data)
