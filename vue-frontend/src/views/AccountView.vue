@@ -3,26 +3,17 @@
     <div class="container-sm">
       <div class="account-card card">
         <h1 class="page-title">Account Settings</h1>
-        
+
         <!-- Tabs -->
         <div class="tabs">
-          <button 
-            :class="['tab', { active: activeTab === 'profile' }]"
-            @click="activeTab = 'profile'"
-          >
+          <button :class="['tab', { active: activeTab === 'profile' }]" @click="activeTab = 'profile'">
             👤 Profile
           </button>
-          <button 
-            v-if="!isGoogleUser"
-            :class="['tab', { active: activeTab === 'security' }]"
-            @click="activeTab = 'security'"
-          >
+          <button v-if="!isGoogleUser" :class="['tab', { active: activeTab === 'security' }]"
+            @click="activeTab = 'security'">
             🔒 Security
           </button>
-          <button 
-            :class="['tab', { active: activeTab === 'danger' }]"
-            @click="activeTab = 'danger'"
-          >
+          <button :class="['tab', { active: activeTab === 'danger' }]" @click="activeTab = 'danger'">
             ⚠️ Danger Zone
           </button>
         </div>
@@ -33,34 +24,18 @@
           <form @submit.prevent="updateProfile" class="form">
             <div class="form-group">
               <label class="form-label">Username</label>
-              <input
-                v-model="profileForm.username"
-                type="text"
-                class="form-input"
-                disabled
-              />
+              <input v-model="profileForm.username" type="text" class="form-input" disabled />
               <p class="form-hint">Username cannot be changed</p>
             </div>
 
             <div class="form-group">
               <label class="form-label">Full Name</label>
-              <input
-                v-model="profileForm.name"
-                type="text"
-                class="form-input"
-                required
-              />
+              <input v-model="profileForm.name" type="text" class="form-input" required />
             </div>
 
             <div class="form-group">
               <label class="form-label">Email</label>
-              <input
-                v-model="profileForm.email"
-                type="email"
-                class="form-input"
-                required
-                :disabled="isGoogleUser"
-              />
+              <input v-model="profileForm.email" type="email" class="form-input" required :disabled="isGoogleUser" />
               <p v-if="isGoogleUser" class="form-hint">
                 This email is linked to your Google account.
               </p>
@@ -93,7 +68,8 @@
           <div v-else class="password-linking">
             <h3>Link a Password</h3>
             <p>
-              To enhance security, you can link a password to your account. This is optional if you prefer using Google login.
+              To enhance security, you can link a password to your account. This is optional if you prefer using Google
+              login.
             </p>
             <button @click="linkGoogle" class="btn btn-secondary">
               Link Google Account
@@ -107,34 +83,17 @@
           <form @submit.prevent="changePassword" class="form">
             <div class="form-group">
               <label class="form-label">Current Password</label>
-              <input
-                v-model="securityForm.currentPassword"
-                type="password"
-                class="form-input"
-                required
-              />
+              <input v-model="securityForm.currentPassword" type="password" class="form-input" required />
             </div>
 
             <div class="form-group">
               <label class="form-label">New Password</label>
-              <input
-                v-model="securityForm.newPassword"
-                type="password"
-                class="form-input"
-                required
-                minlength="6"
-              />
+              <input v-model="securityForm.newPassword" type="password" class="form-input" required minlength="6" />
             </div>
 
             <div class="form-group">
               <label class="form-label">Confirm New Password</label>
-              <input
-                v-model="securityForm.confirmPassword"
-                type="password"
-                class="form-input"
-                required
-                minlength="6"
-              />
+              <input v-model="securityForm.confirmPassword" type="password" class="form-input" required minlength="6" />
             </div>
 
             <div v-if="securityError" class="alert alert-error">
@@ -158,7 +117,7 @@
             <div class="danger-warning">
               <h3>⚠️ Delete Account</h3>
               <p>
-                Once you delete your account, there is no going back. This will permanently 
+                Once you delete your account, there is no going back. This will permanently
                 delete your account, all your courses, and progress. This action cannot be undone.
               </p>
             </div>
@@ -171,33 +130,23 @@
 
             <div v-else class="delete-confirm">
               <p class="confirm-text">
-                Are you absolutely sure? Type your username 
+                Are you absolutely sure? Type your username
                 <strong>{{ authStore.user?.username }}</strong> to confirm:
               </p>
-              <input
-                v-model="deleteConfirmText"
-                type="text"
-                class="form-input"
-                placeholder="Type your username to confirm"
-              />
+              <input v-model="deleteConfirmText" type="text" class="form-input"
+                placeholder="Type your username to confirm" />
 
               <div v-if="deleteError" class="alert alert-error">
                 {{ deleteError }}
               </div>
 
               <div class="button-group">
-                <button 
-                  @click="deleteAccount" 
-                  :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading"
-                  class="btn btn-danger"
-                >
+                <button @click="deleteAccount"
+                  :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading" class="btn btn-danger">
                   {{ deleteLoading ? 'Deleting...' : 'Yes, Delete My Account' }}
                 </button>
-                <button 
-                  @click="showDeleteConfirm = false; deleteConfirmText = ''" 
-                  class="btn btn-secondary"
-                  :disabled="deleteLoading"
-                >
+                <button @click="showDeleteConfirm = false; deleteConfirmText = ''" class="btn btn-secondary"
+                  :disabled="deleteLoading">
                   Cancel
                 </button>
               </div>
@@ -223,7 +172,7 @@ export default {
 
     const activeTab = ref('profile')
     const isGoogleUser = computed(() => authStore.user?.provider === 'google')
-    
+
     // Profile form
     const profileForm = ref({
       username: '',
@@ -278,15 +227,15 @@ export default {
 
         if (response.data.success) {
           profileSuccess.value = 'Profile updated successfully!'
-          
+
           // Update auth store with new data
           authStore.user.name = profileForm.value.name
           authStore.user.email = profileForm.value.email
-          
+
           // Update localStorage
           const userData = JSON.stringify(authStore.user)
           localStorage.setItem('userData', userData)
-          
+
           setTimeout(() => {
             profileSuccess.value = null
           }, 3000)
@@ -319,14 +268,14 @@ export default {
 
         if (response.data.success) {
           securitySuccess.value = 'Password changed successfully!'
-          
+
           // Clear form
           securityForm.value = {
             currentPassword: '',
             newPassword: '',
             confirmPassword: ''
           }
-          
+
           setTimeout(() => {
             securitySuccess.value = null
           }, 3000)
@@ -343,7 +292,7 @@ export default {
       deleteLoading.value = true
 
       try {
-        const response = await api.delete('/account', { 
+        const response = await api.delete('/account', {
           data: { username: authStore.user.username }
         })
 
@@ -379,4 +328,3 @@ export default {
       authStore,
       activeTab,
       isGoogleUser,
-      
