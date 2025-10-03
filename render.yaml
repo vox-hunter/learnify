@@ -1,39 +1,19 @@
-# Render deployment configuration for Learnify
-# This configures both the FastAPI backend and Vue.js frontend
-
+# Exported from Render on 2025-10-03T10:23:00Z
+version: "1"
 services:
-  # FastAPI Backend Service
-  - type: web
-    name: learnify-backend
-    env: python
-    buildCommand: |
-      pip install -r api/requirements.txt
-    startCommand: |
-      cd api && uvicorn main:app --host 0.0.0.0 --port $PORT
-    envVars:
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: MONGODB_URI
-        sync: false
-      - key: DEBUG_MODE
-        value: "False"
-      - key: COOKIE_ENCRYPTION_KEY
-        generateValue: true
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-
-  # Vue.js Frontend Service (Static Site)
-  - type: web
-    name: learnify-frontend
-    env: static
-    buildCommand: |
-      cd vue-frontend && npm install && npm run build
-    staticPublishPath: ./vue-frontend/dist
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://learnify-backend.onrender.com/api/*
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=3600
+- type: web
+  name: "[ALPHA] AI Loom Frontend"
+  runtime: static
+  repo: https://github.com/vox-hunter/learnify
+  branch: alpha
+  envVars:
+  - key: VITE_API_URL
+    sync: false
+  buildCommand: cd vue-frontend && VITE_API_URL=https://ai-loom-backend.onrender.com
+    npm install && npm run build
+  staticPublishPath: vue-frontend/dist
+  routes:
+  - type: rewrite
+    source: /api/*
+    destination: https://learnify-backend.onrender.com/api/*
+  autoDeployTrigger: commit
