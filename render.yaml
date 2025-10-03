@@ -1,39 +1,19 @@
-# Render deployment configuration
-# This file configures URL redirects for proper multipage routing
-
+# Exported from Render on 2025-10-03T10:23:00Z
+version: "1"
 services:
-  - type: web
-    name: learnify
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run Quiz_app/main.py --server.port=$PORT --server.address=0.0.0.0
-    
-    # URL redirects for multipage routing
-    # Redirect all page routes to main app with query parameters
-    redirects:
-      - source: /privacy
-        destination: /?page=privacy
-        type: 301
-      - source: /terms
-        destination: /?page=terms
-        type: 301
-      - source: /course
-        destination: /?page=course
-        type: 301
-      - source: /login
-        destination: /?page=login
-        type: 301
-      
-      # Case variations
-      - source: /Privacy
-        destination: /?page=privacy
-        type: 301
-      - source: /Terms
-        destination: /?page=terms
-        type: 301
-      - source: /Course
-        destination: /?page=course
-        type: 301
-      - source: /Login
-        destination: /?page=login
-        type: 301
+- type: web
+  name: "[ALPHA] AI Loom Frontend"
+  runtime: static
+  repo: https://github.com/vox-hunter/learnify
+  branch: alpha
+  envVars:
+  - key: VITE_API_URL
+    sync: false
+  buildCommand: cd vue-frontend && VITE_API_URL=https://ai-loom-backend.onrender.com
+    npm install && npm run build
+  staticPublishPath: vue-frontend/dist
+  routes:
+  - type: rewrite
+    source: /api/*
+    destination: https://learnify-backend.onrender.com/api/*
+  autoDeployTrigger: commit
