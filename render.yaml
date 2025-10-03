@@ -12,8 +12,6 @@ services:
   buildCommand: cd vue-frontend && VITE_API_URL=https://ai-loom-backend.onrender.com
     npm install && npm run build
   staticPublishPath: vue-frontend/dist
-  domains:
-  - app.ailoom.me
   routes:
   - type: rewrite
     source: /api/*
