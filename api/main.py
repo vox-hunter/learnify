@@ -367,8 +367,20 @@ async def reset_password(request: ResetPasswordRequest):
 
 # Google OAuth endpoints
 @app.post("/auth/google/url")
-async def get_oauth_url(request: GoogleAuthUrlRequest):
+@app.options("/auth/google/url")
+async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None):
     """Get Google OAuth authorization URL"""
+    # Handle OPTIONS preflight
+    if request is None:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    
     if not verify_oauth_config():
         raise HTTPException(
             status_code=503, 
@@ -395,8 +407,20 @@ async def get_oauth_url(request: GoogleAuthUrlRequest):
 
 
 @app.post("/auth/google/callback")
-async def google_oauth_callback(request: GoogleOAuthCallbackRequest):
+@app.options("/auth/google/callback")
+async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = None):
     """Handle Google OAuth callback and create/login user"""
+    # Handle OPTIONS preflight
+    if request is None:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    
     if not auth_manager:
         raise HTTPException(status_code=503, detail="Authentication service unavailable")
     
@@ -493,12 +517,33 @@ async def google_oauth_callback(request: GoogleOAuthCallbackRequest):
 
 
 @app.get("/auth/google/status")
+@app.options("/auth/google/status")
 async def google_oauth_status():
     """Check if Google OAuth is configured"""
-    return {
-        "configured": verify_oauth_config(),
-        "message": "Google OAuth is ready" if verify_oauth_config() else "Google OAuth not configured"
-    }
+    try:
+        configured = verify_oauth_config()
+        return JSONResponse(
+            content={
+                "configured": configured,
+                "message": "Google OAuth is ready" if configured else "Google OAuth not configured"
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"configured": False, "message": f"Error checking OAuth config: {str(e)}"},
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+
 
 # Account management endpoints
 class UpdateProfileRequest(BaseModel):

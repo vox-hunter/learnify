@@ -39,7 +39,8 @@ export default {
         configured.value = response.data.configured
       } catch (err) {
         console.error('Failed to check Google OAuth status:', err)
-        configured.value = false
+        // Assume configured to allow login attempts even if status check fails
+        configured.value = true
       }
     })
 
