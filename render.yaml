@@ -1,0 +1,27 @@
+# Exported from Render on 2025-10-03T10:04:13Z
+version: "1"
+services:
+- type: web
+  name: AI Loom backend
+  runtime: python
+  repo: https://github.com/vox-hunter/learnify
+  branch: alpha
+  plan: free
+  envVars:
+  - key: GOOGLE_CLIENT_SECRET
+    sync: false
+  - key: GOOGLE_CLIENT_ID
+    sync: false
+  - key: RESEND_API_KEY
+    sync: false
+  - key: COOKIE_ENCRYPTION_KEY
+    sync: false
+  - key: MONGODB_URI
+    sync: false
+  - key: GEMINI_API_KEY
+    sync: false
+  region: singapore
+  buildCommand: pip install -r api/requirements.txt
+  startCommand: cd api && uvicorn main:app --host 0.0.0.0 --port $PORT
+  healthCheckPath: /health
+  autoDeployTrigger: commit
