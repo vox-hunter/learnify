@@ -1,13 +1,27 @@
 import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { applyThemeColors } from '../config/themeConfig'
 
 export const useThemeStore = defineStore('theme', () => {
-  // Initialize from localStorage or default to 'dark'
-  const theme = ref(localStorage.getItem('theme') || 'dark')
+  // Default to light mode for all users, but respect saved preference
+  const getDefaultTheme = () => {
+    // Check localStorage first - if user has manually changed theme, respect it
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) return savedTheme
+    
+    // Default to light mode for all users
+    return 'light'
+  }
+  
+  const theme = ref(getDefaultTheme())
   
   // Apply theme to document
   const applyTheme = (newTheme) => {
+    // Set data-theme attribute for CSS selectors
     document.documentElement.setAttribute('data-theme', newTheme)
+    
+    // Apply theme colors from centralized config
+    applyThemeColors(newTheme)
   }
   
   // Toggle between dark and light

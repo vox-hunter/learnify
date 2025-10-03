@@ -169,15 +169,22 @@ export default {
     subsectionIndex: {
       type: Number,
       default: null
+    },
+    savedAnswerData: {
+      type: Object,
+      default: null
     }
   },
   emits: ['answer-submitted'],
   setup(props, { emit }) {
-    const selectedAnswer = ref(null)
-    const userAnswer = ref('')
-    const matchingAnswers = ref({})
-    const isAnswered = ref(false)
-    const isCorrect = ref(false)
+    // Initialize from saved data if available
+    const savedData = props.savedAnswerData
+    
+    const selectedAnswer = ref(savedData?.answer || null)
+    const userAnswer = ref(savedData?.userAnswer || '')
+    const matchingAnswers = ref(savedData?.answer && typeof savedData.answer === 'object' ? { ...savedData.answer } : {})
+    const isAnswered = ref(!!savedData)
+    const isCorrect = ref(savedData?.isCorrect || false)
     const explanation = ref('')
     const expectedAnswer = ref(null)
     const validating = ref(false)
@@ -339,34 +346,38 @@ export default {
       isAnswered.value = true
       expectedAnswer.value = props.question.answer
       
-      // Emit result to parent
+      // Emit result to parent with answer data for saving
       emit('answer-submitted', {
         isCorrect: correct,
         sectionIndex: props.sectionIndex,
         subsectionIndex: props.subsectionIndex,
-        questionIndex: props.questionIndex
+        questionIndex: props.questionIndex,
+        answer: answer,
+        userAnswer: userAnswer.value || answer
       })
     }
 
     // Reset state when question or section changes
     watch(() => [props.question, props.sectionIndex, props.subsectionIndex, props.questionIndex], () => {
-      // Reset all state
-      selectedAnswer.value = null
-      userAnswer.value = ''
-      isAnswered.value = false
-      isCorrect.value = false
-      explanation.value = ''
-      expectedAnswer.value = null
-      validating.value = false
-      
-      // Initialize matching answers if needed
-      if (isMatching.value && props.question.answer) {
-        matchingAnswers.value = Object.keys(props.question.answer).reduce((acc, key) => {
-          acc[key] = ''
-          return acc
-        }, {})
-      } else {
-        matchingAnswers.value = {}
+      // Only reset if there's no saved data to restore
+      if (!props.savedAnswerData) {
+        selectedAnswer.value = null
+        userAnswer.value = ''
+        isAnswered.value = false
+        isCorrect.value = false
+        explanation.value = ''
+        expectedAnswer.value = null
+        validating.value = false
+        
+        // Initialize matching answers if needed
+        if (isMatching.value && props.question.answer) {
+          matchingAnswers.value = Object.keys(props.question.answer).reduce((acc, key) => {
+            acc[key] = ''
+            return acc
+          }, {})
+        } else {
+          matchingAnswers.value = {}
+        }
       }
     }, { immediate: true })
 

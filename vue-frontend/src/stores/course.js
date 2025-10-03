@@ -241,7 +241,7 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
-  async function updateProgress(courseId, answeredQuestions, score, currentSectionIndex) {
+  async function updateProgress(courseId, answeredQuestions, score, currentSectionIndex, answerData = {}) {
     const authStore = useAuthStore()
     
     try {
@@ -251,7 +251,8 @@ export const useCourseStore = defineStore('course', () => {
       await api.post(`/course/${courseId}/progress`, {
         answered_questions: answeredArray,
         score: score,
-        current_section_index: currentSectionIndex
+        current_section_index: currentSectionIndex,
+        answer_data: answerData
       })
       
       // Also save to localStorage for persistence
@@ -260,6 +261,7 @@ export const useCourseStore = defineStore('course', () => {
         answered_questions: answeredArray,
         score: score,
         current_section_index: currentSectionIndex,
+        answer_data: answerData,
         last_updated: new Date().toISOString()
       }))
       

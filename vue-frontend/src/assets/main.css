@@ -1,34 +1,28 @@
 /* Global styles with theme support */
 
-/* Dark Theme (Default) */
-:root[data-theme="dark"] {
-  --bg-primary: #000000;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: rgba(255, 255, 255, 0.08);
-  --text-primary: #e2e8f0;
-  --text-secondary: #cbd5e0;
-  --text-muted: #94a3b8;
-  --accent-primary: #7733ff;
-  --accent-secondary: #9d5dff;
-  --accent-light: #5a1fd9;
-  --border-color: rgba(119, 51, 255, 0.2);
-  --border-light: rgba(255, 255, 255, 0.15);
-  --card-bg: rgba(255, 255, 255, 0.08);
-  --input-bg: rgba(255, 255, 255, 0.1);
-  --shadow-color: rgba(0, 0, 0, 0.3);
-}
+/* 
+ * CSS Variables are now dynamically set via JavaScript from config/themeConfig.js
+ * This allows easy theme customization in one central location.
+ * 
+ * Available variables:
+ * --bg-primary, --bg-secondary, --bg-tertiary
+ * --text-primary, --text-secondary, --text-muted
+ * --accent-primary, --accent-secondary, --accent-light
+ * --border-color, --border-light
+ * --card-bg, --input-bg, --shadow-color
+ */
 
-/* Light Theme */
-:root[data-theme="light"] {
+:root {
+  /* Default fallback values (light theme) - will be overridden by themeConfig.js */
   --bg-primary: #F9FAFB;
   --bg-secondary: #ffffff;
   --bg-tertiary: #ffffff;
   --text-primary: #1E3A8A;
   --text-secondary: #1f2937;
   --text-muted: #6b7280;
-  --accent-primary: #10B981;
-  --accent-secondary: #059669;
-  --accent-light: #34d399;
+  --accent-primary: #559bfd;
+  --accent-secondary: #559bfd;
+  --accent-light: #559bfd;
   --border-color: rgba(30, 58, 138, 0.15);
   --border-light: rgba(16, 185, 129, 0.2);
   --card-bg: #ffffff;

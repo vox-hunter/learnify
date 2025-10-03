@@ -93,6 +93,7 @@ class UpdateProgressRequest(BaseModel):
     answered_questions: List[str]  # List of question keys like "0-main-0"
     score: int
     current_section_index: int
+    answer_data: Optional[dict] = {}  # Dictionary mapping question keys to answer data
 
 class SendVerificationRequest(BaseModel):
     email: EmailStr
@@ -616,6 +617,7 @@ async def update_progress(course_id: str, request: UpdateProgressRequest, userna
         "answered_questions": request.answered_questions,
         "score": request.score,
         "current_section_index": request.current_section_index,
+        "answer_data": request.answer_data or {}
     }
     
     success, error = course_manager.save_progress(
@@ -648,7 +650,7 @@ async def get_progress(course_id: str, username: Optional[str] = None):
     if error:
         raise HTTPException(status_code=500, detail=error)
     
-    return progress or {"answered_questions": [], "score": 0, "current_section_index": 0}
+    return progress or {"answered_questions": [], "score": 0, "current_section_index": 0, "answer_data": {}}
 
 # Analytics endpoints
 @app.get("/analytics/courses")

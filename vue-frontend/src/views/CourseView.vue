@@ -125,6 +125,7 @@
                 :question="question"
                 :questionIndex="qIndex"
                 :sectionIndex="sectionIndex"
+                :savedAnswerData="getSavedAnswerData(sectionIndex, null, qIndex)"
                 @answer-submitted="handleAnswerSubmit"
               />
             </div>
@@ -155,6 +156,7 @@
                     :questionIndex="qIndex"
                     :sectionIndex="sectionIndex"
                     :subsectionIndex="subIndex"
+                    :savedAnswerData="getSavedAnswerData(sectionIndex, subIndex, qIndex)"
                     @answer-submitted="handleAnswerSubmit"
                   />
                 </div>
@@ -324,6 +326,7 @@ export default {
     const currentSectionIndex = ref(0)
     const score = ref(0)
     const answeredQuestions = ref(new Set())
+    const answerData = ref({}) // Store actual answer data for each question
     const reviewMode = ref(false)
     const originalScore = ref(0)
     const originalAnsweredCount = ref(0)
@@ -331,6 +334,7 @@ export default {
     const reviewAnsweredQuestions = ref(new Set())
     const showReviewComparison = ref(false)
     const quizKey = ref(0)
+    const endedEarly = ref(false)
 
     const course = computed(() => courseStore.currentCourse)
 
@@ -423,7 +427,8 @@ export default {
       if (reviewMode.value) {
         return false // Don't show conclusion in review mode
       }
-      return totalQuestions.value > 0 && answeredQuestions.value.size === totalQuestions.value
+      // Show conclusion if all questions answered OR if user ended early
+      return endedEarly.value || (totalQuestions.value > 0 && answeredQuestions.value.size === totalQuestions.value)
     })
 
     const reviewAccuracy = computed(() => {
@@ -554,7 +559,7 @@ export default {
     }
 
     const handleAnswerSubmit = async (data) => {
-      const { isCorrect, sectionIndex, subsectionIndex, questionIndex } = data
+      const { isCorrect, sectionIndex, subsectionIndex, questionIndex, answer, userAnswer } = data
       
       // Create unique key for this question
       const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
@@ -579,6 +584,13 @@ export default {
             score.value++
           }
           answeredQuestions.value.add(questionKey)
+          
+          // Save the answer data for restoration
+          answerData.value[questionKey] = {
+            answer: answer,
+            userAnswer: userAnswer,
+            isCorrect: isCorrect
+          }
 
           // Save progress after each answer
           await saveProgress()
@@ -663,6 +675,7 @@ export default {
       reviewScore.value = 0
       reviewAnsweredQuestions.value = new Set()
       showReviewComparison.value = false
+      endedEarly.value = false // Reset ended early flag
       
       // Force re-render of all QuizQuestion components to reset state
       quizKey.value++
@@ -679,6 +692,7 @@ export default {
     const exitReviewMode = () => {
       reviewMode.value = false
       showReviewComparison.value = false
+      endedEarly.value = false // Reset ended early flag
       
       // Find the last incomplete section to return to
       let lastIncompleteIndex = 0
@@ -793,7 +807,8 @@ export default {
         courseId,
         answeredQuestions.value,
         score.value,
-        currentSectionIndex.value
+        currentSectionIndex.value,
+        answerData.value
       )
     }
 
@@ -821,6 +836,11 @@ export default {
           currentSectionIndex.value = progress.current_section_index
         }
         
+        // Restore answer data
+        if (progress.answer_data && typeof progress.answer_data === 'object') {
+          answerData.value = progress.answer_data
+        }
+        
         console.log('[CourseView] Loaded progress:', progress)
       }
     }
@@ -829,11 +849,19 @@ export default {
       // Save progress one final time
       saveProgress()
       
+      // Set flag to show conclusion
+      endedEarly.value = true
+      
       // Show the conclusion screen
       // We'll scroll to bottom where conclusion appears
       setTimeout(() => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
       }, 100)
+    }
+
+    const getSavedAnswerData = (sectionIndex, subsectionIndex, questionIndex) => {
+      const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
+      return answerData.value[questionKey] || null
     }
 
     return {
@@ -873,7 +901,8 @@ export default {
       isSectionComplete,
       getVisibleQuestions,
       getVisibleSubsections,
-      endCourseEarly
+      endCourseEarly,
+      getSavedAnswerData
     }
   }
 }
