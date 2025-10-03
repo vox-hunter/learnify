@@ -888,7 +888,7 @@ export default {
 .loading-state {
   text-align: center;
   padding: 4rem 0;
-  color: #cbd5e0;
+  color: var(--text-secondary);
 }
 
 .course-header {
@@ -898,7 +898,7 @@ export default {
 .course-title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
@@ -909,7 +909,7 @@ export default {
 }
 
 .meta-item {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
@@ -923,19 +923,19 @@ export default {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid rgba(6, 182, 212, 0.2);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .section-title {
   font-size: 2rem;
   font-weight: 600;
-  color: #7733ff;
+  color: var(--accent-primary);
 }
 
 .section-progress {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   font-size: 0.875rem;
-  background: rgba(119, 51, 255, 0.1);
+  background: var(--bg-tertiary);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   display: flex;
@@ -967,10 +967,10 @@ export default {
 .section-explanation {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: rgba(119, 51, 255, 0.05);
-  border-left: 4px solid #7733ff;
+  background: var(--bg-tertiary);
+  border-left: 4px solid var(--accent-primary);
   border-radius: 0.5rem;
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -981,7 +981,7 @@ export default {
 .quiz-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1.5rem;
 }
 
@@ -996,13 +996,13 @@ export default {
 .subsections-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1.5rem;
 }
 
 .subsection-card {
-  background: rgba(6, 182, 212, 0.05);
-  border: 1px solid rgba(6, 182, 212, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -1011,12 +1011,12 @@ export default {
 .subsection-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #7733ff;
+  color: var(--accent-primary);
   margin-bottom: 1rem;
 }
 
 .subsection-explanation {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.5rem;
 }
@@ -1027,7 +1027,7 @@ export default {
   gap: 1rem;
   margin-top: 3rem;
   padding-top: 2rem;
-  border-top: 2px solid rgba(6, 182, 212, 0.2);
+  border-top: 2px solid var(--border-color);
 }
 
 @media (max-width: 768px) {
@@ -1057,14 +1057,14 @@ export default {
 
 /* Admin Controls */
 .admin-controls {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(168, 85, 247, 0.1));
-  border: 2px solid rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-tertiary));
+  border: 2px solid var(--border-color);
   margin-bottom: 2rem;
   padding: 1.5rem;
 }
 
 .admin-title {
-  color: #a78bfa;
+  color: var(--accent-primary);
   font-size: 1.25rem;
   margin-bottom: 1rem;
   font-weight: 600;
@@ -1077,7 +1077,7 @@ export default {
 }
 
 .btn-admin {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-light));
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -1089,7 +1089,11 @@ export default {
 
 .btn-admin:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 15px rgba(119, 51, 255, 0.4);
+}
+
+:root[data-theme="light"] .btn-admin:hover {
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
 }
 
 .btn-admin-danger {
@@ -1157,6 +1161,10 @@ export default {
   overflow-y: auto;
 }
 
+:root[data-theme="light"] .conclusion-overlay {
+  background: rgba(255, 255, 255, 0.95);
+}
+
 .conclusion-content {
   width: 100%;
   max-height: 90vh;
@@ -1176,13 +1184,13 @@ export default {
 }
 
 .conclusion-card {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   border-radius: 1.5rem;
   padding: 2rem;
   max-width: 600px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px var(--shadow-color);
+  border: 1px solid var(--border-light);
   text-align: center;
   margin: auto;
 }
@@ -1205,7 +1213,7 @@ export default {
 .conclusion-title {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1214,7 +1222,7 @@ export default {
 
 .conclusion-subtitle {
   font-size: 1.25rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   margin-bottom: 2rem;
 }
 
@@ -1226,8 +1234,8 @@ export default {
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
   border-radius: 1rem;
   padding: 1.5rem 1rem;
   transition: transform 0.3s ease;
@@ -1235,13 +1243,13 @@ export default {
 
 .stat-card:hover {
   transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
 }
 
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1250,14 +1258,14 @@ export default {
 
 .stat-label {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .conclusion-summary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
   border-radius: 1rem;
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -1265,17 +1273,17 @@ export default {
 }
 
 .conclusion-summary h3 {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
   margin-bottom: 1rem;
   font-size: 1.25rem;
 }
 
 .conclusion-summary strong {
-  color: #667eea;
+  color: var(--accent-primary);
 }
 
 .summary-text {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1rem;
 }

@@ -400,8 +400,8 @@ export default {
 
 <style scoped>
 .quiz-question {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
   border-radius: 1rem;
   padding: 2rem;
 }
@@ -415,13 +415,13 @@ export default {
 
 .question-number {
   font-weight: 600;
-  color: #06b6d4;
+  color: var(--accent-primary);
   font-size: 0.875rem;
 }
 
 .question-type {
-  background: rgba(6, 182, 212, 0.1);
-  color: #0891b2;
+  background: var(--bg-tertiary);
+  color: var(--accent-secondary);
   padding: 0.25rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.75rem;
@@ -430,7 +430,7 @@ export default {
 
 .question-text {
   font-size: 1.125rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1.5rem;
   line-height: 1.6;
 }
@@ -447,21 +447,21 @@ export default {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-light);
   border-radius: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .option:hover:not(.correct):not(.incorrect) {
-  background: rgba(6, 182, 212, 0.1);
-  border-color: rgba(6, 182, 212, 0.3);
+  background: var(--card-bg);
+  border-color: var(--border-color);
 }
 
 .option.selected {
-  background: rgba(6, 182, 212, 0.1);
-  border-color: #06b6d4;
+  background: var(--card-bg);
+  border-color: var(--accent-primary);
 }
 
 .option.correct {
@@ -482,10 +482,10 @@ export default {
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  background: rgba(6, 182, 212, 0.2);
+  background: var(--bg-tertiary);
   border-radius: 50%;
   font-weight: 600;
-  color: #06b6d4;
+  color: var(--accent-primary);
   flex-shrink: 0;
 }
 
@@ -501,7 +501,7 @@ export default {
 
 .option-text {
   flex: 1;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .option-icon {
@@ -533,12 +533,12 @@ export default {
 }
 
 .matching-instructions {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
   padding: 0.75rem 1rem;
-  background: rgba(102, 126, 234, 0.1);
-  border-left: 3px solid #667eea;
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--accent-primary);
   border-radius: 0.5rem;
 }
 
@@ -554,33 +554,33 @@ export default {
   align-items: center;
   gap: 1rem;
   padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-primary);
   border-radius: 0.75rem;
   transition: all 0.2s;
 }
 
 .matching-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
 }
 
 .matching-key {
   flex: 1;
   padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05));
-  border: 2px solid rgba(6, 182, 212, 0.2);
+  background: var(--card-bg);
+  border: 2px solid var(--border-color);
   border-radius: 0.75rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .matching-select {
   flex: 1;
   padding: 1rem 1.25rem;
-  background: rgba(30, 41, 59, 0.8);
-  border: 2px solid rgba(148, 163, 184, 0.2);
+  background: var(--input-bg);
+  border: 2px solid var(--border-color);
   border-radius: 0.75rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;

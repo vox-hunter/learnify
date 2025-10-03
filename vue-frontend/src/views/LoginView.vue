@@ -665,7 +665,7 @@ export default {
   font-size: 2.5rem;
   font-weight: 700;
   text-align: center;
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -675,7 +675,7 @@ export default {
 .tabs {
   display: flex;
   gap: 0.5rem;
-  background: rgba(119, 51, 255, 0.1);
+  background: var(--bg-tertiary);
   border-radius: 0.75rem;
   padding: 0.25rem;
   margin-bottom: 2rem;
@@ -686,7 +686,7 @@ export default {
   padding: 0.75rem 1.5rem;
   border: none;
   background: transparent;
-  color: #a0aec0;
+  color: var(--text-muted);
   font-weight: 500;
   cursor: pointer;
   border-radius: 0.5rem;
@@ -694,9 +694,13 @@ export default {
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
   box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
+}
+
+:root[data-theme="light"] .tab.active {
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
 }
 
 .auth-form {
@@ -707,7 +711,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #cbd5e0;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -743,19 +747,19 @@ export default {
 
 .divider span {
   position: relative;
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--bg-primary);
   padding: 0 1rem;
-  color: #cbd5e0;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
 .btn-oauth {
   width: 100%;
   padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
   border-radius: 0.5rem;
-  color: #cbd5e0;
+  color: var(--text-secondary);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -768,14 +772,14 @@ export default {
 }
 
 .forgot-link {
-  color: #7733ff;
+  color: var(--accent-primary);
   font-size: 0.875rem;
   text-decoration: none;
   transition: all 0.2s;
 }
 
 .forgot-link:hover {
-  color: #9d5dff;
+  color: var(--accent-secondary);
   text-decoration: underline;
 }
 
@@ -792,34 +796,34 @@ export default {
 .verification-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 0.75rem;
 }
 
 .forgot-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 0.75rem;
 }
 
 .verification-text {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .forgot-text {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .verification-text strong {
-  color: #7733ff;
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
 .forgot-text strong {
-  color: #7733ff;
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
@@ -839,7 +843,7 @@ export default {
 .btn-link {
   background: none;
   border: none;
-  color: #7733ff;
+  color: var(--accent-primary);
   cursor: pointer;
   padding: 0.5rem;
   font-size: 0.875rem;
@@ -847,7 +851,7 @@ export default {
 }
 
 .btn-link:hover:not(:disabled) {
-  color: #9d5dff;
+  color: var(--accent-secondary);
   text-decoration: underline;
 }
 

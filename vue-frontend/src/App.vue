@@ -18,6 +18,10 @@
                 <span class="username">Welcome, {{ username }}</span>
               <button @click="logout" class="logout-btn">Logout</button>
             </div>
+            <button @click="toggleTheme" class="theme-toggle" :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+              <span v-if="theme === 'dark'">☀️</span>
+              <span v-else>🌙</span>
+            </button>
           </div>
         </nav>
       </div>
@@ -50,11 +54,13 @@
 <script>
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from './stores/auth'
+import { useThemeStore } from './stores/theme'
 
 export default {
   name: 'App',
   setup() {
     const authStore = useAuthStore()
+    const themeStore = useThemeStore()
     
     // Initialize auth on app mount (restore from cookies/localStorage)
     onMounted(() => {
@@ -63,15 +69,22 @@ export default {
     
     const isAuthenticated = computed(() => authStore.isAuthenticated)
     const username = computed(() => authStore.user?.username)
+    const theme = computed(() => themeStore.theme)
     
     const logout = () => {
       authStore.logout()
     }
     
+    const toggleTheme = () => {
+      themeStore.toggleTheme()
+    }
+    
     return {
       isAuthenticated,
       username,
-      logout
+      theme,
+      logout,
+      toggleTheme
     }
   }
 }
@@ -82,18 +95,24 @@ export default {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-  color: #e2e8f0;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .app-header {
-  background: rgba(0, 0, 0, 0.95);
+  background: var(--bg-primary);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(119, 51, 255, 0.2);
+  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px var(--shadow-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+:root[data-theme="light"] .app-header {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .container {
@@ -131,7 +150,7 @@ export default {
 .brand-name {
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -144,7 +163,7 @@ export default {
 }
 
 .nav-link {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s;
@@ -152,7 +171,7 @@ export default {
 
 .nav-link:hover,
 .nav-link.router-link-active {
-  color: #7733ff;
+  color: var(--accent-primary);
 }
 
 .user-menu {
@@ -162,7 +181,7 @@ export default {
 }
 
 .username {
-  color: #7733ff;
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
@@ -182,16 +201,41 @@ export default {
   border-color: rgba(239, 68, 68, 0.5);
 }
 
+.theme-toggle {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  border-color: var(--accent-primary);
+}
+
 .main-content {
   flex: 1;
   padding: 2rem 0;
 }
 
 .app-footer {
-  background: rgba(0, 0, 0, 0.95);
-  border-top: 1px solid rgba(119, 51, 255, 0.2);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
   padding: 2rem 0;
   margin-top: 4rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+:root[data-theme="light"] .app-footer {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .footer-content {
@@ -217,7 +261,7 @@ export default {
 .footer-title {
   font-weight: 700;
   font-size: 1.25rem;
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -225,7 +269,7 @@ export default {
 }
 
 .footer-copyright {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
@@ -235,14 +279,14 @@ export default {
 }
 
 .footer-link {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.875rem;
   transition: color 0.2s;
 }
 
 .footer-link:hover {
-  color: #7733ff;
+  color: var(--accent-primary);
 }
 
 @media (max-width: 768px) {

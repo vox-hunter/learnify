@@ -107,7 +107,7 @@ export default {
 .page-title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 2rem;
   text-align: center;
 }
@@ -115,7 +115,7 @@ export default {
 .loading-state {
   text-align: center;
   padding: 4rem 0;
-  color: #cbd5e0;
+  color: var(--text-secondary);
 }
 
 .empty-state {
@@ -130,12 +130,12 @@ export default {
 
 .empty-state h2 {
   font-size: 2rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
 .empty-state p {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   margin-bottom: 2rem;
 }
 
@@ -155,8 +155,12 @@ export default {
 
 .course-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(6, 182, 212, 0.2);
-  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 20px 40px rgba(119, 51, 255, 0.2);
+  border-color: var(--accent-primary);
+}
+
+:root[data-theme="light"] .course-card:hover {
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
 }
 
 .course-card-header {
@@ -167,7 +171,7 @@ export default {
 .course-card-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #7733ff;
+  color: var(--accent-primary);
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }
@@ -180,8 +184,8 @@ export default {
 }
 
 .meta-badge {
-  background: rgba(6, 182, 212, 0.1);
-  color: #cbd5e0;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   padding: 0.25rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;

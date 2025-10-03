@@ -372,7 +372,7 @@ export default {
   font-size: 2.5rem;
   font-weight: 700;
   text-align: center;
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -382,7 +382,7 @@ export default {
 .tabs {
   display: flex;
   gap: 0.5rem;
-  background: rgba(119, 51, 255, 0.1);
+  background: var(--bg-tertiary);
   border-radius: 0.75rem;
   padding: 0.25rem;
   margin-bottom: 2rem;
@@ -393,7 +393,7 @@ export default {
   padding: 0.75rem 1.5rem;
   border: none;
   background: transparent;
-  color: #a0aec0;
+  color: var(--text-muted);
   font-weight: 500;
   cursor: pointer;
   border-radius: 0.5rem;
@@ -401,9 +401,13 @@ export default {
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #7733ff, #9d5dff);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
   box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
+}
+
+:root[data-theme="light"] .tab.active {
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
 }
 
 .tab-content {
@@ -424,7 +428,7 @@ export default {
 .section-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1.5rem;
 }
 
@@ -434,7 +438,7 @@ export default {
 
 .form-hint {
   font-size: 0.875rem;
-  color: #a0aec0;
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
 
