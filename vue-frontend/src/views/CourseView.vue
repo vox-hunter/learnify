@@ -49,6 +49,14 @@
               <span class="stat-remaining">{{ totalQuestions - answeredQuestions.size }} remaining</span>
             </div>
           </div>
+
+          <!-- End Course Button -->
+          <div v-if="!showConclusion && answeredQuestions.size > 0" class="end-course-section">
+            <button @click="endCourseEarly" class="btn btn-secondary">
+              🏁 End Course Early
+            </button>
+            <p class="end-course-hint">Save your progress and view results</p>
+          </div>
         </div>
 
         <!-- Admin Controls (only visible to admin) -->
@@ -572,16 +580,8 @@ export default {
           }
           answeredQuestions.value.add(questionKey)
 
-          // Update progress in backend if course has an ID
-          if (route.params.id) {
-            await courseStore.updateProgress(
-              route.params.id,
-              sectionIndex,
-              questionIndex,
-              isCorrect,
-              subsectionIndex
-            )
-          }
+          // Save progress after each answer
+          await saveProgress()
           
           // Auto-scroll to next question/subsection/section
           setTimeout(() => {
@@ -702,9 +702,11 @@ export default {
     }
 
     // Load course on mount if we have an ID
-    onMounted(() => {
+    onMounted(async () => {
       if (route.params.id) {
-        loadCourse()
+        await loadCourse()
+        // Load saved progress after course is loaded
+        await loadSavedProgress()
       } else if (!course.value) {
         error.value = 'No course data available'
       }
@@ -771,9 +773,67 @@ export default {
       answeredQuestions.value.clear()
       currentSectionIndex.value = 0
       
+      // Clear saved progress
+      const courseId = route.params.id
+      if (courseId) {
+        const progressKey = `course_progress_${courseId}`
+        localStorage.removeItem(progressKey)
+      }
+      
       adminMessage.value = '🔄 Progress reset successfully!'
       adminMessageType.value = 'success'
       setTimeout(() => { adminMessage.value = '' }, 3000)
+    }
+
+    const saveProgress = async () => {
+      const courseId = route.params.id
+      if (!courseId) return
+      
+      await courseStore.updateProgress(
+        courseId,
+        answeredQuestions.value,
+        score.value,
+        currentSectionIndex.value
+      )
+    }
+
+    const loadSavedProgress = async () => {
+      const courseId = route.params.id
+      if (!courseId) return
+      
+      const result = await courseStore.loadProgress(courseId)
+      
+      if (result.success && result.progress) {
+        const progress = result.progress
+        
+        // Restore answered questions (convert array back to Set)
+        if (progress.answered_questions && Array.isArray(progress.answered_questions)) {
+          answeredQuestions.value = new Set(progress.answered_questions)
+        }
+        
+        // Restore score
+        if (typeof progress.score === 'number') {
+          score.value = progress.score
+        }
+        
+        // Restore current section index
+        if (typeof progress.current_section_index === 'number') {
+          currentSectionIndex.value = progress.current_section_index
+        }
+        
+        console.log('[CourseView] Loaded progress:', progress)
+      }
+    }
+
+    const endCourseEarly = () => {
+      // Save progress one final time
+      saveProgress()
+      
+      // Show the conclusion screen
+      // We'll scroll to bottom where conclusion appears
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+      }, 100)
     }
 
     return {
@@ -812,7 +872,8 @@ export default {
       visibleSections,
       isSectionComplete,
       getVisibleQuestions,
-      getVisibleSubsections
+      getVisibleSubsections,
+      endCourseEarly
     }
   }
 }
@@ -1360,6 +1421,25 @@ export default {
 
 .stat-remaining {
   color: rgba(255, 255, 255, 0.6);
+}
+
+/* End Course Section */
+.end-course-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(119, 51, 255, 0.2);
+  text-align: center;
+}
+
+.end-course-section .btn {
+  min-width: 200px;
+  margin-bottom: 0.5rem;
+}
+
+.end-course-hint {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 /* Review Comparison Styles */

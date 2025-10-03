@@ -90,11 +90,9 @@ class SaveCourseRequest(BaseModel):
     is_public: bool = True
 
 class UpdateProgressRequest(BaseModel):
-    course_id: str
-    section_index: int
-    subsection_index: Optional[int] = None
-    question_index: int
-    is_correct: bool
+    answered_questions: List[str]  # List of question keys like "0-main-0"
+    score: int
+    current_section_index: int
 
 class SendVerificationRequest(BaseModel):
     email: EmailStr
@@ -611,14 +609,20 @@ async def update_progress(course_id: str, request: UpdateProgressRequest, userna
         raise HTTPException(status_code=503, detail="Course manager unavailable")
     
     user_identifier = username or get_session_id()
+    is_guest = username is None
     
-    success, error = course_manager.update_progress(
-        user_identifier=user_identifier,
+    # Build progress data structure from request
+    progress_data = {
+        "answered_questions": request.answered_questions,
+        "score": request.score,
+        "current_section_index": request.current_section_index,
+    }
+    
+    success, error = course_manager.save_progress(
         course_id=course_id,
-        section_index=request.section_index,
-        subsection_index=request.subsection_index,
-        question_index=request.question_index,
-        is_correct=request.is_correct
+        user_identifier=user_identifier,
+        progress_data=progress_data,
+        is_guest=is_guest
     )
     
     if error:
@@ -633,9 +637,18 @@ async def get_progress(course_id: str, username: Optional[str] = None):
         raise HTTPException(status_code=503, detail="Course manager unavailable")
     
     user_identifier = username or get_session_id()
-    progress = course_manager.get_progress(user_identifier, course_id)
+    is_guest = username is None
     
-    return progress or {"progress": {}}
+    progress, error = course_manager.get_progress(
+        course_id=course_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return progress or {"answered_questions": [], "score": 0, "current_section_index": 0}
 
 # Analytics endpoints
 @app.get("/analytics/courses")

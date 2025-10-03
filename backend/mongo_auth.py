@@ -364,7 +364,7 @@ class MongoAuthManager:
         if "username" in updates:
             existing_user = self.users_collection.find_one({"username": updates["username"]})
             if existing_user and existing_user["username"] != username:
-                return False, "Username already taken."
+                return False, "Username already taken, Please choose another one"
         
         # If email is being updated, check if the new email already exists for another user
         if "email" in updates:

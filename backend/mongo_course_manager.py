@@ -512,6 +512,71 @@ class MongoCourseManager:
         except Exception:
             pass
 
+    def save_progress(self, course_id: str, user_identifier: str, 
+                     progress_data: Dict, is_guest: bool = False) -> Tuple[bool, Optional[str]]:
+        """Save user progress for a course"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            if self.user_courses_collection is not None:
+                # Upsert progress document
+                self.user_courses_collection.update_one(
+                    {
+                        "course_id": course_id,
+                        "user_identifier": user_identifier,
+                        "is_guest": is_guest
+                    },
+                    {
+                        "$set": {
+                            "progress": progress_data,
+                            "last_updated": datetime.now(timezone.utc).isoformat()
+                        },
+                        "$setOnInsert": {
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    },
+                    upsert=True
+                )
+                return True, None
+            else:
+                return False, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error saving progress: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error saving progress: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def get_progress(self, course_id: str, user_identifier: str, 
+                    is_guest: bool = False) -> Tuple[Optional[Dict], Optional[str]]:
+        """Get user progress for a course"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        try:
+            if self.user_courses_collection is not None:
+                progress_doc = self.user_courses_collection.find_one(
+                    {
+                        "course_id": course_id,
+                        "user_identifier": user_identifier,
+                        "is_guest": is_guest
+                    },
+                    {"_id": 0, "progress": 1}
+                )
+                if progress_doc and "progress" in progress_doc:
+                    return progress_doc["progress"], None
+                else:
+                    return None, None  # No progress found, not an error
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving progress: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving progress: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
     def _count_questions(self, course_data: Optional[List[Dict]]) -> int:
         """Count total questions in course data. Handles None and empty lists."""
         if not course_data:  # Handles None or empty list

@@ -241,18 +241,52 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
-  async function updateProgress(courseId, sectionIndex, questionIndex, isCorrect, subsectionIndex = null) {
+  async function updateProgress(courseId, answeredQuestions, score, currentSectionIndex) {
+    const authStore = useAuthStore()
+    
     try {
+      // Convert Set to Array for JSON serialization
+      const answeredArray = Array.from(answeredQuestions)
+      
       await api.post(`/course/${courseId}/progress`, {
-        course_id: courseId,
-        section_index: sectionIndex,
-        subsection_index: subsectionIndex,
-        question_index: questionIndex,
-        is_correct: isCorrect
+        answered_questions: answeredArray,
+        score: score,
+        current_section_index: currentSectionIndex
       })
+      
+      // Also save to localStorage for persistence
+      const progressKey = `course_progress_${courseId}`
+      localStorage.setItem(progressKey, JSON.stringify({
+        answered_questions: answeredArray,
+        score: score,
+        current_section_index: currentSectionIndex,
+        last_updated: new Date().toISOString()
+      }))
+      
       return { success: true }
     } catch (err) {
+      console.error('[Course Store] Error updating progress:', err)
       return { success: false, error: err.response?.data?.detail || 'Failed to update progress' }
+    }
+  }
+  
+  async function loadProgress(courseId) {
+    const authStore = useAuthStore()
+    
+    try {
+      // Try to load from API first
+      const response = await api.get(`/course/${courseId}/progress`)
+      return { success: true, progress: response.data }
+    } catch (err) {
+      // Fallback to localStorage
+      const progressKey = `course_progress_${courseId}`
+      const savedProgress = localStorage.getItem(progressKey)
+      
+      if (savedProgress) {
+        return { success: true, progress: JSON.parse(savedProgress) }
+      }
+      
+      return { success: false, progress: null }
     }
   }
 
@@ -269,6 +303,7 @@ export const useCourseStore = defineStore('course', () => {
     saveCourse,
     loadCourses,
     loadCourse,
-    updateProgress
+    updateProgress,
+    loadProgress
   }
 })
