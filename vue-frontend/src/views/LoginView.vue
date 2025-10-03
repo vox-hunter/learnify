@@ -71,6 +71,14 @@
           <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
             {{ loading ? 'Logging in...' : 'Login' }}
           </button>
+
+          <!-- OAuth Divider -->
+          <div class="oauth-divider">
+            <span>Or continue with</span>
+          </div>
+
+          <!-- Google Login Button -->
+          <GoogleLoginButton />
         </form>
 
         <!-- Forgot Password - Step 1: Enter Email -->
@@ -251,6 +259,14 @@
           <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
             {{ loading ? 'Sending verification code...' : 'Continue' }}
           </button>
+
+          <!-- OAuth Divider -->
+          <div class="oauth-divider">
+            <span>Or continue with</span>
+          </div>
+
+          <!-- Google Login Button -->
+          <GoogleLoginButton />
         </form>
 
         <!-- Register Form - Step 2: Email Verification -->
@@ -326,9 +342,13 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
+import GoogleLoginButton from '../components/GoogleLoginButton.vue'
 
 export default {
   name: 'LoginView',
+  components: {
+    GoogleLoginButton
+  },
   setup() {
     const router = useRouter()
     const route = useRoute()
@@ -864,6 +884,26 @@ export default {
   font-size: 0.875rem;
   color: #a0aec0;
   margin-top: 0.25rem;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.oauth-divider span {
+  padding: 0 1rem;
 }
 
 @media (max-width: 768px) {

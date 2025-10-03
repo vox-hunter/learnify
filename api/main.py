@@ -26,6 +26,13 @@ from local_backend import generate_course, validate_short_answer_with_ai
 from mongo_auth import MongoAuthManager
 from mongo_course_manager import MongoCourseManager, get_session_id
 from file_security import validate_file_security
+from google_oauth_fastapi import (
+    get_google_auth_url,
+    exchange_code_for_token,
+    get_user_info,
+    validate_google_oauth_user,
+    verify_oauth_config
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -41,9 +48,10 @@ app.add_middleware(
         "http://localhost:3000", 
         "http://localhost:8080", 
         "http://localhost:5173",
-        "https://ai-loom-frontend.onrender.com",  # Production frontend (old)
-        "https://app.ailoom.me",  # Production frontend (custom domain)
-        "https://learnify-geih.onrender.com"  # Old Streamlit app
+        "https://app.ailoom.me",  # Production frontend (custom domain),
+        "https://alpha-ai-loom-frontend.onrender.com",
+        "https://ailoom.me"
+
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -101,6 +109,15 @@ class SendVerificationRequest(BaseModel):
 class VerifyEmailRequest(BaseModel):
     email: EmailStr
     code: str
+
+class GoogleOAuthCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+    state: str
+
+class GoogleAuthUrlRequest(BaseModel):
+    redirect_uri: str
+    state: str
 
 # Root endpoint
 @app.get("/")
@@ -346,6 +363,141 @@ async def reset_password(request: ResetPasswordRequest):
     return {
         "success": True,
         "message": "Password has been reset successfully"
+    }
+
+# Google OAuth endpoints
+@app.post("/auth/google/url")
+async def get_oauth_url(request: GoogleAuthUrlRequest):
+    """Get Google OAuth authorization URL"""
+    if not verify_oauth_config():
+        raise HTTPException(
+            status_code=503, 
+            detail="Google OAuth is not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables."
+        )
+    
+    try:
+        auth_url = get_google_auth_url(
+            redirect_uri=request.redirect_uri,
+            state=request.state
+        )
+        
+        if not auth_url:
+            raise HTTPException(status_code=500, detail="Failed to generate OAuth URL")
+        
+        return {
+            "success": True,
+            "auth_url": auth_url
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating OAuth URL: {str(e)}")
+
+
+@app.post("/auth/google/callback")
+async def google_oauth_callback(request: GoogleOAuthCallbackRequest):
+    """Handle Google OAuth callback and create/login user"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if not verify_oauth_config():
+        raise HTTPException(status_code=503, detail="Google OAuth not configured")
+    
+    try:
+        # Exchange code for token
+        token_response = exchange_code_for_token(
+            code=request.code,
+            redirect_uri=request.redirect_uri
+        )
+        
+        if not token_response or "access_token" not in token_response:
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        # Get user info from Google
+        user_info = get_user_info(token_response["access_token"])
+        
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Failed to get user information from Google")
+        
+        # Validate and extract user data
+        validated_user = validate_google_oauth_user(user_info)
+        
+        # Check if user exists by email
+        existing_user = auth_manager.find_user_by_email(validated_user["email"])
+        
+        if existing_user:
+            # User exists - log them in
+            # Update profile picture if available
+            if validated_user.get("picture") and not existing_user.get("picture"):
+                try:
+                    auth_manager.users.update_one(
+                        {"email": validated_user["email"]},
+                        {"$set": {"picture": validated_user["picture"]}}
+                    )
+                except Exception as e:
+                    print(f"Warning: Failed to update profile picture: {e}")
+            
+            # Check if user is admin
+            is_admin = existing_user.get("email") == "vidyutsanthosh4@gmail.com"
+            
+            return {
+                "success": True,
+                "username": existing_user["username"],
+                "name": existing_user.get("name", validated_user["name"]),
+                "email": existing_user["email"],
+                "picture": existing_user.get("picture", validated_user.get("picture")),
+                "isAdmin": is_admin,
+                "is_new_user": False
+            }
+        else:
+            # Create new user from Google OAuth using the existing method
+            # Generate username from email
+            base_username = validated_user["email"].split("@")[0]
+            
+            # Prepare Google user info for create_google_user method
+            google_user_info = {
+                "email": validated_user["email"],
+                "name": validated_user["name"],
+                "google_id": validated_user.get("google_id"),
+                "picture": validated_user.get("picture")
+            }
+            
+            # Create user using the existing method
+            user_id, error, final_username = auth_manager.create_google_user(
+                google_user_info=google_user_info,
+                base_username=base_username,
+                marketing_consent=False
+            )
+            
+            if error:
+                raise HTTPException(status_code=500, detail=f"Failed to create user: {error}")
+            
+            # Check if user is admin
+            is_admin = validated_user["email"] == "vidyutsanthosh4@gmail.com"
+            
+            return {
+                "success": True,
+                "username": final_username,
+                "name": validated_user["name"],
+                "email": validated_user["email"],
+                "picture": validated_user.get("picture"),
+                "isAdmin": is_admin,
+                "is_new_user": True
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in Google OAuth callback: {e}")
+        raise HTTPException(status_code=500, detail=f"OAuth authentication failed: {str(e)}")
+
+
+@app.get("/auth/google/status")
+async def google_oauth_status():
+    """Check if Google OAuth is configured"""
+    return {
+        "configured": verify_oauth_config(),
+        "message": "Google OAuth is ready" if verify_oauth_config() else "Google OAuth not configured"
     }
 
 # Account management endpoints
