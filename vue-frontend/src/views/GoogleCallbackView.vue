@@ -77,13 +77,31 @@ export default {
         })
 
         if (response.data.success) {
-          // Update auth store
+          // Check if user needs to select username (new user)
+          if (response.data.needs_username) {
+            // Store OAuth data for username selection
+            sessionStorage.setItem('google_oauth_pending', JSON.stringify({
+              code: code,
+              redirect_uri: redirectUri,
+              state: state,
+              user_info: response.data.user_info
+            }))
+            
+            // Redirect to username selection
+            loading.value = false
+            router.push('/auth/google/username')
+            return
+          }
+          
+          // Existing user or linked account - complete login
           authStore.user = {
             username: response.data.username,
             name: response.data.name,
             email: response.data.email,
             picture: response.data.picture,
-            isAdmin: response.data.isAdmin
+            isAdmin: response.data.isAdmin,
+            isGoogleUser: response.data.is_google_user || false,
+            hasPassword: response.data.has_password || false
           }
           
           // Store username for API requests

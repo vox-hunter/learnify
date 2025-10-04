@@ -450,7 +450,24 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
         existing_user = auth_manager.find_user_by_email(validated_user["email"])
         
         if existing_user:
-            # User exists - log them in
+            # Existing user - check if they need to link Google account
+            google_id = existing_user.get("google_id")
+            has_password = bool(existing_user.get("password"))
+            
+            # Link Google account if not already linked
+            if not google_id:
+                try:
+                    auth_manager.users.update_one(
+                        {"email": validated_user["email"]},
+                        {"$set": {
+                            "google_id": validated_user.get("google_id"),
+                            "picture": validated_user.get("picture")
+                        }}
+                    )
+                    google_id = validated_user.get("google_id")
+                except Exception as e:
+                    print(f"Warning: Failed to link Google account: {e}")
+            
             # Update profile picture if available
             if validated_user.get("picture") and not existing_user.get("picture"):
                 try:
@@ -471,42 +488,21 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
                 "email": existing_user["email"],
                 "picture": existing_user.get("picture", validated_user.get("picture")),
                 "isAdmin": is_admin,
-                "is_new_user": False
+                "is_new_user": False,
+                "is_google_user": bool(google_id),
+                "has_password": has_password
             }
         else:
-            # Create new user from Google OAuth using the existing method
-            # Generate username from email
-            base_username = validated_user["email"].split("@")[0]
-            
-            # Prepare Google user info for create_google_user method
-            google_user_info = {
-                "email": validated_user["email"],
-                "name": validated_user["name"],
-                "google_id": validated_user.get("google_id"),
-                "picture": validated_user.get("picture")
-            }
-            
-            # Create user using the existing method
-            user_id, error, final_username = auth_manager.create_google_user(
-                google_user_info=google_user_info,
-                base_username=base_username,
-                marketing_consent=False
-            )
-            
-            if error:
-                raise HTTPException(status_code=500, detail=f"Failed to create user: {error}")
-            
-            # Check if user is admin
-            is_admin = validated_user["email"] == "vidyutsanthosh4@gmail.com"
-            
+            # New user - return user info for username selection
             return {
                 "success": True,
-                "username": final_username,
-                "name": validated_user["name"],
-                "email": validated_user["email"],
-                "picture": validated_user.get("picture"),
-                "isAdmin": is_admin,
-                "is_new_user": True
+                "needs_username": True,
+                "user_info": {
+                    "email": validated_user["email"],
+                    "name": validated_user["name"],
+                    "google_id": validated_user.get("google_id"),
+                    "picture": validated_user.get("picture")
+                }
             }
     
     except HTTPException:
@@ -543,6 +539,101 @@ async def google_oauth_status():
                 "Access-Control-Allow-Headers": "*"
             }
         )
+
+
+@app.get("/auth/check-username")
+async def check_username(username: str):
+    """Check if username is available"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if len(username) < 3:
+        return {"available": False, "message": "Username must be at least 3 characters"}
+    
+    existing_user = auth_manager.find_user_by_username(username)
+    return {"available": existing_user is None}
+
+
+class GoogleCompleteRequest(BaseModel):
+    code: str
+    redirect_uri: str
+    state: str
+    username: str
+
+@app.post("/auth/google/complete")
+async def complete_google_signup(request: GoogleCompleteRequest):
+    """Complete Google OAuth signup with chosen username"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if not verify_oauth_config():
+        raise HTTPException(status_code=503, detail="Google OAuth not configured")
+    
+    try:
+        # Exchange code for token
+        token_response = exchange_code_for_token(
+            code=request.code,
+            redirect_uri=request.redirect_uri
+        )
+        
+        if not token_response or "access_token" not in token_response:
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        # Get user info from Google
+        user_info = get_user_info(token_response["access_token"])
+        
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Failed to get user information from Google")
+        
+        # Validate and extract user data
+        validated_user = validate_google_oauth_user(user_info)
+        
+        # Check if username is available
+        existing_user = auth_manager.find_user_by_username(request.username)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username is already taken")
+        
+        # Check if user already exists by email (shouldn't happen, but safety check)
+        existing_email = auth_manager.find_user_by_email(validated_user["email"])
+        if existing_email:
+            raise HTTPException(status_code=400, detail="An account with this email already exists")
+        
+        # Prepare Google user info for create_google_user method
+        google_user_info = {
+            "email": validated_user["email"],
+            "name": validated_user["name"],
+            "google_id": validated_user.get("google_id"),
+            "picture": validated_user.get("picture")
+        }
+        
+        # Create user with chosen username
+        user_id, error, final_username = auth_manager.create_google_user(
+            google_user_info=google_user_info,
+            base_username=request.username,
+            marketing_consent=False
+        )
+        
+        if error:
+            raise HTTPException(status_code=500, detail=f"Failed to create user: {error}")
+        
+        # Check if user is admin
+        is_admin = validated_user["email"] == "vidyutsanthosh4@gmail.com"
+        
+        return {
+            "success": True,
+            "username": final_username,
+            "name": validated_user["name"],
+            "email": validated_user["email"],
+            "picture": validated_user.get("picture"),
+            "isAdmin": is_admin,
+            "is_new_user": True
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error completing Google signup: {e}")
+        raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
 
 
 # Account management endpoints
@@ -614,6 +705,41 @@ async def change_password(request: ChangePasswordRequest):
         "success": True,
         "message": "Password changed successfully"
     }
+
+class UnlinkGoogleRequest(BaseModel):
+    username: str
+
+@app.post("/account/unlink-google")
+async def unlink_google_account(request: UnlinkGoogleRequest):
+    """Unlink Google account from user"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Find user
+    user = auth_manager.find_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if user has a password (can't unlink if it's the only auth method)
+    if not user.get("password"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot unlink Google account. This is your only login method. Please set a password first."
+        )
+    
+    # Remove Google ID and picture
+    try:
+        auth_manager.users.update_one(
+            {"username": request.username},
+            {"$unset": {"google_id": "", "picture": ""}}
+        )
+        
+        return {
+            "success": True,
+            "message": "Google account unlinked successfully"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to unlink Google account: {str(e)}")
 
 @app.delete("/account")
 async def delete_account(request: DeleteAccountRequest):
