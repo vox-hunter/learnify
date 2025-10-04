@@ -496,8 +496,8 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
                 "picture": existing_user.get("picture", validated_user.get("picture")),
                 "isAdmin": is_admin,
                 "is_new_user": False,
-                "is_google_user": bool(google_id),
-                "has_password": has_password
+                "isGoogleUser": bool(google_id),
+                "hasPassword": has_password
             }
         else:
             # New user - return user info for username selection
@@ -633,7 +633,9 @@ async def complete_google_signup(request: GoogleCompleteRequest):
             "email": validated_user["email"],
             "picture": validated_user.get("picture"),
             "isAdmin": is_admin,
-            "is_new_user": True
+            "is_new_user": True,
+            "isGoogleUser": True,
+            "hasPassword": False
         }
     
     except HTTPException:
@@ -668,13 +670,25 @@ async def update_profile(request: UpdateProfileRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Prepare updates
+    updates = {"name": request.name}
+    
+    # Only allow email change if user is not a Google user
+    if user.get("google_id"):
+        # Google user - don't allow email change
+        if request.email != user.get("email"):
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot change email for Google accounts. Please unlink your Google account first if you have a password."
+            )
+    else:
+        # Traditional user - allow email change
+        updates["email"] = request.email
+    
     # Update user details
     success, error = auth_manager.update_user_details(
         username=request.username,
-        updates={
-            "name": request.name,
-            "email": request.email
-        }
+        updates=updates
     )
     
     if not success:

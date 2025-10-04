@@ -399,7 +399,17 @@ export default {
 
         if (response.data.success) {
           unlinkSuccess.value = 'Google account unlinked successfully!'
+          
+          // Update auth store
           authStore.user.isGoogleUser = false
+          authStore.user.picture = null
+          
+          // Update localStorage
+          const userData = JSON.stringify(authStore.user)
+          localStorage.setItem('userData', userData)
+          if (sessionStorage.getItem('userData')) {
+            sessionStorage.setItem('userData', userData)
+          }
           
           setTimeout(() => {
             unlinkSuccess.value = null

@@ -19,9 +19,9 @@
 
         <div v-else-if="success" class="success-state">
           <div class="success-icon">✓</div>
-          <h2>Welcome{{ userName ? `, ${userName}` : '' }}!</h2>
-          <p>{{ isNewUser ? 'Your account has been created successfully.' : 'Successfully signed in.' }}</p>
-          <p class="redirect-message">Redirecting to home...</p>
+          <h2>{{ isLinking ? 'Account Linked!' : `Welcome${userName ? `, ${userName}` : ''}!` }}</h2>
+          <p>{{ isNewUser ? 'Your account has been created successfully.' : isLinking ? 'Google account has been linked to your account.' : 'Successfully signed in.' }}</p>
+          <p class="redirect-message">Redirecting{{ isLinking ? ' to account settings' : ' to home' }}...</p>
         </div>
       </div>
     </div>
@@ -107,14 +107,28 @@ export default {
           // Store username for API requests
           localStorage.setItem('username', response.data.username)
           
+          // Store complete user data
+          const userData = JSON.stringify(authStore.user)
+          localStorage.setItem('userData', userData)
+          
+          // Check if user was linking from account page
+          const isLinkMode = localStorage.getItem('oauth_link_mode') === 'true'
+          if (isLinkMode) {
+            localStorage.removeItem('oauth_link_mode')
+          }
+          
           userName.value = response.data.name || response.data.username
-          isNewUser.value = response.data.is_new_user
+          isNewUser.value = response.data.is_new_user && !isLinkMode
           success.value = true
           loading.value = false
 
-          // Redirect to home after 2 seconds
+          // Redirect based on context
           setTimeout(() => {
-            router.push('/')
+            if (isLinkMode) {
+              router.push('/account')
+            } else {
+              router.push('/')
+            }
           }, 2000)
         } else {
           throw new Error('Authentication failed')
