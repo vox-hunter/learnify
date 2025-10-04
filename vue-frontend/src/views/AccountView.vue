@@ -150,8 +150,8 @@
                   Cancel
                 </button>
               </div>
-            </div>
-          </div>
+            </div> <!-- end delete-confirm -->
+          </div> <!-- end danger-zone -->
         </div>
       </div>
     </div>
@@ -328,3 +328,24 @@ export default {
       authStore,
       activeTab,
       isGoogleUser,
+      profileForm,
+      profileLoading,
+      profileError,
+      profileSuccess,
+      updateProfile,
+      securityForm,
+      securityLoading,
+      securityError,
+      securitySuccess,
+      changePassword,
+      showDeleteConfirm,
+      deleteConfirmText,
+      deleteLoading,
+      deleteError,
+      deleteAccount,
+      unlinkGoogle,
+      linkGoogle
+    }
+  }
+}
+</script>
