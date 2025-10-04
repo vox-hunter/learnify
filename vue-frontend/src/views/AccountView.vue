@@ -3,17 +3,25 @@
     <div class="container-sm">
       <div class="account-card card">
         <h1 class="page-title">Account Settings</h1>
-
+        
         <!-- Tabs -->
         <div class="tabs">
-          <button :class="['tab', { active: activeTab === 'profile' }]" @click="activeTab = 'profile'">
+          <button 
+            :class="['tab', { active: activeTab === 'profile' }]"
+            @click="activeTab = 'profile'"
+          >
             👤 Profile
           </button>
-          <button v-if="!isGoogleUser" :class="['tab', { active: activeTab === 'security' }]"
-            @click="activeTab = 'security'">
+          <button 
+            :class="['tab', { active: activeTab === 'security' }]"
+            @click="activeTab = 'security'"
+          >
             🔒 Security
           </button>
-          <button :class="['tab', { active: activeTab === 'danger' }]" @click="activeTab = 'danger'">
+          <button 
+            :class="['tab', { active: activeTab === 'danger' }]"
+            @click="activeTab = 'danger'"
+          >
             ⚠️ Danger Zone
           </button>
         </div>
@@ -24,21 +32,33 @@
           <form @submit.prevent="updateProfile" class="form">
             <div class="form-group">
               <label class="form-label">Username</label>
-              <input v-model="profileForm.username" type="text" class="form-input" disabled />
+              <input
+                v-model="profileForm.username"
+                type="text"
+                class="form-input"
+                disabled
+              />
               <p class="form-hint">Username cannot be changed</p>
             </div>
 
             <div class="form-group">
               <label class="form-label">Full Name</label>
-              <input v-model="profileForm.name" type="text" class="form-input" required />
+              <input
+                v-model="profileForm.name"
+                type="text"
+                class="form-input"
+                required
+              />
             </div>
 
             <div class="form-group">
               <label class="form-label">Email</label>
-              <input v-model="profileForm.email" type="email" class="form-input" required :disabled="isGoogleUser" />
-              <p v-if="isGoogleUser" class="form-hint">
-                This email is linked to your Google account.
-              </p>
+              <input
+                v-model="profileForm.email"
+                type="email"
+                class="form-input"
+                required
+              />
             </div>
 
             <div v-if="profileError" class="alert alert-error">
@@ -53,28 +73,6 @@
               {{ profileLoading ? 'Saving...' : 'Save Changes' }}
             </button>
           </form>
-
-          <!-- Google Account Linking -->
-          <div v-if="isGoogleUser" class="google-linking">
-            <p class="google-info">
-              Your account is currently linked to Google. You can unlink it if you prefer to use a password.
-            </p>
-            <button @click="unlinkGoogle" class="btn btn-secondary">
-              Unlink Google Account
-            </button>
-          </div>
-
-          <!-- Password Linking -->
-          <div v-else class="password-linking">
-            <h3>Link a Password</h3>
-            <p>
-              To enhance security, you can link a password to your account. This is optional if you prefer using Google
-              login.
-            </p>
-            <button @click="linkGoogle" class="btn btn-secondary">
-              Link Google Account
-            </button>
-          </div>
         </div>
 
         <!-- Security Tab -->
@@ -83,17 +81,34 @@
           <form @submit.prevent="changePassword" class="form">
             <div class="form-group">
               <label class="form-label">Current Password</label>
-              <input v-model="securityForm.currentPassword" type="password" class="form-input" required />
+              <input
+                v-model="securityForm.currentPassword"
+                type="password"
+                class="form-input"
+                required
+              />
             </div>
 
             <div class="form-group">
               <label class="form-label">New Password</label>
-              <input v-model="securityForm.newPassword" type="password" class="form-input" required minlength="6" />
+              <input
+                v-model="securityForm.newPassword"
+                type="password"
+                class="form-input"
+                required
+                minlength="6"
+              />
             </div>
 
             <div class="form-group">
               <label class="form-label">Confirm New Password</label>
-              <input v-model="securityForm.confirmPassword" type="password" class="form-input" required minlength="6" />
+              <input
+                v-model="securityForm.confirmPassword"
+                type="password"
+                class="form-input"
+                required
+                minlength="6"
+              />
             </div>
 
             <div v-if="securityError" class="alert alert-error">
@@ -117,7 +132,7 @@
             <div class="danger-warning">
               <h3>⚠️ Delete Account</h3>
               <p>
-                Once you delete your account, there is no going back. This will permanently
+                Once you delete your account, there is no going back. This will permanently 
                 delete your account, all your courses, and progress. This action cannot be undone.
               </p>
             </div>
@@ -130,28 +145,38 @@
 
             <div v-else class="delete-confirm">
               <p class="confirm-text">
-                Are you absolutely sure? Type your username
+                Are you absolutely sure? Type your username 
                 <strong>{{ authStore.user?.username }}</strong> to confirm:
               </p>
-              <input v-model="deleteConfirmText" type="text" class="form-input"
-                placeholder="Type your username to confirm" />
+              <input
+                v-model="deleteConfirmText"
+                type="text"
+                class="form-input"
+                placeholder="Type your username to confirm"
+              />
 
               <div v-if="deleteError" class="alert alert-error">
                 {{ deleteError }}
               </div>
 
               <div class="button-group">
-                <button @click="deleteAccount"
-                  :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading" class="btn btn-danger">
+                <button 
+                  @click="deleteAccount" 
+                  :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading"
+                  class="btn btn-danger"
+                >
                   {{ deleteLoading ? 'Deleting...' : 'Yes, Delete My Account' }}
                 </button>
-                <button @click="showDeleteConfirm = false; deleteConfirmText = ''" class="btn btn-secondary"
-                  :disabled="deleteLoading">
+                <button 
+                  @click="showDeleteConfirm = false; deleteConfirmText = ''" 
+                  class="btn btn-secondary"
+                  :disabled="deleteLoading"
+                >
                   Cancel
                 </button>
               </div>
-            </div> <!-- end delete-confirm -->
-          </div> <!-- end danger-zone -->
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -159,7 +184,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
@@ -171,8 +196,7 @@ export default {
     const authStore = useAuthStore()
 
     const activeTab = ref('profile')
-    const isGoogleUser = computed(() => authStore.user?.provider === 'google')
-
+    
     // Profile form
     const profileForm = ref({
       username: '',
@@ -227,15 +251,15 @@ export default {
 
         if (response.data.success) {
           profileSuccess.value = 'Profile updated successfully!'
-
+          
           // Update auth store with new data
           authStore.user.name = profileForm.value.name
           authStore.user.email = profileForm.value.email
-
+          
           // Update localStorage
           const userData = JSON.stringify(authStore.user)
           localStorage.setItem('userData', userData)
-
+          
           setTimeout(() => {
             profileSuccess.value = null
           }, 3000)
@@ -268,14 +292,14 @@ export default {
 
         if (response.data.success) {
           securitySuccess.value = 'Password changed successfully!'
-
+          
           // Clear form
           securityForm.value = {
             currentPassword: '',
             newPassword: '',
             confirmPassword: ''
           }
-
+          
           setTimeout(() => {
             securitySuccess.value = null
           }, 3000)
@@ -292,7 +316,7 @@ export default {
       deleteLoading.value = true
 
       try {
-        const response = await api.delete('/account', {
+        const response = await api.delete('/account', { 
           data: { username: authStore.user.username }
         })
 
@@ -308,26 +332,9 @@ export default {
       }
     }
 
-    const unlinkGoogle = () => {
-      // redirect to backend to unlink google
-      api.post('/auth/google/unlink', { username: authStore.user.username })
-        .then(() => authStore.initialize())
-    }
-
-    const linkGoogle = () => {
-      // initiate google linking flow
-      const state = Math.random().toString(36).substring(2)
-      localStorage.setItem('oauth_state', state)
-      const redirectUri = `${window.location.origin}/auth/google/callback?link=true`
-      api.post('/auth/google/url', { redirect_uri: redirectUri, state })
-        .then(res => window.location.href = res.data.auth_url)
-    }
-
     return {
-      router,
-      authStore,
       activeTab,
-      isGoogleUser,
+      authStore,
       profileForm,
       profileLoading,
       profileError,
@@ -342,10 +349,179 @@ export default {
       deleteConfirmText,
       deleteLoading,
       deleteError,
-      deleteAccount,
-      unlinkGoogle,
-      linkGoogle
+      deleteAccount
     }
   }
 }
 </script>
+
+<style scoped>
+.account-view {
+  min-height: calc(100vh - 200px);
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+}
+
+.account-card {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 2rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+  margin-bottom: 2rem;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: white;
+  box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
+}
+
+:root[data-theme="light"] .tab.active {
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+}
+
+.form {
+  max-width: 500px;
+}
+
+.form-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.danger-zone {
+  background: rgba(239, 68, 68, 0.05);
+  border: 2px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.75rem;
+  padding: 2rem;
+}
+
+.danger-warning {
+  margin-bottom: 1.5rem;
+}
+
+.danger-warning h3 {
+  color: #f87171;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.danger-warning p {
+  color: #cbd5e0;
+  line-height: 1.6;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delete-confirm {
+  margin-top: 1.5rem;
+}
+
+.confirm-text {
+  color: #cbd5e0;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.confirm-text strong {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 2rem;
+  }
+
+  .tabs {
+    flex-direction: column;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .button-group .btn {
+    width: 100%;
+  }
+}
+</style>
