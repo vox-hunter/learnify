@@ -5,10 +5,15 @@
       <span class="question-type">{{ formatQuestionType(question.type) }}</span>
     </div>
 
-    <div class="question-text">{{ question.question }}</div>
+    <div class="question-text">
+      {{ question.question }}
+    </div>
 
     <!-- Multiple Choice -->
-    <div v-if="isMultipleChoice" class="options-container">
+    <div
+      v-if="isMultipleChoice"
+      class="options-container"
+    >
       <div 
         v-for="(option, index) in question.options" 
         :key="index"
@@ -21,13 +26,22 @@
       >
         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
         <span class="option-text">{{ option }}</span>
-        <span v-if="isAnswered && option === question.answer" class="option-icon">✓</span>
-        <span v-if="isAnswered && selectedAnswer === option && option !== question.answer" class="option-icon">✗</span>
+        <span
+          v-if="isAnswered && option === question.answer"
+          class="option-icon"
+        >✓</span>
+        <span
+          v-if="isAnswered && selectedAnswer === option && option !== question.answer"
+          class="option-icon"
+        >✗</span>
       </div>
     </div>
 
     <!-- True/False -->
-    <div v-else-if="isTrueFalse" class="options-container">
+    <div
+      v-else-if="isTrueFalse"
+      class="options-container"
+    >
       <div 
         :class="['option', { 
           selected: selectedAnswer === true,
@@ -37,7 +51,10 @@
         @click="!isAnswered && selectAnswer(true)"
       >
         <span class="option-text">✓ True</span>
-        <span v-if="isAnswered && question.answer === true" class="option-icon">✓</span>
+        <span
+          v-if="isAnswered && question.answer === true"
+          class="option-icon"
+        >✓</span>
       </div>
       <div 
         :class="['option', { 
@@ -48,12 +65,18 @@
         @click="!isAnswered && selectAnswer(false)"
       >
         <span class="option-text">✗ False</span>
-        <span v-if="isAnswered && question.answer === false" class="option-icon">✓</span>
+        <span
+          v-if="isAnswered && question.answer === false"
+          class="option-icon"
+        >✓</span>
       </div>
     </div>
 
     <!-- Fill in the Blank -->
-    <div v-else-if="isFillInBlank" class="answer-input-container">
+    <div
+      v-else-if="isFillInBlank"
+      class="answer-input-container"
+    >
       <input
         v-model="userAnswer"
         type="text"
@@ -61,38 +84,44 @@
         :disabled="isAnswered"
         placeholder="Type your answer here..."
         @keyup.enter="submitFillInBlank"
-      />
+      >
       <button 
         v-if="!isAnswered" 
-        @click="submitFillInBlank"
         :disabled="!userAnswer.trim()"
         class="btn btn-primary"
+        @click="submitFillInBlank"
       >
         Submit
       </button>
     </div>
 
     <!-- Short Answer -->
-    <div v-else-if="isShortAnswer" class="answer-input-container">
+    <div
+      v-else-if="isShortAnswer"
+      class="answer-input-container"
+    >
       <textarea
         v-model="userAnswer"
         class="form-textarea"
         :disabled="isAnswered || validating"
         placeholder="Type your detailed answer here..."
         rows="4"
-      ></textarea>
+      />
       <button 
         v-if="!isAnswered" 
-        @click="submitShortAnswer"
         :disabled="!userAnswer.trim() || validating"
         class="btn btn-primary"
+        @click="submitShortAnswer"
       >
         {{ validating ? 'Validating...' : 'Submit' }}
       </button>
     </div>
 
     <!-- Matching -->
-    <div v-else-if="isMatching" class="matching-container">
+    <div
+      v-else-if="isMatching"
+      class="matching-container"
+    >
       <div class="matching-instructions">
         Match each item on the left with the correct answer on the right
       </div>
@@ -102,13 +131,17 @@
           :key="index"
           class="matching-row"
         >
-          <div class="matching-key">{{ key }}</div>
+          <div class="matching-key">
+            {{ key }}
+          </div>
           <select 
             v-model="matchingAnswers[key]"
             :disabled="isAnswered"
             class="form-select matching-select"
           >
-            <option value="">Select...</option>
+            <option value="">
+              Select...
+            </option>
             <option 
               v-for="(value, vIndex) in matchingValues" 
               :key="vIndex"
@@ -117,30 +150,42 @@
               {{ value }}
             </option>
           </select>
-          <span v-if="isAnswered" class="matching-result">
+          <span
+            v-if="isAnswered"
+            class="matching-result"
+          >
             {{ matchingAnswers[key] === question.answer[key] ? '✓' : '✗' }}
           </span>
         </div>
       </div>
       <button 
         v-if="!isAnswered" 
-        @click="submitMatching"
         :disabled="!isMatchingComplete"
         class="btn btn-primary"
+        @click="submitMatching"
       >
         Submit
       </button>
     </div>
 
     <!-- Feedback -->
-    <div v-if="isAnswered" :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']">
+    <div
+      v-if="isAnswered"
+      :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']"
+    >
       <div class="feedback-header">
         {{ isCorrect ? '✅ Correct!' : '❌ Incorrect' }}
       </div>
-      <div v-if="explanation" class="feedback-text">
+      <div
+        v-if="explanation"
+        class="feedback-text"
+      >
         {{ explanation }}
       </div>
-      <div v-if="!isCorrect && expectedAnswer" class="correct-answer">
+      <div
+        v-if="!isCorrect && expectedAnswer"
+        class="correct-answer"
+      >
         <strong>Correct answer:</strong> {{ formatAnswer(expectedAnswer) }}
       </div>
     </div>
@@ -688,16 +733,16 @@ export default {
 }
 
 .feedback-text {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 0.5rem;
 }
 
 .correct-answer {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-color);
 }
 
 .correct-answer strong {

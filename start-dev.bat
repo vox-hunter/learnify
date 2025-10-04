@@ -3,7 +3,7 @@ REM Learnify - Development Startup Script for Windows
 REM This script starts both the FastAPI backend and Vue.js frontend
 
 echo ========================================
-echo   Learnify Development Server Setup
+echo   AI Loom Server Setup
 echo ========================================
 echo.
 

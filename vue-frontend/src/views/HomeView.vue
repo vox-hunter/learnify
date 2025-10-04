@@ -4,9 +4,15 @@
       <!-- Hero Section -->
       <section class="hero">
         <div class="hero-logo">
-          <img src="/logo.png" alt="AI Loom" class="logo-large" />
+          <img
+            src="/logo.png"
+            alt="AI Loom"
+            class="logo-large"
+          >
         </div>
-        <h1 class="hero-title">AI Loom</h1>
+        <h1 class="hero-title">
+          AI Loom
+        </h1>
         <p class="hero-subtitle">
           Smart Learning Platform - Transform your documents into interactive courses with quizzes
         </p>
@@ -14,7 +20,9 @@
 
       <!-- Course Generation Card -->
       <div class="generation-card card">
-        <h2 class="section-title">Generate a Course</h2>
+        <h2 class="section-title">
+          Generate a Course
+        </h2>
         <p class="section-description">
           Upload a PDF or provide a URL to generate a course with quizzes
         </p>
@@ -36,23 +44,35 @@
         </div>
 
         <!-- Upload Method -->
-        <div v-if="inputMethod === 'upload'" class="input-section">
+        <div
+          v-if="inputMethod === 'upload'"
+          class="input-section"
+        >
           <div class="file-upload-area">
             <input
+              id="file-upload"
               ref="fileInput"
               type="file"
               accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-              @change="handleFileChange"
               class="file-input"
-              id="file-upload"
-            />
-            <label for="file-upload" class="file-upload-label">
+              @change="handleFileChange"
+            >
+            <label
+              for="file-upload"
+              class="file-upload-label"
+            >
               <div class="upload-icon">📄</div>
-              <div v-if="!selectedFile" class="upload-text">
+              <div
+                v-if="!selectedFile"
+                class="upload-text"
+              >
                 <p class="upload-title">Click to upload or drag and drop</p>
                 <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
               </div>
-              <div v-else class="selected-file">
+              <div
+                v-else
+                class="selected-file"
+              >
                 <p class="file-name">{{ selectedFile.name }}</p>
                 <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
               </div>
@@ -61,7 +81,10 @@
         </div>
 
         <!-- URL Method -->
-        <div v-if="inputMethod === 'url'" class="input-section">
+        <div
+          v-if="inputMethod === 'url'"
+          class="input-section"
+        >
           <div class="form-group">
             <label class="form-label">PDF URL</label>
             <input
@@ -69,24 +92,33 @@
               type="url"
               class="form-input"
               placeholder="https://example.com/document.pdf"
-            />
+            >
           </div>
         </div>
 
         <!-- Error Message -->
-        <div v-if="error" class="alert alert-error">
+        <div
+          v-if="error"
+          class="alert alert-error"
+        >
           {{ error }}
         </div>
 
         <!-- Progress -->
-        <div v-if="generating" class="progress-section">
+        <div
+          v-if="generating"
+          class="progress-section"
+        >
           <div class="progress-header">
             <span class="progress-title">⚡ Generating Your Course</span>
             <span class="progress-percentage">{{ progress }}%</span>
           </div>
           
           <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progress + '%' }"></div>
+            <div
+              class="progress-fill"
+              :style="{ width: progress + '%' }"
+            />
           </div>
           
           <!-- Status Steps -->
@@ -102,52 +134,77 @@
             >
               <div class="step-icon">
                 <span v-if="currentStep > index">✓</span>
-                <span v-else-if="currentStep === index" class="spinner-small"></span>
+                <span
+                  v-else-if="currentStep === index"
+                  class="spinner-small"
+                />
                 <span v-else>{{ index + 1 }}</span>
               </div>
               <div class="step-content">
-                <div class="step-title">{{ step.title }}</div>
-                <div v-if="currentStep === index" class="step-description">
+                <div class="step-title">
+                  {{ step.title }}
+                </div>
+                <div
+                  v-if="currentStep === index"
+                  class="step-description"
+                >
                   {{ step.description }}
                 </div>
               </div>
             </div>
           </div>
           
-          <p class="progress-text">{{ statusMessage }}</p>
+          <p class="progress-text">
+            {{ statusMessage }}
+          </p>
         </div>
 
         <!-- Generate Button -->
         <button
-          @click="generateCourse"
           :disabled="generating || (!selectedFile && !pdfUrl)"
           class="btn btn-primary btn-generate"
+          @click="generateCourse"
         >
           {{ generating ? 'Generating...' : '🚀 Generate Course' }}
         </button>
       </div>
 
       <!-- Generated Course Display -->
-      <div v-if="generatedCourse" class="course-preview card">
-        <h2 class="section-title">Course Generated Successfully! 🎉</h2>
-        <h3 class="course-title">{{ generatedCourse.course_title }}</h3>
+      <div
+        v-if="generatedCourse"
+        class="course-preview card"
+      >
+        <h2 class="section-title">
+          Course Generated Successfully! 🎉
+        </h2>
+        <h3 class="course-title">
+          {{ generatedCourse.course_title }}
+        </h3>
         <p class="course-info">
           {{ generatedCourse.sections?.length || 0 }} sections with 
           {{ totalQuestions }} questions
         </p>
         
         <div class="course-actions">
-          <button @click="startCourse" class="btn btn-primary">
+          <button
+            class="btn btn-primary"
+            @click="startCourse"
+          >
             ▶️ Start Learning
           </button>
         </div>
       </div>
 
       <!-- Guest User Limit Warning -->
-      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" class="alert alert-warning">
+      <div
+        v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2"
+        class="alert alert-warning"
+      >
         <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{ courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
         <p v-if="courseStore.remainingGuestCourses === 0">
-          You've reached the limit of 2 saved courses. Please <router-link to="/login">log in</router-link> to save more.
+          You've reached the limit of 2 saved courses. Please <router-link to="/login">
+            log in
+          </router-link> to save more.
         </p>
         <p v-else>
           You can generate unlimited courses, but can only save {{ courseStore.remainingGuestCourses }} more as a guest.
@@ -312,7 +369,6 @@ export default {
           throw new Error(result.error)
         }
       } catch (err) {
-        clearInterval(progressInterval)
         error.value = err.message || 'Failed to generate course'
         progress.value = 0
       } finally {

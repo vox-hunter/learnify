@@ -1,26 +1,42 @@
 <template>
   <div class="courses-view">
     <div class="container">
-      <h1 class="page-title">My Courses</h1>
+      <h1 class="page-title">
+        My Courses
+      </h1>
 
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
+        <div class="spinner" />
         <p>Loading courses...</p>
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="courses.length === 0" class="empty-state card">
-        <div class="empty-icon">📚</div>
+      <div
+        v-else-if="courses.length === 0"
+        class="empty-state card"
+      >
+        <div class="empty-icon">
+          📚
+        </div>
         <h2>No courses yet</h2>
         <p>Generate your first course to get started!</p>
-        <router-link to="/" class="btn btn-primary">
+        <router-link
+          to="/"
+          class="btn btn-primary"
+        >
           Generate Course
         </router-link>
       </div>
 
       <!-- Courses Grid -->
-      <div v-else class="courses-grid">
+      <div
+        v-else
+        class="courses-grid"
+      >
         <div 
           v-for="course in courses" 
           :key="course.course_id || course._id"
@@ -28,7 +44,9 @@
           @click="openCourse(course.course_id || course._id)"
         >
           <div class="course-card-header">
-            <h3 class="course-card-title">{{ course.course_title || 'Untitled Course' }}</h3>
+            <h3 class="course-card-title">
+              {{ course.course_title || 'Untitled Course' }}
+            </h3>
           </div>
           <div class="course-card-meta">
             <span class="meta-badge">

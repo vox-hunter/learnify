@@ -1,9 +1,10 @@
-<template            <p>
-              By accessing and using AI Loom, you accept and agree to be bound by these Terms and Conditions. 
-              If you do not agree to these terms, please do not use our service.  <div class="terms-view">
+<template>
+  <div class="terms-view">
     <div class="container-sm">
       <div class="content-card card">
-        <h1 class="page-title">Terms & Conditions</h1>
+        <h1 class="page-title">
+          Terms & Conditions
+        </h1>
         
         <div class="content">
           <section class="section">
@@ -79,7 +80,9 @@
             <h2>6. Privacy and Data</h2>
             <p>
               Your privacy is important to us. Please review our 
-              <router-link to="/privacy">Privacy Policy</router-link> to understand how we collect, 
+              <router-link to="/privacy">
+                Privacy Policy
+              </router-link> to understand how we collect, 
               use, and protect your information.
             </p>
           </section>
