@@ -174,12 +174,19 @@ async def login(credentials: UserLogin):
     # Check if user is admin (specific email)
     is_admin = user.get("email") == "vidyutsanthosh4@gmail.com"
     
+    # Check Google account status
+    is_google_user = bool(user.get("google_id"))
+    has_password = bool(user.get("password"))
+    
     return {
         "success": True,
         "username": user["username"],
         "name": user.get("name"),
         "email": user.get("email"),
-        "isAdmin": is_admin
+        "picture": user.get("picture"),
+        "isAdmin": is_admin,
+        "isGoogleUser": is_google_user,
+        "hasPassword": has_password
     }
 
 # Email verification endpoints
