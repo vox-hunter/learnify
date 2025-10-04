@@ -38,6 +38,16 @@ const router = createRouter({
       path: '/account',
       name: 'account',
       component: () => import('../views/AccountView.vue')
+    },
+    {
+      path: '/auth/google/callback',
+      name: 'google-callback',
+      component: () => import('../views/GoogleCallbackView.vue')
+    },
+    {
+      path: '/auth/google/username',
+      name: 'google-username',
+      component: () => import('../views/GoogleUsernameView.vue')
     }
   ]
 })
@@ -45,7 +55,7 @@ const router = createRouter({
 // Navigation guard for authentication
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const publicPages = ['/', '/login', '/privacy', '/terms']
+  const publicPages = ['/', '/login', '/privacy', '/terms', '/auth/google/callback', '/auth/google/username']
   // Allow guests to view courses (they have localStorage courses)
   const isCoursePage = to.path.startsWith('/course/')
   const authRequired = !publicPages.includes(to.path) && !isCoursePage

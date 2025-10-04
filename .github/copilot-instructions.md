@@ -168,4 +168,4 @@ Test by submitting short answer questions in UI - watch network tab for `/quiz/v
 - `backend/mongo_auth.py` - User CRUD, password hashing, email verification
 - `backend/mongo_course_manager.py` - Course CRUD, progress tracking
 
-DO NOT EXPLAIN TOO MUCH TO THE USER AFTER YOU FINISH A TASK. JUST ANSWER THE USER PROMPT AS CONCISELY AS POSSIBLE. If you finished a task, say "Task complete." DO NOT CREATE ANY DOCUMENTATION OR MARKDOWN FILES. FINISH THE TASK AS SOON AS YOU CAN AND REPLY "TASK COMPLETE".
+DO NOT EXPLAIN TOO MUCH TO THE USER AFTER YOU FINISH A TASK. JUST ANSWER THE USER PROMPT AS CONCISELY AS POSSIBLE. If you finished a task, say "Task complete." DO NOT CREATE ANY DOCUMENTATION OR MARKDOWN FILES. FINISH THE TASK AS SOON AS YOU CAN AND REPLY "TASK COMPLETE". DO NOT CREATE A SUMMARY OF WHAT YOU DID.

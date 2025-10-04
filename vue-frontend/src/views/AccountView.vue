@@ -13,6 +13,7 @@
             👤 Profile
           </button>
           <button 
+            v-if="!isGoogleOnlyUser"
             :class="['tab', { active: activeTab === 'security' }]"
             @click="activeTab = 'security'"
           >
@@ -29,6 +30,13 @@
         <!-- Profile Tab -->
         <div v-if="activeTab === 'profile'" class="tab-content">
           <h2 class="section-title">Profile Information</h2>
+          
+          <!-- Google Profile Picture -->
+          <div v-if="authStore.user?.picture" class="profile-picture-section">
+            <img :src="authStore.user.picture" alt="Profile" class="profile-picture" />
+            <p v-if="isGoogleUser" class="google-badge">🔗 Linked with Google</p>
+          </div>
+          
           <form @submit.prevent="updateProfile" class="form">
             <div class="form-group">
               <label class="form-label">Username</label>
@@ -57,8 +65,10 @@
                 v-model="profileForm.email"
                 type="email"
                 class="form-input"
+                :disabled="isGoogleUser"
                 required
               />
+              <p v-if="isGoogleUser" class="form-hint">Email cannot be changed for Google accounts</p>
             </div>
 
             <div v-if="profileError" class="alert alert-error">
@@ -129,51 +139,85 @@
         <div v-if="activeTab === 'danger'" class="tab-content">
           <h2 class="section-title">Danger Zone</h2>
           <div class="danger-zone">
-            <div class="danger-warning">
-              <h3>⚠️ Delete Account</h3>
-              <p>
-                Once you delete your account, there is no going back. This will permanently 
-                delete your account, all your courses, and progress. This action cannot be undone.
-              </p>
+            
+            <!-- Unlink Google Account (for Google users with password) -->
+            <div v-if="isGoogleUser && hasPassword" class="danger-section">
+              <div class="danger-warning">
+                <h3>🔗 Unlink Google Account</h3>
+                <p>
+                  Remove the connection to your Google account. You'll still be able to log in 
+                  with your username and password.
+                </p>
+              </div>
+              <button @click="unlinkGoogle" :disabled="unlinkLoading" class="btn btn-warning">
+                {{ unlinkLoading ? 'Unlinking...' : 'Unlink Google Account' }}
+              </button>
+              <div v-if="unlinkError" class="alert alert-error">{{ unlinkError }}</div>
+              <div v-if="unlinkSuccess" class="alert alert-success">{{ unlinkSuccess }}</div>
             </div>
 
-            <div v-if="!showDeleteConfirm">
-              <button @click="showDeleteConfirm = true" class="btn btn-danger">
-                Delete My Account
+            <!-- Link Google Account (for traditional users) -->
+            <div v-if="!isGoogleUser" class="danger-section">
+              <div class="danger-warning">
+                <h3>🔗 Link Google Account</h3>
+                <p>
+                  Connect your Google account for quick sign-in. You'll be able to log in 
+                  with either your username/password or Google.
+                </p>
+              </div>
+              <button @click="linkGoogle" :disabled="linkLoading" class="btn btn-primary">
+                {{ linkLoading ? 'Linking...' : 'Link Google Account' }}
               </button>
             </div>
 
-            <div v-else class="delete-confirm">
-              <p class="confirm-text">
-                Are you absolutely sure? Type your username 
-                <strong>{{ authStore.user?.username }}</strong> to confirm:
-              </p>
-              <input
-                v-model="deleteConfirmText"
-                type="text"
-                class="form-input"
-                placeholder="Type your username to confirm"
-              />
-
-              <div v-if="deleteError" class="alert alert-error">
-                {{ deleteError }}
+            <!-- Delete Account -->
+            <div class="danger-section">
+              <div class="danger-warning">
+                <h3>⚠️ Delete Account</h3>
+                <p>
+                  Once you delete your account, there is no going back. This will permanently 
+                  delete your account, all your courses, and progress. This action cannot be undone.
+                </p>
               </div>
 
-              <div class="button-group">
-                <button 
-                  @click="deleteAccount" 
-                  :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading"
-                  class="btn btn-danger"
-                >
-                  {{ deleteLoading ? 'Deleting...' : 'Yes, Delete My Account' }}
+              <div v-if="!showDeleteConfirm">
+                <button @click="showDeleteConfirm = true" class="btn btn-danger">
+                  Delete My Account
                 </button>
-                <button 
-                  @click="showDeleteConfirm = false; deleteConfirmText = ''" 
-                  class="btn btn-secondary"
-                  :disabled="deleteLoading"
-                >
-                  Cancel
-                </button>
+              </div>
+
+              <div v-else class="delete-confirm">
+                <p class="confirm-text">
+                  Are you absolutely sure? Type your username 
+                  <strong>{{ authStore.user?.username }}</strong> to confirm:
+                </p>
+                <input
+                  v-model="deleteConfirmText"
+                  type="text"
+                  class="form-input"
+                  placeholder="Type your username to confirm"
+                />
+
+                <div v-if="deleteError" class="alert alert-error">
+                  {{ deleteError }}
+                </div>
+
+                <div class="button-group">
+                  <button 
+                    @click="deleteAccount" 
+                    :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading"
+                    class="btn btn-danger"
+                  >
+                    {{ deleteLoading ? 'Deleting...' : 'Yes, Delete My Account' }}
+                  </button>
+                  <button 
+                    @click="showDeleteConfirm = false; deleteConfirmText = ''" 
+                    class="btn btn-secondary"
+                    :disabled="deleteLoading"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -184,7 +228,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
@@ -222,6 +266,17 @@ export default {
     const deleteConfirmText = ref('')
     const deleteLoading = ref(false)
     const deleteError = ref(null)
+
+    // Google account management
+    const unlinkLoading = ref(false)
+    const unlinkError = ref(null)
+    const unlinkSuccess = ref(null)
+    const linkLoading = ref(false)
+
+    // Computed properties
+    const isGoogleUser = computed(() => authStore.user?.isGoogleUser || false)
+    const hasPassword = computed(() => authStore.user?.hasPassword !== false)
+    const isGoogleOnlyUser = computed(() => isGoogleUser.value && !hasPassword.value)
 
     // Load user data
     onMounted(() => {
@@ -332,6 +387,77 @@ export default {
       }
     }
 
+    const unlinkGoogle = async () => {
+      unlinkLoading.value = true
+      unlinkError.value = null
+      unlinkSuccess.value = null
+
+      try {
+        const response = await api.post('/account/unlink-google', {
+          username: authStore.user.username
+        })
+
+        if (response.data.success) {
+          unlinkSuccess.value = 'Google account unlinked successfully!'
+          
+          // Update auth store
+          authStore.user.isGoogleUser = false
+          authStore.user.picture = null
+          
+          // Update localStorage
+          const userData = JSON.stringify(authStore.user)
+          localStorage.setItem('userData', userData)
+          if (sessionStorage.getItem('userData')) {
+            sessionStorage.setItem('userData', userData)
+          }
+          
+          setTimeout(() => {
+            unlinkSuccess.value = null
+          }, 3000)
+        }
+      } catch (error) {
+        unlinkError.value = error.response?.data?.detail || 'Failed to unlink Google account'
+      } finally {
+        unlinkLoading.value = false
+      }
+    }
+
+    const linkGoogle = async () => {
+      linkLoading.value = true
+      
+      try {
+        // Generate state for CSRF protection
+        const state = generateRandomState()
+        localStorage.setItem('oauth_state', state)
+        localStorage.setItem('oauth_link_mode', 'true')
+
+        // Determine redirect URI based on current host
+        const redirectUri = `${window.location.origin}/auth/google/callback`
+
+        // Get Google OAuth URL from backend
+        const response = await api.post('/auth/google/url', {
+          redirect_uri: redirectUri,
+          state: state
+        })
+
+        if (response.data.success && response.data.auth_url) {
+          // Redirect to Google
+          window.location.href = response.data.auth_url
+        } else {
+          throw new Error('Failed to get Google authorization URL')
+        }
+      } catch (error) {
+        console.error('Google link error:', error)
+        linkLoading.value = false
+      }
+    }
+
+    const generateRandomState = () => {
+      const array = new Uint8Array(32)
+      crypto.getRandomValues(array)
+      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+    }
+
     return {
       activeTab,
       authStore,
@@ -349,7 +475,16 @@ export default {
       deleteConfirmText,
       deleteLoading,
       deleteError,
-      deleteAccount
+      deleteAccount,
+      isGoogleUser,
+      hasPassword,
+      isGoogleOnlyUser,
+      unlinkLoading,
+      unlinkError,
+      unlinkSuccess,
+      unlinkGoogle,
+      linkLoading,
+      linkGoogle
     }
   }
 }
@@ -443,6 +578,12 @@ export default {
 }
 
 .danger-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.danger-section {
   background: rgba(239, 68, 68, 0.05);
   border: 2px solid rgba(239, 68, 68, 0.2);
   border-radius: 0.75rem;
@@ -523,5 +664,34 @@ export default {
   .button-group .btn {
     width: 100%;
   }
+}
+
+.profile-picture-section {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.profile-picture {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-primary);
+  margin-bottom: 0.5rem;
+}
+
+.google-badge {
+  color: var(--accent-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
 }
 </style>

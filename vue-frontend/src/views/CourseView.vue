@@ -31,7 +31,7 @@
               ✅ Score: {{ score }} / {{ totalQuestions }}
             </span>
           </div>
-          
+
           <!-- Progress Bar -->
           <div class="progress-container">
             <div class="progress-header">
@@ -39,14 +39,19 @@
               <span class="progress-percentage">{{ progressPercentage }}%</span>
             </div>
             <div class="progress-bar">
-              <div 
-                class="progress-fill" 
-                :style="{ width: progressPercentage + '%' }"
-              ></div>
+              <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
             </div>
             <div class="progress-stats">
               <span class="stat-completed">{{ answeredQuestions.size }} completed</span>
               <span class="stat-remaining">{{ totalQuestions - answeredQuestions.size }} remaining</span>
+            </div>
+            <!-- Achievement Badges -->
+            <div class="badge-container" v-if="earnedBadges.length">
+              <span class="badge-label">Achievements:</span>
+              <span v-for="badge in earnedBadges" :key="badge.id" class="badge-item">
+                <img :src="badge.image" :alt="badge.label" class="badge-img" />
+                <span class="badge-text">{{ badge.label }}</span>
+              </span>
             </div>
           </div>
 
@@ -90,12 +95,8 @@
         </div>
 
         <!-- All Sections (progressively revealed question by question) -->
-        <div 
-          v-for="(section, sectionIndex) in visibleSections" 
-          :key="`section-${sectionIndex}`"
-          :id="`section-${sectionIndex}`"
-          class="section-card card"
-        >
+        <div v-for="(section, sectionIndex) in visibleSections" :key="`section-${sectionIndex}`"
+          :id="`section-${sectionIndex}`" class="section-card card">
           <div class="section-header">
             <h2 class="section-title">{{ section.section_title }}</h2>
             <div class="section-progress">
@@ -113,52 +114,34 @@
           <!-- Quiz Questions (progressive reveal) -->
           <div v-if="section.quiz && section.quiz.length > 0" class="quiz-section">
             <h3 class="quiz-title">Quiz Time! 🎯</h3>
-            
-            <div 
-              v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, section.quiz, 'main')" 
-              :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
-              :id="`question-${sectionIndex}-main-${qIndex}`"
-              class="question-card"
-            >
-              <QuizQuestion
-                :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`"
-                :question="question"
-                :questionIndex="qIndex"
-                :sectionIndex="sectionIndex"
+
+            <div v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, section.quiz, 'main')"
+              :key="`q-${sectionIndex}-${qIndex}-${quizKey}`" :id="`question-${sectionIndex}-main-${qIndex}`"
+              class="question-card">
+              <QuizQuestion :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`" :question="question"
+                :questionIndex="qIndex" :sectionIndex="sectionIndex"
                 :savedAnswerData="getSavedAnswerData(sectionIndex, null, qIndex)"
-                @answer-submitted="handleAnswerSubmit"
-              />
+                @answer-submitted="handleAnswerSubmit" />
             </div>
           </div>
 
           <!-- Subsections (progressive reveal) -->
           <div v-if="section.subsections && section.subsections.length > 0" class="subsections">
-            <div 
-              v-for="(subsection, subIndex) in getVisibleSubsections(sectionIndex, section.subsections)"
-              :key="`sub-${sectionIndex}-${subIndex}`"
-              :id="`subsection-${sectionIndex}-${subIndex}`"
-              class="subsection-card"
-            >
+            <div v-for="(subsection, subIndex) in getVisibleSubsections(sectionIndex, section.subsections)"
+              :key="`sub-${sectionIndex}-${subIndex}`" :id="`subsection-${sectionIndex}-${subIndex}`"
+              class="subsection-card">
               <h4 v-if="!reviewMode" class="subsection-title">{{ subsection.section_title }}</h4>
               <p v-if="!reviewMode" class="subsection-explanation">{{ subsection.explanation }}</p>
-              
+
               <!-- Subsection Quiz (progressive reveal) -->
               <div v-if="subsection.quiz && subsection.quiz.length > 0" class="quiz-section">
-                <div 
-                  v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, subsection.quiz, subIndex)" 
+                <div v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, subsection.quiz, subIndex)"
                   :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`"
-                  :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
-                  class="question-card"
-                >
-                  <QuizQuestion
-                    :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`"
-                    :question="question"
-                    :questionIndex="qIndex"
-                    :sectionIndex="sectionIndex"
-                    :subsectionIndex="subIndex"
+                  :id="`question-${sectionIndex}-${subIndex}-${qIndex}`" class="question-card">
+                  <QuizQuestion :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`" :question="question"
+                    :questionIndex="qIndex" :sectionIndex="sectionIndex" :subsectionIndex="subIndex"
                     :savedAnswerData="getSavedAnswerData(sectionIndex, subIndex, qIndex)"
-                    @answer-submitted="handleAnswerSubmit"
-                  />
+                    @answer-submitted="handleAnswerSubmit" />
                 </div>
               </div>
             </div>
@@ -170,7 +153,7 @@
           <div class="conclusion-icon">🎉</div>
           <h2 class="conclusion-title">Congratulations!</h2>
           <p class="conclusion-subtitle">You've completed the course</p>
-          
+
           <div class="conclusion-stats">
             <div class="stat-card">
               <div class="stat-value">{{ score }}</div>
@@ -184,14 +167,23 @@
               <div class="stat-value">{{ accuracyPercentage }}%</div>
               <div class="stat-label">Accuracy</div>
             </div>
+            <!-- Show earned badges in conclusion -->
+            <div class="stat-card badge-summary" v-if="earnedBadges.length">
+              <div class="stat-label">Achievements</div>
+              <div class="badge-grid">
+                <span v-for="badge in earnedBadges" :key="badge.id" class="badge-grid-item">
+                  <img :src="badge.image" :alt="badge.label" class="badge-img-large" />
+                </span>
+              </div>
+            </div>
           </div>
 
           <div class="conclusion-summary">
             <h3>Course Summary</h3>
             <p><strong>{{ course.course_title }}</strong></p>
             <p class="summary-text">
-              You've successfully completed all {{ course.sections.length }} sections 
-              and answered {{ totalQuestions }} questions with 
+              You've successfully completed all {{ course.sections.length }} sections
+              and answered {{ totalQuestions }} questions with
               <span :class="accuracyClass">{{ accuracyPercentage }}% accuracy</span>.
             </p>
             <p v-if="accuracyPercentage >= 80" class="summary-message success">
@@ -226,10 +218,10 @@
           <div class="confetti"></div>
           <div class="confetti"></div>
         </div>
-        
+
         <div class="conclusion-card review-comparison">
           <h2 class="conclusion-title">📊 Learning Progress Analysis</h2>
-          
+
           <div class="comparison-stats">
             <div class="comparison-row">
               <div class="comparison-column original">
@@ -242,13 +234,13 @@
                   {{ originalAccuracy }}% Accuracy
                 </div>
               </div>
-              
+
               <div class="comparison-arrow">
                 <span v-if="improvementPercentage > 0">→</span>
                 <span v-else-if="improvementPercentage < 0">↓</span>
                 <span v-else>=</span>
               </div>
-              
+
               <div class="comparison-column review">
                 <h3>Review Attempt</h3>
                 <div class="score-display">
@@ -260,7 +252,7 @@
                 </div>
               </div>
             </div>
-            
+
             <div class="improvement-summary">
               <div v-if="improvementPercentage > 0" class="improvement-message positive">
                 <span class="improvement-icon">🎉</span>
@@ -275,7 +267,8 @@
                 <div class="improvement-text">
                   <h4>Room for Growth</h4>
                   <p>Your score decreased by <strong>{{ Math.abs(improvementPercentage) }}%</strong></p>
-                  <p class="insight">Consider reviewing the material more carefully. Take your time with each question.</p>
+                  <p class="insight">Consider reviewing the material more carefully. Take your time with each question.
+                  </p>
                 </div>
               </div>
               <div v-else class="improvement-message neutral">
@@ -309,6 +302,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
 import QuizQuestion from '../components/QuizQuestion.vue'
+import { achievements } from '../config/achievements'
 
 export default {
   name: 'CourseView',
@@ -346,12 +340,12 @@ export default {
     // Calculate which sections should be visible
     const visibleSections = computed(() => {
       if (!course.value?.sections) return []
-      
+
       // In review mode, show all sections
       if (reviewMode.value) {
         return course.value.sections
       }
-      
+
       // Show sections up to currentSectionIndex + 1 (next incomplete section)
       return course.value.sections.slice(0, currentSectionIndex.value + 1)
     })
@@ -359,10 +353,10 @@ export default {
     // Check if a section is complete
     const isSectionComplete = (sectionIndex) => {
       if (!course.value?.sections) return false
-      
+
       const section = course.value.sections[sectionIndex]
       if (!section) return false
-      
+
       // Count questions in this section
       let sectionQuestionCount = section.quiz?.length || 0
       if (section.subsections) {
@@ -370,10 +364,10 @@ export default {
           sectionQuestionCount += subsection.quiz?.length || 0
         })
       }
-      
-      // Count answered questions in this section
+
+      // Count answered in Section
       let answeredInSection = 0
-      
+
       // Check main section questions
       if (section.quiz) {
         section.quiz.forEach((_, qIndex) => {
@@ -383,7 +377,7 @@ export default {
           }
         })
       }
-      
+
       // Check subsection questions
       if (section.subsections) {
         section.subsections.forEach((subsection, subIndex) => {
@@ -397,13 +391,13 @@ export default {
           }
         })
       }
-      
+
       return sectionQuestionCount > 0 && answeredInSection === sectionQuestionCount
     }
 
     const totalQuestions = computed(() => {
       if (!course.value?.sections) return 0
-      
+
       const countQuestions = (sections) => {
         let count = 0
         for (const section of sections) {
@@ -414,7 +408,7 @@ export default {
         }
         return count
       }
-      
+
       return countQuestions(course.value.sections)
     })
 
@@ -444,25 +438,25 @@ export default {
     // Progressive reveal: Show questions one at a time
     const getVisibleQuestions = (sectionIndex, questions, subsectionIndex) => {
       if (reviewMode.value || !questions) return questions
-      
+
       // Find the index of the first unanswered question
       let firstUnansweredIndex = -1
       for (let i = 0; i < questions.length; i++) {
-        const questionKey = subsectionIndex === 'main' 
+        const questionKey = subsectionIndex === 'main'
           ? `${sectionIndex}-main-${i}`
           : `${sectionIndex}-${subsectionIndex}-${i}`
-        
+
         if (!answeredQuestions.value.has(questionKey)) {
           firstUnansweredIndex = i
           break
         }
       }
-      
+
       // If all answered, show all questions
       if (firstUnansweredIndex === -1) {
         return questions
       }
-      
+
       // Show all answered questions + the first unanswered one
       return questions.slice(0, firstUnansweredIndex + 1)
     }
@@ -470,41 +464,41 @@ export default {
     // Progressive reveal: Show subsections one at a time
     const getVisibleSubsections = (sectionIndex, subsections) => {
       if (reviewMode.value || !subsections) return subsections
-      
+
       const section = course.value.sections[sectionIndex]
-      
+
       // First check if main section questions are complete
       const mainQuestionsComplete = !section.quiz || section.quiz.every((_, qIndex) => {
         const questionKey = `${sectionIndex}-main-${qIndex}`
         return answeredQuestions.value.has(questionKey)
       })
-      
+
       if (!mainQuestionsComplete) {
         return [] // Don't show subsections until main questions are done
       }
-      
+
       // Find the first incomplete subsection
       let firstIncompleteIndex = -1
       for (let i = 0; i < subsections.length; i++) {
         const subsection = subsections[i]
         if (!subsection.quiz) continue
-        
+
         const allAnswered = subsection.quiz.every((_, qIndex) => {
           const questionKey = `${sectionIndex}-${i}-${qIndex}`
           return answeredQuestions.value.has(questionKey)
         })
-        
+
         if (!allAnswered) {
           firstIncompleteIndex = i
           break
         }
       }
-      
+
       // If all complete, show all subsections
       if (firstIncompleteIndex === -1) {
         return subsections
       }
-      
+
       // Show all complete subsections + the first incomplete one
       return subsections.slice(0, firstIncompleteIndex + 1)
     }
@@ -543,7 +537,7 @@ export default {
       if (!result.success) {
         console.error('[CourseView] Load failed:', result.error)
         error.value = result.error
-        
+
         // If guest user and course not found, redirect to login
         if (!authStore.isAuthenticated) {
           console.log('[CourseView] Guest user with failed load - redirecting to login')
@@ -560,10 +554,10 @@ export default {
 
     const handleAnswerSubmit = async (data) => {
       const { isCorrect, sectionIndex, subsectionIndex, questionIndex, answer, userAnswer } = data
-      
+
       // Create unique key for this question
       const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
-      
+
       if (reviewMode.value) {
         // Review mode - track separately
         if (!reviewAnsweredQuestions.value.has(questionKey)) {
@@ -571,7 +565,7 @@ export default {
             reviewScore.value++
           }
           reviewAnsweredQuestions.value.add(questionKey)
-          
+
           // Check if review is complete
           if (reviewAnsweredQuestions.value.size === totalQuestions.value) {
             showReviewComparison.value = true
@@ -584,7 +578,7 @@ export default {
             score.value++
           }
           answeredQuestions.value.add(questionKey)
-          
+
           // Save the answer data for restoration
           answerData.value[questionKey] = {
             answer: answer,
@@ -594,17 +588,17 @@ export default {
 
           // Save progress after each answer
           await saveProgress()
-          
+
           // Auto-scroll to next question/subsection/section
           setTimeout(() => {
             const section = course.value.sections[sectionIndex]
-            
+
             // Determine what to show next
             if (subsectionIndex === null || subsectionIndex === undefined) {
               // We're in main section questions
               const mainQuestions = section.quiz || []
               const nextQuestionIndex = questionIndex + 1
-              
+
               if (nextQuestionIndex < mainQuestions.length) {
                 // Scroll to next main question
                 const nextQuestionEl = document.getElementById(`question-${sectionIndex}-main-${nextQuestionIndex}`)
@@ -634,7 +628,7 @@ export default {
               const subsection = section.subsections[subsectionIndex]
               const subsectionQuestions = subsection.quiz || []
               const nextQuestionIndex = questionIndex + 1
-              
+
               if (nextQuestionIndex < subsectionQuestions.length) {
                 // Scroll to next subsection question
                 const nextQuestionEl = document.getElementById(`question-${sectionIndex}-${subsectionIndex}-${nextQuestionIndex}`)
@@ -669,17 +663,17 @@ export default {
       // Save original scores
       originalScore.value = score.value
       originalAnsweredCount.value = answeredQuestions.value.size
-      
+
       // Enter review mode - quiz only
       reviewMode.value = true
       reviewScore.value = 0
       reviewAnsweredQuestions.value = new Set()
       showReviewComparison.value = false
       endedEarly.value = false // Reset ended early flag
-      
+
       // Force re-render of all QuizQuestion components to reset state
       quizKey.value++
-      
+
       // Reset to first section
       currentSectionIndex.value = 0
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -693,7 +687,7 @@ export default {
       reviewMode.value = false
       showReviewComparison.value = false
       endedEarly.value = false // Reset ended early flag
-      
+
       // Find the last incomplete section to return to
       let lastIncompleteIndex = 0
       for (let i = 0; i < course.value.sections.length; i++) {
@@ -739,16 +733,16 @@ export default {
 
     const completeAllQuestions = () => {
       if (!authStore.user?.isAdmin) return
-      
+
       // Mark all questions as correct
       score.value = totalQuestions.value
-      
+
       // Add all questions to answered set
       if (course.value?.sections) {
         const addAllQuestions = (sections, sectionIndex) => {
           sections.forEach((section, idx) => {
             const actualSectionIndex = sectionIndex !== undefined ? sectionIndex : idx
-            
+
             // Main section questions
             if (section.quiz) {
               section.quiz.forEach((_, qIndex) => {
@@ -756,7 +750,7 @@ export default {
                 answeredQuestions.value.add(questionKey)
               })
             }
-            
+
             // Subsection questions
             if (section.subsections) {
               section.subsections.forEach((subsection, subIdx) => {
@@ -770,10 +764,10 @@ export default {
             }
           })
         }
-        
+
         addAllQuestions(course.value.sections)
       }
-      
+
       adminMessage.value = `✅ Completed all ${totalQuestions.value} questions!`
       adminMessageType.value = 'success'
       setTimeout(() => { adminMessage.value = '' }, 3000)
@@ -781,19 +775,19 @@ export default {
 
     const resetProgress = () => {
       if (!authStore.user?.isAdmin) return
-      
+
       // Reset score and answered questions
       score.value = 0
       answeredQuestions.value.clear()
       currentSectionIndex.value = 0
-      
+
       // Clear saved progress
       const courseId = route.params.id
       if (courseId) {
         const progressKey = `course_progress_${courseId}`
         localStorage.removeItem(progressKey)
       }
-      
+
       adminMessage.value = '🔄 Progress reset successfully!'
       adminMessageType.value = 'success'
       setTimeout(() => { adminMessage.value = '' }, 3000)
@@ -802,7 +796,7 @@ export default {
     const saveProgress = async () => {
       const courseId = route.params.id
       if (!courseId) return
-      
+
       await courseStore.updateProgress(
         courseId,
         answeredQuestions.value,
@@ -815,32 +809,32 @@ export default {
     const loadSavedProgress = async () => {
       const courseId = route.params.id
       if (!courseId) return
-      
+
       const result = await courseStore.loadProgress(courseId)
-      
+
       if (result.success && result.progress) {
         const progress = result.progress
-        
+
         // Restore answered questions (convert array back to Set)
         if (progress.answered_questions && Array.isArray(progress.answered_questions)) {
           answeredQuestions.value = new Set(progress.answered_questions)
         }
-        
+
         // Restore score
         if (typeof progress.score === 'number') {
           score.value = progress.score
         }
-        
+
         // Restore current section index
         if (typeof progress.current_section_index === 'number') {
           currentSectionIndex.value = progress.current_section_index
         }
-        
+
         // Restore answer data
         if (progress.answer_data && typeof progress.answer_data === 'object') {
           answerData.value = progress.answer_data
         }
-        
+
         console.log('[CourseView] Loaded progress:', progress)
       }
     }
@@ -848,10 +842,10 @@ export default {
     const endCourseEarly = () => {
       // Save progress one final time
       saveProgress()
-      
+
       // Set flag to show conclusion
       endedEarly.value = true
-      
+
       // Show the conclusion screen
       // We'll scroll to bottom where conclusion appears
       setTimeout(() => {
@@ -863,6 +857,27 @@ export default {
       const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
       return answerData.value[questionKey] || null
     }
+
+    // Achievement Badges Logic
+    const earnedBadges = computed(() => {
+      const badges = []
+      if (course.value?.sections && isSectionComplete(0)) {
+        badges.push(achievements.find(a => a.id === 'first-section'))
+      }
+      if (course.value?.sections && course.value.sections.every((_, idx) => isSectionComplete(idx))) {
+        badges.push(achievements.find(a => a.id === 'all-sections'))
+      }
+      if (score.value === totalQuestions.value && totalQuestions.value > 0) {
+        badges.push(achievements.find(a => a.id === 'quiz-master'))
+      }
+      if (accuracyPercentage.value >= 80 && totalQuestions.value > 0) {
+        badges.push(achievements.find(a => a.id === 'accuracy-80'))
+      }
+      if (answeredQuestions.value.size > 0) {
+        badges.push(achievements.find(a => a.id === 'participation'))
+      }
+      return badges.filter(Boolean)
+    })
 
     return {
       loading,
@@ -902,7 +917,8 @@ export default {
       getVisibleQuestions,
       getVisibleSubsections,
       endCourseEarly,
-      getSavedAnswerData
+      getSavedAnswerData,
+      earnedBadges
     }
   }
 }
@@ -1166,6 +1182,7 @@ export default {
     transform: translateY(30px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -1207,6 +1224,7 @@ export default {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1231,9 +1249,12 @@ export default {
 }
 
 @keyframes bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-20px);
   }
@@ -1426,12 +1447,10 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%);
   animation: shimmer 2s infinite;
 }
 
@@ -1439,6 +1458,7 @@ export default {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -1626,45 +1646,103 @@ export default {
   margin-top: 0.5rem;
 }
 
+.badge-container {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge-label {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.badge-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.badge-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  margin-right: 0.25rem;
+}
+
+.badge-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 1rem;
+  justify-items: center;
+  margin-top: 1rem;
+}
+
+.badge-grid-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-img-large {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 768px) {
   .admin-buttons {
     flex-direction: column;
   }
-  
+
   .btn-admin,
   .btn-admin-danger {
     width: 100%;
   }
-  
+
   .progress-percentage {
     font-size: 1rem;
   }
-  
+
   .progress-bar {
     height: 1.25rem;
   }
-  
+
   .conclusion-section {
     margin-top: 1.5rem;
   }
-  
+
   .conclusion-title {
     font-size: 1.75rem;
   }
-  
+
   .conclusion-icon {
     font-size: 3rem;
   }
-  
+
   .conclusion-subtitle {
     font-size: 1rem;
   }
-  
+
   .conclusion-stats {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
-  
+
   /* Keep overlay styles for review comparison */
   .conclusion-overlay {
     padding: 1rem;
@@ -1673,50 +1751,50 @@ export default {
   .conclusion-content {
     max-height: 95vh;
   }
-  
+
   .conclusion-card {
     padding: 1.5rem 1rem;
   }
-  
+
   .stat-value {
     font-size: 2rem;
   }
-  
+
   .conclusion-actions {
     flex-direction: column;
   }
-  
+
   .conclusion-actions .btn {
     width: 100%;
   }
-  
+
   .comparison-row {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .comparison-arrow {
     transform: rotate(90deg);
     margin: 0.5rem 0;
   }
-  
+
   .score-number {
     font-size: 2rem;
   }
-  
+
   .score-total {
     font-size: 1.25rem;
   }
-  
+
   .improvement-message {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .improvement-icon {
     font-size: 2rem;
   }
-  
+
   .improvement-text h4 {
     font-size: 1rem;
   }
