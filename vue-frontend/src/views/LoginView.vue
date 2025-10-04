@@ -74,7 +74,7 @@
 
           <!-- OAuth Divider -->
           <div class="oauth-divider">
-            <span>Or continue with</span>
+            <span>Or</span>
           </div>
 
           <!-- Google Login Button -->
@@ -262,7 +262,7 @@
 
           <!-- OAuth Divider -->
           <div class="oauth-divider">
-            <span>Or continue with</span>
+            <span>Or</span>
           </div>
 
           <!-- Google Login Button -->
@@ -322,19 +322,9 @@
             ← Back to registration
           </button>
         </div>
-
-        <!-- OAuth Options (placeholder for future implementation) -->
-        <div class="oauth-section">
-          <div class="divider">
-            <span>Or continue with</span>
-          </div>
-          <button class="btn-oauth" disabled>
-            <span>🔒 Google OAuth (Coming Soon)</span>
-          </button>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script>
