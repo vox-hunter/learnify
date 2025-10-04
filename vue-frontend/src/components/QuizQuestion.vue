@@ -10,182 +10,95 @@
     </div>
 
     <!-- Multiple Choice -->
-    <div
-      v-if="isMultipleChoice"
-      class="options-container"
-    >
-      <div 
-        v-for="(option, index) in question.options" 
-        :key="index"
-        :class="['option', { 
-          selected: selectedAnswer === option,
-          correct: isAnswered && option === question.answer,
-          incorrect: isAnswered && selectedAnswer === option && option !== question.answer
-        }]"
-        @click="!isAnswered && selectAnswer(option)"
-      >
+    <div v-if="isMultipleChoice" class="options-container">
+      <div v-for="(option, index) in question.options" :key="index" :class="['option', {
+        selected: selectedAnswer === option,
+        correct: isAnswered && option === question.answer,
+        incorrect: isAnswered && selectedAnswer === option && option !== question.answer
+      }]" @click="!isAnswered && selectAnswer(option)">
         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
         <span class="option-text">{{ option }}</span>
-        <span
-          v-if="isAnswered && option === question.answer"
-          class="option-icon"
-        >✓</span>
-        <span
-          v-if="isAnswered && selectedAnswer === option && option !== question.answer"
-          class="option-icon"
-        >✗</span>
+        <span v-if="isAnswered && option === question.answer" class="option-icon">✓</span>
+        <span v-if="isAnswered && selectedAnswer === option && option !== question.answer" class="option-icon">✗</span>
       </div>
     </div>
 
     <!-- True/False -->
-    <div
-      v-else-if="isTrueFalse"
-      class="options-container"
-    >
-      <div 
-        :class="['option', { 
-          selected: selectedAnswer === true,
-          correct: isAnswered && question.answer === true,
-          incorrect: isAnswered && selectedAnswer === true && question.answer !== true
-        }]"
-        @click="!isAnswered && selectAnswer(true)"
-      >
+    <div v-else-if="isTrueFalse" class="options-container">
+      <div :class="['option', {
+        selected: selectedAnswer === true,
+        correct: isAnswered && question.answer === true,
+        incorrect: isAnswered && selectedAnswer === true && question.answer !== true
+      }]" @click="!isAnswered && selectAnswer(true)">
         <span class="option-text">✓ True</span>
-        <span
-          v-if="isAnswered && question.answer === true"
-          class="option-icon"
-        >✓</span>
+        <span v-if="isAnswered && question.answer === true" class="option-icon">✓</span>
       </div>
-      <div 
-        :class="['option', { 
-          selected: selectedAnswer === false,
-          correct: isAnswered && question.answer === false,
-          incorrect: isAnswered && selectedAnswer === false && question.answer !== false
-        }]"
-        @click="!isAnswered && selectAnswer(false)"
-      >
+      <div :class="['option', {
+        selected: selectedAnswer === false,
+        correct: isAnswered && question.answer === false,
+        incorrect: isAnswered && selectedAnswer === false && question.answer !== false
+      }]" @click="!isAnswered && selectAnswer(false)">
         <span class="option-text">✗ False</span>
-        <span
-          v-if="isAnswered && question.answer === false"
-          class="option-icon"
-        >✓</span>
+        <span v-if="isAnswered && question.answer === false" class="option-icon">✓</span>
       </div>
     </div>
 
     <!-- Fill in the Blank -->
-    <div
-      v-else-if="isFillInBlank"
-      class="answer-input-container"
-    >
-      <input
-        v-model="userAnswer"
-        type="text"
-        class="form-input"
-        :disabled="isAnswered"
-        placeholder="Type your answer here..."
-        @keyup.enter="submitFillInBlank"
-      >
-      <button 
-        v-if="!isAnswered" 
-        :disabled="!userAnswer.trim()"
-        class="btn btn-primary"
-        @click="submitFillInBlank"
-      >
+    <div v-else-if="isFillInBlank" class="answer-input-container">
+      <input v-model="userAnswer" type="text" class="form-input" :disabled="isAnswered"
+        placeholder="Type your answer here..." @keyup.enter="submitFillInBlank">
+      <button v-if="!isAnswered" :disabled="!userAnswer.trim()" class="btn btn-primary" @click="submitFillInBlank">
         Submit
       </button>
     </div>
 
     <!-- Short Answer -->
-    <div
-      v-else-if="isShortAnswer"
-      class="answer-input-container"
-    >
-      <textarea
-        v-model="userAnswer"
-        class="form-textarea"
-        :disabled="isAnswered || validating"
-        placeholder="Type your detailed answer here..."
-        rows="4"
-      />
-      <button 
-        v-if="!isAnswered" 
-        :disabled="!userAnswer.trim() || validating"
-        class="btn btn-primary"
-        @click="submitShortAnswer"
-      >
+    <div v-else-if="isShortAnswer" class="answer-input-container">
+      <textarea v-model="userAnswer" class="form-textarea" :disabled="isAnswered || validating"
+        placeholder="Type your detailed answer here..." rows="4" />
+      <button v-if="!isAnswered" :disabled="!userAnswer.trim() || validating" class="btn btn-primary"
+        @click="submitShortAnswer">
         {{ validating ? 'Validating...' : 'Submit' }}
       </button>
     </div>
 
     <!-- Matching -->
-    <div
-      v-else-if="isMatching"
-      class="matching-container"
-    >
+    <div v-else-if="isMatching" class="matching-container">
       <div class="matching-instructions">
         Match each item on the left with the correct answer on the right
       </div>
       <div class="matching-pairs">
-        <div 
-          v-for="(key, index) in matchingKeys" 
-          :key="index"
-          class="matching-row"
-        >
+        <div v-for="(key, index) in matchingKeys" :key="index" class="matching-row">
           <div class="matching-key">
             {{ key }}
           </div>
-          <select 
-            v-model="matchingAnswers[key]"
-            :disabled="isAnswered"
-            class="form-select matching-select"
-          >
+          <select v-model="matchingAnswers[key]" :disabled="isAnswered" class="form-select matching-select">
             <option value="">
               Select...
             </option>
-            <option 
-              v-for="(value, vIndex) in matchingValues" 
-              :key="vIndex"
-              :value="value"
-            >
+            <option v-for="(value, vIndex) in matchingValues" :key="vIndex" :value="value">
               {{ value }}
             </option>
           </select>
-          <span
-            v-if="isAnswered"
-            class="matching-result"
-          >
+          <span v-if="isAnswered" class="matching-result">
             {{ matchingAnswers[key] === question.answer[key] ? '✓' : '✗' }}
           </span>
         </div>
       </div>
-      <button 
-        v-if="!isAnswered" 
-        :disabled="!isMatchingComplete"
-        class="btn btn-primary"
-        @click="submitMatching"
-      >
+      <button v-if="!isAnswered" :disabled="!isMatchingComplete" class="btn btn-primary" @click="submitMatching">
         Submit
       </button>
     </div>
 
     <!-- Feedback -->
-    <div
-      v-if="isAnswered"
-      :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']"
-    >
+    <div v-if="isAnswered" :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']">
       <div class="feedback-header">
         {{ isCorrect ? '✅ Correct!' : '❌ Incorrect' }}
       </div>
-      <div
-        v-if="explanation"
-        class="feedback-text"
-      >
+      <div v-if="explanation" class="feedback-text">
         {{ explanation }}
       </div>
-      <div
-        v-if="!isCorrect && expectedAnswer"
-        class="correct-answer"
-      >
+      <div v-if="!isCorrect && expectedAnswer" class="correct-answer">
         <strong>Correct answer:</strong> {{ formatAnswer(expectedAnswer) }}
       </div>
     </div>
@@ -224,7 +137,7 @@ export default {
   setup(props, { emit }) {
     // Initialize from saved data if available
     const savedData = props.savedAnswerData
-    
+
     const selectedAnswer = ref(savedData?.answer || null)
     const userAnswer = ref(savedData?.userAnswer || '')
     const matchingAnswers = ref(savedData?.answer && typeof savedData.answer === 'object' ? { ...savedData.answer } : {})
@@ -298,7 +211,7 @@ export default {
       if (typeof answer === 'object' && !Array.isArray(answer)) {
         return JSON.stringify(answer, null, 2)
       }
-      
+
       // For fill-in-the-blank with multiple answers, format nicely
       const answerStr = String(answer)
       if (isFillInBlank.value && answerStr.includes(',')) {
@@ -307,7 +220,7 @@ export default {
           return `Any of: ${answers.join(', ')}`
         }
       }
-      
+
       return answerStr
     }
 
@@ -318,30 +231,30 @@ export default {
 
     const submitFillInBlank = () => {
       if (!userAnswer.value.trim()) return
-      
+
       // Handle multiple correct answers separated by commas
       const correctAnswers = String(props.question.answer)
         .split(',')
         .map(ans => ans.trim().toLowerCase())
-      
+
       const userAnswerLower = userAnswer.value.trim().toLowerCase()
       const correct = correctAnswers.includes(userAnswerLower)
-      
+
       checkAnswer(userAnswer.value, correct)
     }
 
     const submitShortAnswer = async () => {
       if (!userAnswer.value.trim()) return
-      
+
       validating.value = true
-      
+
       try {
         const response = await api.post('/quiz/validate-answer', {
           question: props.question.question,
           user_answer: userAnswer.value,
           expected_answer: String(props.question.answer)
         })
-        
+
         const correct = response.data.is_correct
         explanation.value = response.data.explanation
         checkAnswer(userAnswer.value, correct)
@@ -359,7 +272,7 @@ export default {
 
     const submitMatching = () => {
       if (!isMatchingComplete.value) return
-      
+
       let allCorrect = true
       for (const key of matchingKeys.value) {
         if (matchingAnswers.value[key] !== props.question.answer[key]) {
@@ -367,13 +280,13 @@ export default {
           break
         }
       }
-      
+
       checkAnswer(matchingAnswers.value, allCorrect)
     }
 
     const checkAnswer = (answer, correctOverride = null) => {
       let correct = correctOverride
-      
+
       if (correct === null) {
         // Determine correctness based on question type
         if (isMultipleChoice.value || isTrueFalse.value) {
@@ -386,11 +299,11 @@ export default {
           correct = correctAnswers.includes(String(answer).toLowerCase().trim())
         }
       }
-      
+
       isCorrect.value = correct
       isAnswered.value = true
       expectedAnswer.value = props.question.answer
-      
+
       // Emit result to parent with answer data for saving
       emit('answer-submitted', {
         isCorrect: correct,
@@ -413,7 +326,7 @@ export default {
         explanation.value = ''
         expectedAnswer.value = null
         validating.value = false
-        
+
         // Initialize matching answers if needed
         if (isMatching.value && props.question.answer) {
           matchingAnswers.value = Object.keys(props.question.answer).reduce((acc, key) => {
@@ -682,9 +595,11 @@ export default {
   0% {
     transform: scale(0);
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
   }
@@ -702,6 +617,7 @@ export default {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

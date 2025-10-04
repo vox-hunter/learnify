@@ -4,11 +4,7 @@
       <!-- Hero Section -->
       <section class="hero">
         <div class="hero-logo">
-          <img
-            src="/logo.png"
-            alt="AI Loom"
-            class="logo-large"
-          >
+          <img src="/logo.png" alt="AI Loom" class="logo-large">
         </div>
         <h1 class="hero-title">
           AI Loom
@@ -29,50 +25,27 @@
 
         <!-- Input Method Tabs -->
         <div class="tabs">
-          <button 
-            :class="['tab', { active: inputMethod === 'upload' }]"
-            @click="inputMethod = 'upload'"
-          >
+          <button :class="['tab', { active: inputMethod === 'upload' }]" @click="inputMethod = 'upload'">
             📤 Upload File
           </button>
-          <button 
-            :class="['tab', { active: inputMethod === 'url' }]"
-            @click="inputMethod = 'url'"
-          >
+          <button :class="['tab', { active: inputMethod === 'url' }]" @click="inputMethod = 'url'">
             🔗 Provide URL
           </button>
         </div>
 
         <!-- Upload Method -->
-        <div
-          v-if="inputMethod === 'upload'"
-          class="input-section"
-        >
+        <div v-if="inputMethod === 'upload'" class="input-section">
           <div class="file-upload-area">
-            <input
-              id="file-upload"
-              ref="fileInput"
-              type="file"
-              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-              class="file-input"
-              @change="handleFileChange"
-            >
-            <label
-              for="file-upload"
-              class="file-upload-label"
-            >
+            <input id="file-upload" ref="fileInput" type="file"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf" class="file-input"
+              @change="handleFileChange">
+            <label for="file-upload" class="file-upload-label">
               <div class="upload-icon">📄</div>
-              <div
-                v-if="!selectedFile"
-                class="upload-text"
-              >
+              <div v-if="!selectedFile" class="upload-text">
                 <p class="upload-title">Click to upload or drag and drop</p>
                 <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
               </div>
-              <div
-                v-else
-                class="selected-file"
-              >
+              <div v-else class="selected-file">
                 <p class="file-name">{{ selectedFile.name }}</p>
                 <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
               </div>
@@ -81,99 +54,65 @@
         </div>
 
         <!-- URL Method -->
-        <div
-          v-if="inputMethod === 'url'"
-          class="input-section"
-        >
+        <div v-if="inputMethod === 'url'" class="input-section">
           <div class="form-group">
             <label class="form-label">PDF URL</label>
-            <input
-              v-model="pdfUrl"
-              type="url"
-              class="form-input"
-              placeholder="https://example.com/document.pdf"
-            >
+            <input v-model="pdfUrl" type="url" class="form-input" placeholder="https://example.com/document.pdf">
           </div>
         </div>
 
         <!-- Error Message -->
-        <div
-          v-if="error"
-          class="alert alert-error"
-        >
+        <div v-if="error" class="alert alert-error">
           {{ error }}
         </div>
 
         <!-- Progress -->
-        <div
-          v-if="generating"
-          class="progress-section"
-        >
+        <div v-if="generating" class="progress-section">
           <div class="progress-header">
             <span class="progress-title">⚡ Generating Your Course</span>
             <span class="progress-percentage">{{ progress }}%</span>
           </div>
-          
+
           <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :style="{ width: progress + '%' }"
-            />
+            <div class="progress-fill" :style="{ width: progress + '%' }" />
           </div>
-          
+
           <!-- Status Steps -->
           <div class="status-steps">
-            <div 
-              v-for="(step, index) in generationSteps" 
-              :key="index"
-              class="status-step"
-              :class="{ 
-                'active': currentStep === index, 
-                'completed': currentStep > index 
-              }"
-            >
+            <div v-for="(step, index) in generationSteps" :key="index" class="status-step" :class="{
+              'active': currentStep === index,
+              'completed': currentStep > index
+            }">
               <div class="step-icon">
                 <span v-if="currentStep > index">✓</span>
-                <span
-                  v-else-if="currentStep === index"
-                  class="spinner-small"
-                />
+                <span v-else-if="currentStep === index" class="spinner-small" />
                 <span v-else>{{ index + 1 }}</span>
               </div>
               <div class="step-content">
                 <div class="step-title">
                   {{ step.title }}
                 </div>
-                <div
-                  v-if="currentStep === index"
-                  class="step-description"
-                >
+                <div v-if="currentStep === index" class="step-description">
                   {{ step.description }}
                 </div>
               </div>
             </div>
           </div>
-          
+
           <p class="progress-text">
             {{ statusMessage }}
           </p>
         </div>
 
         <!-- Generate Button -->
-        <button
-          :disabled="generating || (!selectedFile && !pdfUrl)"
-          class="btn btn-primary btn-generate"
-          @click="generateCourse"
-        >
+        <button :disabled="generating || (!selectedFile && !pdfUrl)" class="btn btn-primary btn-generate"
+          @click="generateCourse">
           {{ generating ? 'Generating...' : '🚀 Generate Course' }}
         </button>
       </div>
 
       <!-- Generated Course Display -->
-      <div
-        v-if="generatedCourse"
-        class="course-preview card"
-      >
+      <div v-if="generatedCourse" class="course-preview card">
         <h2 class="section-title">
           Course Generated Successfully! 🎉
         </h2>
@@ -181,26 +120,21 @@
           {{ generatedCourse.course_title }}
         </h3>
         <p class="course-info">
-          {{ generatedCourse.sections?.length || 0 }} sections with 
+          {{ generatedCourse.sections?.length || 0 }} sections with
           {{ totalQuestions }} questions
         </p>
-        
+
         <div class="course-actions">
-          <button
-            class="btn btn-primary"
-            @click="startCourse"
-          >
+          <button class="btn btn-primary" @click="startCourse">
             ▶️ Start Learning
           </button>
         </div>
       </div>
 
       <!-- Guest User Limit Warning -->
-      <div
-        v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2"
-        class="alert alert-warning"
-      >
-        <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{ courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
+      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" class="alert alert-warning">
+        <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{
+          courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
         <p v-if="courseStore.remainingGuestCourses === 0">
           You've reached the limit of 2 saved courses. Please <router-link to="/login">
             log in
@@ -248,7 +182,7 @@ export default {
 
     const totalQuestions = computed(() => {
       if (!generatedCourse.value?.sections) return 0
-      
+
       const countQuestions = (sections) => {
         let count = 0
         for (const section of sections) {
@@ -259,7 +193,7 @@ export default {
         }
         return count
       }
-      
+
       return countQuestions(generatedCourse.value.sections)
     })
 
@@ -284,10 +218,10 @@ export default {
           'text/markdown',
           'application/rtf'
         ]
-        
+
         const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.pptx', '.ppt', '.xlsx', '.xls', '.md', '.rtf']
         const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
-        
+
         if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
           error.value = 'File type not supported. Please upload PDF, Word, PowerPoint, Excel, or Text files.'
           selectedFile.value = null
@@ -323,14 +257,14 @@ export default {
 
       try {
         let result
-        
+
         // Step 0: Uploading
         updateProgress(0, 10, 'Uploading your document...')
         await new Promise(resolve => setTimeout(resolve, 500))
-        
+
         // Step 1: Processing
         updateProgress(1, 25, 'Extracting and analyzing content...')
-        
+
         if (inputMethod.value === 'upload' && selectedFile.value) {
           result = await courseStore.generateCourse(selectedFile.value)
         } else if (inputMethod.value === 'url' && pdfUrl.value) {
@@ -342,11 +276,11 @@ export default {
         // Step 2: Generating
         updateProgress(2, 50, 'Creating course structure...')
         await new Promise(resolve => setTimeout(resolve, 800))
-        
+
         // Step 3: Quiz Creation
         updateProgress(3, 75, 'Generating quiz questions...')
         await new Promise(resolve => setTimeout(resolve, 800))
-        
+
         // Step 4: Finalizing
         updateProgress(4, 95, 'Finalizing your course...')
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -355,7 +289,7 @@ export default {
           progress.value = 100
           statusMessage.value = '✨ Course generated successfully!'
           generatedCourse.value = result.course
-          
+
           // Reset form
           selectedFile.value = null
           pdfUrl.value = ''
@@ -464,9 +398,12 @@ export default {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-10px);
   }
@@ -649,12 +586,10 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%);
   animation: shimmer 2s infinite;
 }
 
@@ -662,6 +597,7 @@ export default {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -727,9 +663,12 @@ export default {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.05);
   }
@@ -771,6 +710,7 @@ export default {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -798,6 +738,7 @@ export default {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
