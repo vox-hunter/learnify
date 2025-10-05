@@ -10,7 +10,10 @@
       <!-- Error State -->
       <div v-else-if="error" class="alert alert-error">
         {{ error }}
-        <button class="btn btn-secondary mt-2" @click="$router.push('/courses')">
+        <button
+          class="btn btn-secondary mt-2"
+          @click="$router.push('/courses')"
+        >
           Back to Courses
         </button>
       </div>
@@ -18,11 +21,12 @@
       <!-- Course Content -->
       <div v-else-if="course" class="course-content">
         <!-- Course Overview Screen -->
-        <div v-if="showOverview && useStepFlow && !reviewMode" class="overview-screen">
+        <div
+          v-if="showOverview && useStepFlow && !reviewMode"
+          class="overview-screen"
+        >
           <div class="overview-card card">
-            <div class="overview-icon">
-              📚
-            </div>
+            <div class="overview-icon">📚</div>
             <h1 class="overview-title">
               {{ course.course_title }}
             </h1>
@@ -32,25 +36,21 @@
                 <div class="stat-value">
                   {{ course.sections?.length || 0 }}
                 </div>
-                <div class="stat-label">
-                  Sections
-                </div>
+                <div class="stat-label">Sections</div>
               </div>
               <div class="stat-box">
                 <div class="stat-value">
                   {{ totalQuestions }}
                 </div>
-                <div class="stat-label">
-                  Questions
-                </div>
+                <div class="stat-label">Questions</div>
               </div>
               <div v-if="hasProgress" class="stat-box">
                 <div class="stat-value">
-                  {{ Math.round((answeredQuestions.size / totalQuestions) * 100) }}%
+                  {{
+                    Math.round((answeredQuestions.size / totalQuestions) * 100)
+                  }}%
                 </div>
-                <div class="stat-label">
-                  Completed
-                </div>
+                <div class="stat-label">Completed</div>
               </div>
             </div>
 
@@ -60,7 +60,10 @@
                 <span class="badge-icon">⏱️</span>
                 <div class="badge-content">
                   <h3>Resume Your Progress</h3>
-                  <p>You've already answered {{ answeredQuestions.size }} out of {{ totalQuestions }} questions</p>
+                  <p>
+                    You've already answered {{ answeredQuestions.size }} out of
+                    {{ totalQuestions }} questions
+                  </p>
                   <p class="score-display">
                     Score: <strong>{{ score }} / {{ totalQuestions }}</strong>
                   </p>
@@ -69,11 +72,15 @@
             </div>
 
             <div class="overview-actions">
-              <button v-if="hasProgress" class="btn btn-secondary" @click="startCourseFromBeginning">
+              <button
+                v-if="hasProgress"
+                class="btn btn-secondary"
+                @click="startCourseFromBeginning"
+              >
                 🔄 Start from Beginning
               </button>
               <button class="btn btn-primary" @click="startCourse">
-                {{ hasProgress ? '▶️ Continue' : '🚀 Start Course' }}
+                {{ hasProgress ? "▶️ Continue" : "🚀 Start Course" }}
               </button>
             </div>
           </div>
@@ -82,49 +89,41 @@
         <!-- Course Conclusion (shows when course is complete) -->
         <div v-else-if="showConclusion" class="conclusion-wrapper">
           <div class="conclusion-section card">
-            <div class="conclusion-icon">
-              🎉
-            </div>
-            <h2 class="conclusion-title">
-              Congratulations!
-            </h2>
-            <p class="conclusion-subtitle">
-              You've completed the course
-            </p>
+            <div class="conclusion-icon">🎉</div>
+            <h2 class="conclusion-title">Congratulations!</h2>
+            <p class="conclusion-subtitle">You've completed the course</p>
 
             <div class="conclusion-stats">
               <div class="stat-card">
                 <div class="stat-value">
                   {{ score }}
                 </div>
-                <div class="stat-label">
-                  Correct Answers
-                </div>
+                <div class="stat-label">Correct Answers</div>
               </div>
               <div class="stat-card">
                 <div class="stat-value">
                   {{ totalQuestions }}
                 </div>
-                <div class="stat-label">
-                  Total Questions
-                </div>
+                <div class="stat-label">Total Questions</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">
-                  {{ accuracyPercentage }}%
-                </div>
-                <div class="stat-label">
-                  Accuracy
-                </div>
+                <div class="stat-value">{{ accuracyPercentage }}%</div>
+                <div class="stat-label">Accuracy</div>
               </div>
               <!-- Show earned badges in conclusion -->
               <div v-if="earnedBadges.length" class="stat-card badge-summary">
-                <div class="stat-label">
-                  Achievements
-                </div>
+                <div class="stat-label">Achievements</div>
                 <div class="badge-grid">
-                  <span v-for="badge in earnedBadges" :key="badge.id" class="badge-grid-item">
-                    <img :src="badge.image" :alt="badge.label" class="badge-img-large">
+                  <span
+                    v-for="badge in earnedBadges"
+                    :key="badge.id"
+                    class="badge-grid-item"
+                  >
+                    <img
+                      :src="badge.image"
+                      :alt="badge.label"
+                      class="badge-img-large"
+                    />
                   </span>
                 </div>
               </div>
@@ -132,20 +131,33 @@
 
             <div class="conclusion-summary">
               <h3>Course Summary</h3>
-              <p><strong>{{ course.course_title }}</strong></p>
+              <p>
+                <strong>{{ course.course_title }}</strong>
+              </p>
               <p class="summary-text">
-                You've successfully completed all {{ course.sections.length }} sections
-                and answered {{ totalQuestions }} questions with
-                <span :class="accuracyClass">{{ accuracyPercentage }}% accuracy</span>.
+                You've successfully completed all
+                {{ course.sections.length }} sections and answered
+                {{ totalQuestions }} questions with
+                <span :class="accuracyClass"
+                  >{{ accuracyPercentage }}% accuracy</span
+                >.
               </p>
-              <p v-if="accuracyPercentage >= 80" class="summary-message success">
-                🌟 Excellent work! You have a strong understanding of the material.
+              <p
+                v-if="accuracyPercentage >= 80"
+                class="summary-message success"
+              >
+                🌟 Excellent work! You have a strong understanding of the
+                material.
               </p>
-              <p v-else-if="accuracyPercentage >= 60" class="summary-message good">
+              <p
+                v-else-if="accuracyPercentage >= 60"
+                class="summary-message good"
+              >
                 👍 Good job! You have a solid grasp of most concepts.
               </p>
               <p v-else class="summary-message needs-review">
-                📚 Consider reviewing the material to strengthen your understanding.
+                📚 Consider reviewing the material to strengthen your
+                understanding.
               </p>
             </div>
 
@@ -162,23 +174,32 @@
 
         <!-- Step Flow Mode -->
         <div v-else-if="useStepFlow && !reviewMode">
-          <div ref="stepFlowContainer" class="step-flow" tabindex="0" @keydown.enter="handleStepEnterKey">
+          <div
+            ref="stepFlowContainer"
+            class="step-flow"
+            tabindex="0"
+            @keydown.enter="handleStepEnterKey"
+          >
             <!-- Progress Bar at Top -->
             <div class="progress-bar-top">
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: stepFlowProgressPercentage + '%' }" />
+                <div
+                  class="progress-fill"
+                  :style="{ width: stepFlowProgressPercentage + '%' }"
+                />
               </div>
               <div class="progress-text">
-                <span>{{ answeredQuestions.size }} / {{ totalQuestions }} questions answered</span>
+                <span
+                  >{{ answeredQuestions.size }} / {{ totalQuestions }} questions
+                  answered</span
+                >
                 <span class="score-text">Score: {{ score }}</span>
               </div>
             </div>
 
             <!-- Admin Controls in Step Flow -->
             <div v-if="authStore.user?.isAdmin" class="admin-controls-stepflow">
-              <h3 class="admin-title">
-                🛠️ Admin Debug Controls
-              </h3>
+              <h3 class="admin-title">🛠️ Admin Debug Controls</h3>
               <div class="admin-buttons">
                 <button class="btn btn-admin" @click="completeAllQuestions">
                   ✅ Complete All Questions
@@ -187,13 +208,19 @@
                   🔄 Reset All Progress
                 </button>
               </div>
-              <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
+              <div
+                v-if="adminMessage"
+                :class="['admin-message', adminMessageType]"
+              >
                 {{ adminMessage }}
               </div>
             </div>
 
             <!-- End Course Early Button (hidden in review mode) -->
-            <div v-if="answeredQuestions.size > 0 && !reviewMode" class="end-early-container">
+            <div
+              v-if="answeredQuestions.size > 0 && !reviewMode"
+              class="end-early-container"
+            >
               <button class="btn-end-early" @click="endCourseEarly">
                 🏁 End Course Early
               </button>
@@ -202,15 +229,27 @@
             <div class="step-container">
               <!-- Render all revealed steps up to currentStepIndex -->
               <transition-group name="fade" tag="div" class="steps-list">
-                <div v-for="(step, idx) in courseSteps.slice(0, currentStepIndex + 1)" :key="`step-${idx}`"
-                  :id="`step-${idx}`" class="step-card">
+                <div
+                  v-for="(step, idx) in courseSteps.slice(
+                    0,
+                    currentStepIndex + 1,
+                  )"
+                  :key="`step-${idx}`"
+                  :id="`step-${idx}`"
+                  class="step-card"
+                >
                   <!-- Explanation Block -->
-                  <div v-if="step.type === 'explanation'" class="explanation-step">
+                  <div
+                    v-if="step.type === 'explanation'"
+                    class="explanation-step"
+                  >
                     <div class="step-header">
                       <h2 class="step-title">
                         {{ step.title }}
                       </h2>
-                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
+                      <span class="step-indicator"
+                        >{{ idx + 1 }} / {{ courseSteps.length }}</span
+                      >
                     </div>
                     <div class="explanation-text">
                       <p>{{ step.content }}</p>
@@ -218,24 +257,50 @@
                   </div>
 
                   <!-- Question Block -->
-                  <div v-else-if="step.type === 'question'" class="question-step">
+                  <div
+                    v-else-if="step.type === 'question'"
+                    class="question-step"
+                  >
                     <div class="step-header">
                       <h3 class="step-title">
                         Question {{ getQuestionDisplayNumber(idx) }}
                       </h3>
-                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
+                      <span class="step-indicator"
+                        >{{ idx + 1 }} / {{ courseSteps.length }}</span
+                      >
                     </div>
-                    <QuizQuestion :question="step.question" :question-index="step.questionIndex"
-                      :section-index="step.sectionIndex" :subsection-index="step.subsectionIndex"
-                      :saved-answer-data="step.savedAnswerData" @answer-submitted="handleStepFlowAnswerSubmit" />
+                    <QuizQuestion
+                      :question="step.question"
+                      :question-index="step.questionIndex"
+                      :section-index="step.sectionIndex"
+                      :subsection-index="step.subsectionIndex"
+                      :saved-answer-data="step.savedAnswerData"
+                      @answer-submitted="handleStepFlowAnswerSubmit"
+                    />
                   </div>
 
                   <!-- Per-step Navigation Controls (button sits at bottom of each step) -->
                   <div class="navigation-controls per-step centered">
-                    <button class="btn-continue" :class="{ 'pulse': showContinueHint && idx === currentStepIndex }"
-                      :disabled="idx !== currentStepIndex || !canProceedForStep(idx)"
-                      @click="idx === currentStepIndex && nextStep()">
-                      {{ idx === courseSteps.length - 1 ? 'Finish' : (idx === currentStepIndex ? (isLastStep ? 'Finish' : 'Continue') : 'Continue') }} →
+                    <button
+                      class="btn-continue"
+                      :class="{
+                        pulse: showContinueHint && idx === currentStepIndex,
+                      }"
+                      :disabled="
+                        idx !== currentStepIndex || !canProceedForStep(idx)
+                      "
+                      @click="idx === currentStepIndex && nextStep()"
+                    >
+                      {{
+                        idx === courseSteps.length - 1
+                          ? "Finish"
+                          : idx === currentStepIndex
+                            ? isLastStep
+                              ? "Finish"
+                              : "Continue"
+                            : "Continue"
+                      }}
+                      →
                     </button>
                   </div>
                 </div>
@@ -255,9 +320,7 @@
               <span class="meta-item">
                 📚 {{ course.sections?.length || 0 }} Sections
               </span>
-              <span class="meta-item">
-                ❓ {{ totalQuestions }} Questions
-              </span>
+              <span class="meta-item"> ❓ {{ totalQuestions }} Questions </span>
               <span class="meta-item">
                 ✅ Score: {{ score }} / {{ totalQuestions }}
               </span>
@@ -267,41 +330,59 @@
             <div class="progress-container">
               <div class="progress-header">
                 <span class="progress-label">Course Progress</span>
-                <span class="progress-percentage">{{ progressPercentage }}%</span>
+                <span class="progress-percentage"
+                  >{{ progressPercentage }}%</span
+                >
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: progressPercentage + '%' }" />
+                <div
+                  class="progress-fill"
+                  :style="{ width: progressPercentage + '%' }"
+                />
               </div>
               <div class="progress-stats">
-                <span class="stat-completed">{{ answeredQuestions.size }} completed</span>
-                <span class="stat-remaining">{{ totalQuestions - answeredQuestions.size }} remaining</span>
+                <span class="stat-completed"
+                  >{{ answeredQuestions.size }} completed</span
+                >
+                <span class="stat-remaining"
+                  >{{ totalQuestions - answeredQuestions.size }} remaining</span
+                >
               </div>
               <!-- Achievement Badges -->
               <div v-if="earnedBadges.length" class="badge-container">
                 <span class="badge-label">Achievements:</span>
-                <span v-for="badge in earnedBadges" :key="badge.id" class="badge-item">
-                  <img :src="badge.image" :alt="badge.label" class="badge-img">
+                <span
+                  v-for="badge in earnedBadges"
+                  :key="badge.id"
+                  class="badge-item"
+                >
+                  <img
+                    :src="badge.image"
+                    :alt="badge.label"
+                    class="badge-img"
+                  />
                   <span class="badge-text">{{ badge.label }}</span>
                 </span>
               </div>
             </div>
 
             <!-- End Course Button (hidden in review mode) -->
-            <div v-if="!showConclusion && answeredQuestions.size > 0 && !reviewMode" class="end-course-section">
+            <div
+              v-if="
+                !showConclusion && answeredQuestions.size > 0 && !reviewMode
+              "
+              class="end-course-section"
+            >
               <button class="btn btn-secondary" @click="endCourseEarly">
                 🏁 End Course Early
               </button>
-              <p class="end-course-hint">
-                Save your progress and view results
-              </p>
+              <p class="end-course-hint">Save your progress and view results</p>
             </div>
           </div>
 
           <!-- Admin Controls (only visible to admin) -->
           <div v-if="authStore.user?.isAdmin" class="admin-controls card">
-            <h3 class="admin-title">
-              🛠️ Admin Debug Controls
-            </h3>
+            <h3 class="admin-title">🛠️ Admin Debug Controls</h3>
             <div class="admin-buttons">
               <button class="btn btn-admin" @click="completeAllQuestions">
                 ✅ Complete All Questions
@@ -310,7 +391,10 @@
                 🔄 Reset All Progress
               </button>
             </div>
-            <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
+            <div
+              v-if="adminMessage"
+              :class="['admin-message', adminMessageType]"
+            >
               {{ adminMessage }}
             </div>
           </div>
@@ -321,7 +405,10 @@
               <span class="review-icon">🔄</span>
               <div class="review-text">
                 <h3>Review Mode - Quiz Only</h3>
-                <p>Test your knowledge without content hints. Answer all questions to see your improvement!</p>
+                <p>
+                  Test your knowledge without content hints. Answer all
+                  questions to see your improvement!
+                </p>
               </div>
               <button class="btn btn-secondary btn-sm" @click="exitReviewMode">
                 Exit Review
@@ -330,8 +417,12 @@
           </div>
 
           <!-- All Sections (progressively revealed question by question) -->
-          <div v-for="(section, sectionIndex) in visibleSections" :id="`section-${sectionIndex}`"
-            :key="`section-${sectionIndex}`" class="section-card card">
+          <div
+            v-for="(section, sectionIndex) in visibleSections"
+            :id="`section-${sectionIndex}`"
+            :key="`section-${sectionIndex}`"
+            class="section-card card"
+          >
             <div class="section-header">
               <h2 class="section-title">
                 {{ section.section_title }}
@@ -339,7 +430,11 @@
               <div class="section-progress">
                 Section {{ sectionIndex + 1 }} of {{ course.sections.length }}
                 <span v-if="reviewMode" class="review-badge">📝 Review</span>
-                <span v-if="isSectionComplete(sectionIndex)" class="complete-badge">✓ Complete</span>
+                <span
+                  v-if="isSectionComplete(sectionIndex)"
+                  class="complete-badge"
+                  >✓ Complete</span
+                >
               </div>
             </div>
 
@@ -349,26 +444,49 @@
             </div>
 
             <!-- Quiz Questions (progressive reveal) -->
-            <div v-if="section.quiz && section.quiz.length > 0" class="quiz-section">
-              <h3 class="quiz-title">
-                Quiz Time! 🎯
-              </h3>
+            <div
+              v-if="section.quiz && section.quiz.length > 0"
+              class="quiz-section"
+            >
+              <h3 class="quiz-title">Quiz Time! 🎯</h3>
 
-              <div v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, section.quiz, 'main')"
-                :id="`question-${sectionIndex}-main-${qIndex}`" :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
-                class="question-card">
-                <QuizQuestion :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`" :question="question"
-                  :question-index="qIndex" :section-index="sectionIndex"
-                  :saved-answer-data="getSavedAnswerData(sectionIndex, null, qIndex)"
-                  @answer-submitted="handleAnswerSubmit" />
+              <div
+                v-for="(question, qIndex) in getVisibleQuestions(
+                  sectionIndex,
+                  section.quiz,
+                  'main',
+                )"
+                :id="`question-${sectionIndex}-main-${qIndex}`"
+                :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
+                class="question-card"
+              >
+                <QuizQuestion
+                  :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`"
+                  :question="question"
+                  :question-index="qIndex"
+                  :section-index="sectionIndex"
+                  :saved-answer-data="
+                    getSavedAnswerData(sectionIndex, null, qIndex)
+                  "
+                  @answer-submitted="handleAnswerSubmit"
+                />
               </div>
             </div>
 
             <!-- Subsections (progressive reveal) -->
-            <div v-if="section.subsections && section.subsections.length > 0" class="subsections">
-              <div v-for="(subsection, subIndex) in getVisibleSubsections(sectionIndex, section.subsections)"
-                :id="`subsection-${sectionIndex}-${subIndex}`" :key="`sub-${sectionIndex}-${subIndex}`"
-                class="subsection-card">
+            <div
+              v-if="section.subsections && section.subsections.length > 0"
+              class="subsections"
+            >
+              <div
+                v-for="(subsection, subIndex) in getVisibleSubsections(
+                  sectionIndex,
+                  section.subsections,
+                )"
+                :id="`subsection-${sectionIndex}-${subIndex}`"
+                :key="`sub-${sectionIndex}-${subIndex}`"
+                class="subsection-card"
+              >
                 <h4 v-if="!reviewMode" class="subsection-title">
                   {{ subsection.section_title }}
                 </h4>
@@ -377,14 +495,31 @@
                 </p>
 
                 <!-- Subsection Quiz (progressive reveal) -->
-                <div v-if="subsection.quiz && subsection.quiz.length > 0" class="quiz-section">
-                  <div v-for="(question, qIndex) in getVisibleQuestions(sectionIndex, subsection.quiz, subIndex)"
+                <div
+                  v-if="subsection.quiz && subsection.quiz.length > 0"
+                  class="quiz-section"
+                >
+                  <div
+                    v-for="(question, qIndex) in getVisibleQuestions(
+                      sectionIndex,
+                      subsection.quiz,
+                      subIndex,
+                    )"
                     :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
-                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`" class="question-card">
-                    <QuizQuestion :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`" :question="question"
-                      :question-index="qIndex" :section-index="sectionIndex" :subsection-index="subIndex"
-                      :saved-answer-data="getSavedAnswerData(sectionIndex, subIndex, qIndex)"
-                      @answer-submitted="handleAnswerSubmit" />
+                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`"
+                    class="question-card"
+                  >
+                    <QuizQuestion
+                      :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`"
+                      :question="question"
+                      :question-index="qIndex"
+                      :section-index="sectionIndex"
+                      :subsection-index="subIndex"
+                      :saved-answer-data="
+                        getSavedAnswerData(sectionIndex, subIndex, qIndex)
+                      "
+                      @answer-submitted="handleAnswerSubmit"
+                    />
                   </div>
                 </div>
               </div>
@@ -405,9 +540,7 @@
         </div>
 
         <div class="conclusion-card review-comparison">
-          <h2 class="conclusion-title">
-            📊 Learning Progress Analysis
-          </h2>
+          <h2 class="conclusion-title">📊 Learning Progress Analysis</h2>
 
           <div class="comparison-stats">
             <div class="comparison-row">
@@ -417,11 +550,12 @@
                   <div class="score-number">
                     {{ originalScore }}
                   </div>
-                  <div class="score-total">
-                    / {{ originalAnsweredCount }}
-                  </div>
+                  <div class="score-total">/ {{ originalAnsweredCount }}</div>
                 </div>
-                <div class="accuracy-badge" :class="getAccuracyClass(originalAccuracy)">
+                <div
+                  class="accuracy-badge"
+                  :class="getAccuracyClass(originalAccuracy)"
+                >
                   {{ originalAccuracy }}% Accuracy
                 </div>
               </div>
@@ -442,30 +576,47 @@
                     / {{ reviewAnsweredQuestions.size }}
                   </div>
                 </div>
-                <div class="accuracy-badge" :class="getAccuracyClass(reviewAccuracy)">
+                <div
+                  class="accuracy-badge"
+                  :class="getAccuracyClass(reviewAccuracy)"
+                >
                   {{ reviewAccuracy }}% Accuracy
                 </div>
               </div>
             </div>
 
             <div class="improvement-summary">
-              <div v-if="improvementPercentage > 0" class="improvement-message positive">
+              <div
+                v-if="improvementPercentage > 0"
+                class="improvement-message positive"
+              >
                 <span class="improvement-icon">🎉</span>
                 <div class="improvement-text">
                   <h4>Excellent Progress!</h4>
-                  <p>You improved by <strong>{{ improvementPercentage }}%</strong></p>
+                  <p>
+                    You improved by
+                    <strong>{{ improvementPercentage }}%</strong>
+                  </p>
                   <p class="insight">
-                    Your understanding of the material has strengthened significantly.
+                    Your understanding of the material has strengthened
+                    significantly.
                   </p>
                 </div>
               </div>
-              <div v-else-if="improvementPercentage < 0" class="improvement-message negative">
+              <div
+                v-else-if="improvementPercentage < 0"
+                class="improvement-message negative"
+              >
                 <span class="improvement-icon">📉</span>
                 <div class="improvement-text">
                   <h4>Room for Growth</h4>
-                  <p>Your score decreased by <strong>{{ Math.abs(improvementPercentage) }}%</strong></p>
+                  <p>
+                    Your score decreased by
+                    <strong>{{ Math.abs(improvementPercentage) }}%</strong>
+                  </p>
                   <p class="insight">
-                    Consider reviewing the material more carefully. Take your time with each question.
+                    Consider reviewing the material more carefully. Take your
+                    time with each question.
                   </p>
                 </div>
               </div>
@@ -473,7 +624,10 @@
                 <span class="improvement-icon">✅</span>
                 <div class="improvement-text">
                   <h4>Consistent Performance</h4>
-                  <p>Your accuracy remained at <strong>{{ originalAccuracy }}%</strong></p>
+                  <p>
+                    Your accuracy remained at
+                    <strong>{{ originalAccuracy }}%</strong>
+                  </p>
                   <p class="insight">
                     You maintained your understanding of the material.
                   </p>
@@ -497,92 +651,95 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useCourseStore } from '../stores/course'
-import { useAuthStore } from '../stores/auth'
-import QuizQuestion from '../components/QuizQuestion.vue'
-import { achievements } from '../config/achievements'
+import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useCourseStore } from "../stores/course";
+import { useAuthStore } from "../stores/auth";
+import QuizQuestion from "../components/QuizQuestion.vue";
+import { achievements } from "../config/achievements";
 
 export default {
-  name: 'CourseView',
+  name: "CourseView",
   components: {
-    QuizQuestion
+    QuizQuestion,
   },
   setup() {
-    const route = useRoute()
-    const router = useRouter()
-    const courseStore = useCourseStore()
-    const authStore = useAuthStore()
+    const route = useRoute();
+    const router = useRouter();
+    const courseStore = useCourseStore();
+    const authStore = useAuthStore();
 
-    const loading = ref(false)
-    const error = ref(null)
-    const currentSectionIndex = ref(0)
-    const score = ref(0)
-    const answeredQuestions = ref(new Set())
-    const answerData = ref({}) // Store actual answer data for each question
-    const reviewMode = ref(false)
-    const originalScore = ref(0)
-    const originalAnsweredCount = ref(0)
-    const reviewScore = ref(0)
-    const reviewAnsweredQuestions = ref(new Set())
-    const showReviewComparison = ref(false)
-    const quizKey = ref(0)
-    const endedEarly = ref(false)
-    const useStepFlow = ref(true) // Enable step-by-step flow mode
-    const showOverview = ref(true) // Show course overview before starting
-    const initialStepIndex = ref(0) // For resuming from saved progress
-    const currentStepIndex = ref(0) // Current step in the flow
-    const showContinueHint = ref(false) // Show hint to press enter
-    const stepFlowContainer = ref(null) // Ref for step flow container
-    const reviewQuestionOrder = ref([]) // Store shuffled question order for review mode
+    const loading = ref(false);
+    const error = ref(null);
+    const currentSectionIndex = ref(0);
+    const score = ref(0);
+    const answeredQuestions = ref(new Set());
+    const answerData = ref({}); // Store actual answer data for each question
+    const reviewMode = ref(false);
+    const originalScore = ref(0);
+    const originalAnsweredCount = ref(0);
+    const reviewScore = ref(0);
+    const reviewAnsweredQuestions = ref(new Set());
+    const showReviewComparison = ref(false);
+    const quizKey = ref(0);
+    const endedEarly = ref(false);
+    const useStepFlow = ref(true); // Enable step-by-step flow mode
+    const showOverview = ref(true); // Show course overview before starting
+    const initialStepIndex = ref(0); // For resuming from saved progress
+    const currentStepIndex = ref(0); // Current step in the flow
+    const showContinueHint = ref(false); // Show hint to press enter
+    const stepFlowContainer = ref(null); // Ref for step flow container
+    const reviewQuestionOrder = ref([]); // Store shuffled question order for review mode
 
-    const course = computed(() => courseStore.currentCourse)
+    const course = computed(() => courseStore.currentCourse);
 
     const currentSection = computed(() => {
-      if (!course.value?.sections) return null
-      return course.value.sections[currentSectionIndex.value]
-    })
+      if (!course.value?.sections) return null;
+      return course.value.sections[currentSectionIndex.value];
+    });
 
     // Calculate which sections should be visible
     const visibleSections = computed(() => {
-      if (!course.value?.sections) return []
+      if (!course.value?.sections) return [];
 
       // In review mode, show all sections
       if (reviewMode.value) {
-        return course.value.sections
+        return course.value.sections;
       }
 
       // Show sections up to currentSectionIndex + 1 (next incomplete section)
-      return course.value.sections.slice(0, currentSectionIndex.value + 1)
-    })
+      return course.value.sections.slice(0, currentSectionIndex.value + 1);
+    });
 
     // Check if a section is complete
     const isSectionComplete = (sectionIndex) => {
-      if (!course.value?.sections) return false
+      if (!course.value?.sections) return false;
 
-      const section = course.value.sections[sectionIndex]
-      if (!section) return false
+      const section = course.value.sections[sectionIndex];
+      if (!section) return false;
 
       // Count questions in this section
-      let sectionQuestionCount = section.quiz?.length || 0
+      let sectionQuestionCount = section.quiz?.length || 0;
       if (section.subsections) {
-        section.subsections.forEach(subsection => {
-          sectionQuestionCount += subsection.quiz?.length || 0
-        })
+        section.subsections.forEach((subsection) => {
+          sectionQuestionCount += subsection.quiz?.length || 0;
+        });
       }
 
       // Count answered in Section
-      let answeredInSection = 0
+      let answeredInSection = 0;
 
       // Check main section questions
       if (section.quiz) {
         section.quiz.forEach((_, qIndex) => {
-          const questionKey = `${sectionIndex}-main-${qIndex}`
-          if (answeredQuestions.value.has(questionKey) || reviewAnsweredQuestions.value.has(questionKey)) {
-            answeredInSection++
+          const questionKey = `${sectionIndex}-main-${qIndex}`;
+          if (
+            answeredQuestions.value.has(questionKey) ||
+            reviewAnsweredQuestions.value.has(questionKey)
+          ) {
+            answeredInSection++;
           }
-        })
+        });
       }
 
       // Check subsection questions
@@ -590,320 +747,353 @@ export default {
         section.subsections.forEach((subsection, subIndex) => {
           if (subsection.quiz) {
             subsection.quiz.forEach((_, qIndex) => {
-              const questionKey = `${sectionIndex}-${subIndex}-${qIndex}`
-              if (answeredQuestions.value.has(questionKey) || reviewAnsweredQuestions.value.has(questionKey)) {
-                answeredInSection++
+              const questionKey = `${sectionIndex}-${subIndex}-${qIndex}`;
+              if (
+                answeredQuestions.value.has(questionKey) ||
+                reviewAnsweredQuestions.value.has(questionKey)
+              ) {
+                answeredInSection++;
               }
-            })
+            });
           }
-        })
+        });
       }
 
-      return sectionQuestionCount > 0 && answeredInSection === sectionQuestionCount
-    }
+      return (
+        sectionQuestionCount > 0 && answeredInSection === sectionQuestionCount
+      );
+    };
 
     const totalQuestions = computed(() => {
-      if (!course.value?.sections) return 0
+      if (!course.value?.sections) return 0;
 
       const countQuestions = (sections) => {
-        let count = 0
+        let count = 0;
         for (const section of sections) {
-          count += section.quiz?.length || 0
+          count += section.quiz?.length || 0;
           if (section.subsections) {
-            count += countQuestions(section.subsections)
+            count += countQuestions(section.subsections);
           }
         }
-        return count
-      }
+        return count;
+      };
 
-      return countQuestions(course.value.sections)
-    })
+      return countQuestions(course.value.sections);
+    });
 
     const progressPercentage = computed(() => {
-      if (totalQuestions.value === 0) return 0
-      return Math.round((answeredQuestions.value.size / totalQuestions.value) * 100)
-    })
+      if (totalQuestions.value === 0) return 0;
+      return Math.round(
+        (answeredQuestions.value.size / totalQuestions.value) * 100,
+      );
+    });
 
     const showConclusion = computed(() => {
       if (reviewMode.value) {
-        return false // Don't show conclusion in review mode
+        return false; // Don't show conclusion in review mode
       }
       // Show conclusion if all questions answered OR if user ended early
-      return endedEarly.value || (totalQuestions.value > 0 && answeredQuestions.value.size === totalQuestions.value)
-    })
+      return (
+        endedEarly.value ||
+        (totalQuestions.value > 0 &&
+          answeredQuestions.value.size === totalQuestions.value)
+      );
+    });
 
     const reviewAccuracy = computed(() => {
-      if (totalQuestions.value === 0) return 0
-      return Math.round((reviewScore.value / totalQuestions.value) * 100)
-    })
+      if (totalQuestions.value === 0) return 0;
+      return Math.round((reviewScore.value / totalQuestions.value) * 100);
+    });
 
     const originalAccuracy = computed(() => {
-      if (totalQuestions.value === 0) return 0
-      return Math.round((originalScore.value / totalQuestions.value) * 100)
-    })
+      if (totalQuestions.value === 0) return 0;
+      return Math.round((originalScore.value / totalQuestions.value) * 100);
+    });
 
     // Progressive reveal: Show questions one at a time
     const getVisibleQuestions = (sectionIndex, questions, subsectionIndex) => {
-      if (reviewMode.value || !questions) return questions
+      if (reviewMode.value || !questions) return questions;
 
       // Find the index of the first unanswered question
-      let firstUnansweredIndex = -1
+      let firstUnansweredIndex = -1;
       for (let i = 0; i < questions.length; i++) {
-        const questionKey = subsectionIndex === 'main'
-          ? `${sectionIndex}-main-${i}`
-          : `${sectionIndex}-${subsectionIndex}-${i}`
+        const questionKey =
+          subsectionIndex === "main"
+            ? `${sectionIndex}-main-${i}`
+            : `${sectionIndex}-${subsectionIndex}-${i}`;
 
         if (!answeredQuestions.value.has(questionKey)) {
-          firstUnansweredIndex = i
-          break
+          firstUnansweredIndex = i;
+          break;
         }
       }
 
       // If all answered, show all questions
       if (firstUnansweredIndex === -1) {
-        return questions
+        return questions;
       }
 
       // Show all answered questions + the first unanswered one
-      return questions.slice(0, firstUnansweredIndex + 1)
-    }
+      return questions.slice(0, firstUnansweredIndex + 1);
+    };
 
     // Progressive reveal: Show subsections one at a time
     const getVisibleSubsections = (sectionIndex, subsections) => {
-      if (reviewMode.value || !subsections) return subsections
+      if (reviewMode.value || !subsections) return subsections;
 
-      const section = course.value.sections[sectionIndex]
+      const section = course.value.sections[sectionIndex];
 
       // First check if main section questions are complete
-      const mainQuestionsComplete = !section.quiz || section.quiz.every((_, qIndex) => {
-        const questionKey = `${sectionIndex}-main-${qIndex}`
-        return answeredQuestions.value.has(questionKey)
-      })
+      const mainQuestionsComplete =
+        !section.quiz ||
+        section.quiz.every((_, qIndex) => {
+          const questionKey = `${sectionIndex}-main-${qIndex}`;
+          return answeredQuestions.value.has(questionKey);
+        });
 
       if (!mainQuestionsComplete) {
-        return [] // Don't show subsections until main questions are done
+        return []; // Don't show subsections until main questions are done
       }
 
       // Find the first incomplete subsection
-      let firstIncompleteIndex = -1
+      let firstIncompleteIndex = -1;
       for (let i = 0; i < subsections.length; i++) {
-        const subsection = subsections[i]
-        if (!subsection.quiz) continue
+        const subsection = subsections[i];
+        if (!subsection.quiz) continue;
 
         const allAnswered = subsection.quiz.every((_, qIndex) => {
-          const questionKey = `${sectionIndex}-${i}-${qIndex}`
-          return answeredQuestions.value.has(questionKey)
-        })
+          const questionKey = `${sectionIndex}-${i}-${qIndex}`;
+          return answeredQuestions.value.has(questionKey);
+        });
 
         if (!allAnswered) {
-          firstIncompleteIndex = i
-          break
+          firstIncompleteIndex = i;
+          break;
         }
       }
 
       // If all complete, show all subsections
       if (firstIncompleteIndex === -1) {
-        return subsections
+        return subsections;
       }
 
       // Show all complete subsections + the first incomplete one
-      return subsections.slice(0, firstIncompleteIndex + 1)
-    }
+      return subsections.slice(0, firstIncompleteIndex + 1);
+    };
 
     const improvementPercentage = computed(() => {
-      return reviewAccuracy.value - originalAccuracy.value
-    })
+      return reviewAccuracy.value - originalAccuracy.value;
+    });
 
     const accuracyPercentage = computed(() => {
-      if (totalQuestions.value === 0) return 0
-      return Math.round((score.value / totalQuestions.value) * 100)
-    })
+      if (totalQuestions.value === 0) return 0;
+      return Math.round((score.value / totalQuestions.value) * 100);
+    });
 
     const accuracyClass = computed(() => {
-      const acc = accuracyPercentage.value
-      if (acc >= 80) return 'accuracy-excellent'
-      if (acc >= 60) return 'accuracy-good'
-      return 'accuracy-needs-review'
-    })
+      const acc = accuracyPercentage.value;
+      if (acc >= 80) return "accuracy-excellent";
+      if (acc >= 60) return "accuracy-good";
+      return "accuracy-needs-review";
+    });
 
     const hasProgress = computed(() => {
-      return answeredQuestions.value.size > 0
-    })
+      return answeredQuestions.value.size > 0;
+    });
 
     // Step Flow Computed Properties
     const currentStep = computed(() => {
-      if (currentStepIndex.value >= 0 && currentStepIndex.value < courseSteps.value.length) {
-        return courseSteps.value[currentStepIndex.value]
+      if (
+        currentStepIndex.value >= 0 &&
+        currentStepIndex.value < courseSteps.value.length
+      ) {
+        return courseSteps.value[currentStepIndex.value];
       }
-      return null
-    })
+      return null;
+    });
 
-    const isLastStep = computed(() => currentStepIndex.value === courseSteps.value.length - 1)
+    const isLastStep = computed(
+      () => currentStepIndex.value === courseSteps.value.length - 1,
+    );
 
     const canProceedToNextStep = computed(() => {
-      if (!currentStep.value) return false
+      if (!currentStep.value) return false;
 
       // For explanation blocks, can always proceed
-      if (currentStep.value.type === 'explanation') {
-        return true
+      if (currentStep.value.type === "explanation") {
+        return true;
       }
 
       // For question blocks, must be answered
-      if (currentStep.value.type === 'question') {
-        const questionKey = `${currentStep.value.sectionIndex}-${currentStep.value.subsectionIndex ?? 'main'}-${currentStep.value.questionIndex}`
-        return answeredQuestions.value.has(questionKey)
+      if (currentStep.value.type === "question") {
+        const questionKey = `${currentStep.value.sectionIndex}-${currentStep.value.subsectionIndex ?? "main"}-${currentStep.value.questionIndex}`;
+        return answeredQuestions.value.has(questionKey);
       }
 
-      return false
-    })
+      return false;
+    });
 
     const currentQuestionNumber = computed(() => {
       // In review mode, use the displayNumber from shuffled questions
       if (reviewMode.value && currentStep.value?.displayNumber) {
-        return currentStep.value.displayNumber
+        return currentStep.value.displayNumber;
       }
 
       // Count how many question steps come before current step
-      let count = 0
+      let count = 0;
       for (let i = 0; i <= currentStepIndex.value; i++) {
-        if (courseSteps.value[i]?.type === 'question') {
-          count++
+        if (courseSteps.value[i]?.type === "question") {
+          count++;
         }
       }
-      return count
-    })
+      return count;
+    });
 
     const stepFlowProgressPercentage = computed(() => {
-      if (courseSteps.value.length === 0) return 0
-      return Math.round(((currentStepIndex.value + 1) / courseSteps.value.length) * 100)
-    })
+      if (courseSteps.value.length === 0) return 0;
+      return Math.round(
+        ((currentStepIndex.value + 1) / courseSteps.value.length) * 100,
+      );
+    });
 
     const loadCourse = async () => {
-      const courseId = route.params.id
-      console.log('[CourseView] loadCourse called with ID:', courseId)
+      const courseId = route.params.id;
+      console.log("[CourseView] loadCourse called with ID:", courseId);
       if (!courseId) {
-        error.value = 'No course ID provided'
-        return
+        error.value = "No course ID provided";
+        return;
       }
 
-      loading.value = true
-      error.value = null
+      loading.value = true;
+      error.value = null;
 
-      console.log('[CourseView] Calling courseStore.loadCourse')
-      const result = await courseStore.loadCourse(courseId)
-      console.log('[CourseView] loadCourse result:', result)
+      console.log("[CourseView] Calling courseStore.loadCourse");
+      const result = await courseStore.loadCourse(courseId);
+      console.log("[CourseView] loadCourse result:", result);
 
       if (!result.success) {
-        console.error('[CourseView] Load failed:', result.error)
-        error.value = result.error
+        console.error("[CourseView] Load failed:", result.error);
+        error.value = result.error;
 
         // If guest user and course not found, redirect to login
         if (!authStore.isAuthenticated) {
-          console.log('[CourseView] Guest user with failed load - redirecting to login')
+          console.log(
+            "[CourseView] Guest user with failed load - redirecting to login",
+          );
           setTimeout(() => {
-            router.push('/login')
-          }, 2000)
+            router.push("/login");
+          }, 2000);
         }
       } else {
-        console.log('[CourseView] Course loaded successfully')
+        console.log("[CourseView] Course loaded successfully");
       }
 
-      loading.value = false
-    }
+      loading.value = false;
+    };
 
     const startCourse = () => {
-      showOverview.value = false
-      currentStepIndex.value = initialStepIndex.value
+      showOverview.value = false;
+      currentStepIndex.value = initialStepIndex.value;
 
       // Focus the step flow container after starting
       nextTick(() => {
         if (stepFlowContainer.value) {
-          stepFlowContainer.value.focus()
+          stepFlowContainer.value.focus();
         }
         // Auto-show hint for explanation steps
-        if (currentStep.value?.type === 'explanation') {
+        if (currentStep.value?.type === "explanation") {
           setTimeout(() => {
-            showContinueHint.value = true
-          }, 1000)
+            showContinueHint.value = true;
+          }, 1000);
         }
-      })
-    }
+      });
+    };
 
     const nextStep = () => {
-      if (!canProceedToNextStep.value) return
+      if (!canProceedToNextStep.value) return;
 
       if (isLastStep.value) {
         // Flow complete
-        endedEarly.value = true
-        saveProgress()
+        endedEarly.value = true;
+        saveProgress();
       } else {
-        currentStepIndex.value++
-        showContinueHint.value = false
+        currentStepIndex.value++;
+        showContinueHint.value = false;
 
         // Save progress
-        initialStepIndex.value = currentStepIndex.value
-        saveProgress()
+        initialStepIndex.value = currentStepIndex.value;
+        saveProgress();
 
         // Scroll to newly revealed step and refocus
         setTimeout(() => {
-          scrollToStep(currentStepIndex.value)
+          scrollToStep(currentStepIndex.value);
           if (stepFlowContainer.value) {
-            stepFlowContainer.value.focus()
+            stepFlowContainer.value.focus();
           }
 
           // Auto-show hint for explanation steps
-          if (currentStep.value?.type === 'explanation') {
+          if (currentStep.value?.type === "explanation") {
             setTimeout(() => {
-              showContinueHint.value = true
-            }, 1000)
+              showContinueHint.value = true;
+            }, 1000);
           }
-        }, 100)
+        }, 100);
       }
-    }
+    };
 
     const handleStepEnterKey = (event) => {
-      if (canProceedToNextStep.value && !event.shiftKey && !event.ctrlKey && !event.altKey) {
+      if (
+        canProceedToNextStep.value &&
+        !event.shiftKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         // Check if the event target is an input, textarea, or button
-        const target = event.target
-        const isInputElement = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName)
+        const target = event.target;
+        const isInputElement = [
+          "INPUT",
+          "TEXTAREA",
+          "BUTTON",
+          "SELECT",
+        ].includes(target.tagName);
 
         if (!isInputElement) {
-          event.preventDefault()
-          nextStep()
+          event.preventDefault();
+          nextStep();
         }
       }
-    }
+    };
 
     const scrollToContent = () => {
       // Backwards-compatible: scroll to current step
-      scrollToStep(currentStepIndex.value)
-    }
+      scrollToStep(currentStepIndex.value);
+    };
 
     const scrollToStep = (index) => {
-      const el = document.getElementById(`step-${index}`)
+      const el = document.getElementById(`step-${index}`);
       if (el) {
         // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
-        const isExplanation = !!el.querySelector('.explanation-step')
-        const headerEl = document.querySelector('.progress-bar-top')
-        const headerHeight = headerEl ? headerEl.offsetHeight : 0
+        const isExplanation = !!el.querySelector(".explanation-step");
+        const headerEl = document.querySelector(".progress-bar-top");
+        const headerHeight = headerEl ? headerEl.offsetHeight : 0;
 
         if (isExplanation) {
           // Calculate target Y so the step sits just below the sticky header
-          const rect = el.getBoundingClientRect()
-          const target = window.scrollY + rect.top - headerHeight - 12
-          window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
+          const rect = el.getBoundingClientRect();
+          const target = window.scrollY + rect.top - headerHeight - 12;
+          window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
         } else {
           // For questions, center in viewport
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
         }
 
         // Focus the step element without causing additional scroll (preventScroll)
-        if (typeof el.focus === 'function') {
+        if (typeof el.focus === "function") {
           try {
-            el.focus({ preventScroll: true })
+            el.focus({ preventScroll: true });
           } catch (e) {
             // fallback for older browsers
-            el.focus()
+            el.focus();
           }
         }
 
@@ -911,266 +1101,325 @@ export default {
         // Delay slightly so the smooth scroll can complete before the input receives focus
         nextTick(() => {
           try {
-            const step = courseSteps.value[index]
-            if (step && step.type === 'question' && step.question) {
-              const qType = String(step.question.type || '').toLowerCase().replace(/[_\s]/g, '')
-              if (qType === 'fillintheblank' || qType === 'shortanswer') {
+            const step = courseSteps.value[index];
+            if (step && step.type === "question" && step.question) {
+              const qType = String(step.question.type || "")
+                .toLowerCase()
+                .replace(/[_\s]/g, "");
+              if (qType === "fillintheblank" || qType === "shortanswer") {
                 // Prefer textarea for shortanswer, input for fill-in
-                const inputSelector = 'textarea.form-textarea, input.form-input'
+                const inputSelector =
+                  "textarea.form-textarea, input.form-input";
                 const focusInput = () => {
-                  const inputEl = el.querySelector(inputSelector)
+                  const inputEl = el.querySelector(inputSelector);
                   if (inputEl && !inputEl.disabled) {
                     try {
-                      inputEl.focus()
+                      inputEl.focus();
                     } catch (e) {
                       // ignore
                     }
                     // place cursor at end for text inputs
-                    const len = inputEl.value?.length || 0
-                    if (typeof inputEl.setSelectionRange === 'function') {
-                      inputEl.setSelectionRange(len, len)
+                    const len = inputEl.value?.length || 0;
+                    if (typeof inputEl.setSelectionRange === "function") {
+                      inputEl.setSelectionRange(len, len);
                     }
                   }
-                }
+                };
 
                 // Wait ~350ms to let smooth scroll finish, then focus input
-                setTimeout(focusInput, 350)
+                setTimeout(focusInput, 350);
               }
             }
           } catch (err) {
             // fail silently
           }
-        })
+        });
       }
-    }
+    };
 
     const canProceedForStep = (idx) => {
-      const step = courseSteps.value[idx]
-      if (!step) return false
+      const step = courseSteps.value[idx];
+      if (!step) return false;
 
-      if (step.type === 'explanation') return true
+      if (step.type === "explanation") return true;
 
-      if (step.type === 'question') {
-        const questionKey = `${step.sectionIndex}-${step.subsectionIndex ?? 'main'}-${step.questionIndex}`
-        return answeredQuestions.value.has(questionKey)
+      if (step.type === "question") {
+        const questionKey = `${step.sectionIndex}-${step.subsectionIndex ?? "main"}-${step.questionIndex}`;
+        return answeredQuestions.value.has(questionKey);
       }
 
-      return false
-    }
+      return false;
+    };
 
     const getQuestionDisplayNumber = (idx) => {
       // Count question steps up to idx (inclusive)
-      let count = 0
+      let count = 0;
       for (let i = 0; i <= idx; i++) {
-        if (courseSteps.value[i]?.type === 'question') count++
+        if (courseSteps.value[i]?.type === "question") count++;
       }
-      return count
-    }
+      return count;
+    };
 
     const handleStepFlowAnswerSubmit = (data) => {
-      const { isCorrect, sectionIndex, subsectionIndex, questionIndex } = data
+      const { isCorrect, sectionIndex, subsectionIndex, questionIndex } = data;
 
       // Create unique key for this question
-      const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
+      const questionKey = `${sectionIndex}-${subsectionIndex ?? "main"}-${questionIndex}`;
 
       if (!answeredQuestions.value.has(questionKey)) {
         if (isCorrect) {
-          score.value++
+          score.value++;
         }
 
-        answeredQuestions.value.add(questionKey)
+        answeredQuestions.value.add(questionKey);
 
         // Save answer data
         answerData.value[questionKey] = {
           answer: data.answer,
           userAnswer: data.userAnswer,
-          isCorrect: isCorrect
-        }
+          isCorrect: isCorrect,
+        };
 
         // Update current section index
-        currentSectionIndex.value = sectionIndex
+        currentSectionIndex.value = sectionIndex;
 
         // Save progress
-        saveProgress()
+        saveProgress();
 
         // Show continue hint after a short delay
         setTimeout(() => {
-          showContinueHint.value = true
+          showContinueHint.value = true;
           // Refocus container for keyboard navigation
           if (stepFlowContainer.value) {
-            stepFlowContainer.value.focus()
+            stepFlowContainer.value.focus();
           }
-        }, 500)
+        }, 500);
       }
-    }
+    };
 
     const startCourseFromBeginning = () => {
       // Reset all progress
-      score.value = 0
-      answeredQuestions.value.clear()
-      answerData.value = {}
-      currentSectionIndex.value = 0
-      initialStepIndex.value = 0
-      currentStepIndex.value = 0
-      showOverview.value = false
+      score.value = 0;
+      answeredQuestions.value.clear();
+      answerData.value = {};
+      currentSectionIndex.value = 0;
+      initialStepIndex.value = 0;
+      currentStepIndex.value = 0;
+      showOverview.value = false;
 
       // Clear saved progress
-      const courseId = route.params.id
+      const courseId = route.params.id;
       if (courseId) {
-        const progressKey = `course_progress_${courseId}`
-        localStorage.removeItem(progressKey)
+        const progressKey = `course_progress_${courseId}`;
+        localStorage.removeItem(progressKey);
       }
 
       // Focus the step flow container
       nextTick(() => {
         if (stepFlowContainer.value) {
-          stepFlowContainer.value.focus()
+          stepFlowContainer.value.focus();
         }
-      })
-    }
+      });
+    };
 
     const handleAnswerSubmit = async (data) => {
-      const { isCorrect, sectionIndex, subsectionIndex, questionIndex, answer, userAnswer } = data
+      const {
+        isCorrect,
+        sectionIndex,
+        subsectionIndex,
+        questionIndex,
+        answer,
+        userAnswer,
+      } = data;
 
       // Create unique key for this question
-      const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
+      const questionKey = `${sectionIndex}-${subsectionIndex ?? "main"}-${questionIndex}`;
 
       if (reviewMode.value) {
         // Review mode - track separately
         if (!reviewAnsweredQuestions.value.has(questionKey)) {
           if (isCorrect) {
-            reviewScore.value++
+            reviewScore.value++;
           }
-          reviewAnsweredQuestions.value.add(questionKey)
+          reviewAnsweredQuestions.value.add(questionKey);
 
           // Check if review is complete
           if (reviewAnsweredQuestions.value.size === totalQuestions.value) {
-            showReviewComparison.value = true
+            showReviewComparison.value = true;
           }
         }
       } else {
         // Normal mode
         if (!answeredQuestions.value.has(questionKey)) {
           if (isCorrect) {
-            score.value++
+            score.value++;
           }
-          answeredQuestions.value.add(questionKey)
+          answeredQuestions.value.add(questionKey);
 
           // Save the answer data for restoration
           answerData.value[questionKey] = {
             answer: answer,
             userAnswer: userAnswer,
-            isCorrect: isCorrect
-          }
+            isCorrect: isCorrect,
+          };
 
           // Save progress after each answer
-          await saveProgress()
+          await saveProgress();
 
           // Auto-scroll to next question/subsection/section
           setTimeout(() => {
-            const section = course.value.sections[sectionIndex]
+            const section = course.value.sections[sectionIndex];
 
             // Determine what to show next
             if (subsectionIndex === null || subsectionIndex === undefined) {
               // We're in main section questions
-              const mainQuestions = section.quiz || []
-              const nextQuestionIndex = questionIndex + 1
+              const mainQuestions = section.quiz || [];
+              const nextQuestionIndex = questionIndex + 1;
 
               if (nextQuestionIndex < mainQuestions.length) {
                 // Scroll to next main question
-                const nextQuestionEl = document.getElementById(`question-${sectionIndex}-main-${nextQuestionIndex}`)
+                const nextQuestionEl = document.getElementById(
+                  `question-${sectionIndex}-main-${nextQuestionIndex}`,
+                );
                 if (nextQuestionEl) {
-                  nextQuestionEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  nextQuestionEl.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
                 }
-              } else if (section.subsections && section.subsections.length > 0) {
+              } else if (
+                section.subsections &&
+                section.subsections.length > 0
+              ) {
                 // Main questions done, scroll to first subsection
-                const firstSubsectionEl = document.getElementById(`subsection-${sectionIndex}-0`)
+                const firstSubsectionEl = document.getElementById(
+                  `subsection-${sectionIndex}-0`,
+                );
                 if (firstSubsectionEl) {
-                  firstSubsectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  firstSubsectionEl.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
                 }
-              } else if (isSectionComplete(sectionIndex) && sectionIndex === currentSectionIndex.value) {
+              } else if (
+                isSectionComplete(sectionIndex) &&
+                sectionIndex === currentSectionIndex.value
+              ) {
                 // Section complete, reveal next section
-                if (currentSectionIndex.value < course.value.sections.length - 1) {
-                  currentSectionIndex.value++
+                if (
+                  currentSectionIndex.value <
+                  course.value.sections.length - 1
+                ) {
+                  currentSectionIndex.value++;
                   setTimeout(() => {
-                    const nextSectionEl = document.getElementById(`section-${currentSectionIndex.value}`)
+                    const nextSectionEl = document.getElementById(
+                      `section-${currentSectionIndex.value}`,
+                    );
                     if (nextSectionEl) {
-                      nextSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      nextSectionEl.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
                     }
-                  }, 100)
+                  }, 100);
                 }
               }
             } else {
               // We're in subsection questions
-              const subsection = section.subsections[subsectionIndex]
-              const subsectionQuestions = subsection.quiz || []
-              const nextQuestionIndex = questionIndex + 1
+              const subsection = section.subsections[subsectionIndex];
+              const subsectionQuestions = subsection.quiz || [];
+              const nextQuestionIndex = questionIndex + 1;
 
               if (nextQuestionIndex < subsectionQuestions.length) {
                 // Scroll to next subsection question
-                const nextQuestionEl = document.getElementById(`question-${sectionIndex}-${subsectionIndex}-${nextQuestionIndex}`)
+                const nextQuestionEl = document.getElementById(
+                  `question-${sectionIndex}-${subsectionIndex}-${nextQuestionIndex}`,
+                );
                 if (nextQuestionEl) {
-                  nextQuestionEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  nextQuestionEl.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
                 }
               } else if (subsectionIndex + 1 < section.subsections.length) {
                 // Subsection done, scroll to next subsection
-                const nextSubsectionEl = document.getElementById(`subsection-${sectionIndex}-${subsectionIndex + 1}`)
+                const nextSubsectionEl = document.getElementById(
+                  `subsection-${sectionIndex}-${subsectionIndex + 1}`,
+                );
                 if (nextSubsectionEl) {
-                  nextSubsectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  nextSubsectionEl.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
                 }
-              } else if (isSectionComplete(sectionIndex) && sectionIndex === currentSectionIndex.value) {
+              } else if (
+                isSectionComplete(sectionIndex) &&
+                sectionIndex === currentSectionIndex.value
+              ) {
                 // All subsections done, reveal next section
-                if (currentSectionIndex.value < course.value.sections.length - 1) {
-                  currentSectionIndex.value++
+                if (
+                  currentSectionIndex.value <
+                  course.value.sections.length - 1
+                ) {
+                  currentSectionIndex.value++;
                   setTimeout(() => {
-                    const nextSectionEl = document.getElementById(`section-${currentSectionIndex.value}`)
+                    const nextSectionEl = document.getElementById(
+                      `section-${currentSectionIndex.value}`,
+                    );
                     if (nextSectionEl) {
-                      nextSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      nextSectionEl.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
                     }
-                  }, 100)
+                  }, 100);
                 }
               }
             }
-          }, 500)
+          }, 500);
         }
       }
-    }
+    };
 
     const reviewCourse = () => {
       // Save original scores
-      originalScore.value = score.value
-      originalAnsweredCount.value = answeredQuestions.value.size
+      originalScore.value = score.value;
+      originalAnsweredCount.value = answeredQuestions.value.size;
 
       // Enter review mode - quiz only
-      reviewMode.value = true
-      reviewScore.value = 0
-      reviewAnsweredQuestions.value = new Set()
-      showReviewComparison.value = false
-      endedEarly.value = false // Reset ended early flag
+      reviewMode.value = true;
+      reviewScore.value = 0;
+      reviewAnsweredQuestions.value = new Set();
+      showReviewComparison.value = false;
+      endedEarly.value = false; // Reset ended early flag
 
       // CLEAR ALL SESSION STATES - remove answer feedback/dialogs
-      answeredQuestions.value = new Set()
-      answerData.value = {}
+      answeredQuestions.value = new Set();
+      answerData.value = {};
 
       // Force re-render of all QuizQuestion components to reset state
-      quizKey.value++
+      quizKey.value++;
 
       // Build and shuffle question list for review mode
-      const allQuestionSteps = []
+      const allQuestionSteps = [];
       if (course.value?.sections) {
         course.value.sections.forEach((section, sectionIndex) => {
           // Add section questions
           if (section.quiz && section.quiz.length > 0) {
             section.quiz.forEach((question, questionIndex) => {
               allQuestionSteps.push({
-                type: 'question',
+                type: "question",
                 question: question,
                 questionIndex: questionIndex,
                 sectionIndex: sectionIndex,
                 subsectionIndex: null,
-                savedAnswerData: getSavedAnswerData(sectionIndex, null, questionIndex)
-              })
-            })
+                savedAnswerData: getSavedAnswerData(
+                  sectionIndex,
+                  null,
+                  questionIndex,
+                ),
+              });
+            });
           }
 
           // Add subsection questions
@@ -1179,120 +1428,128 @@ export default {
               if (subsection.quiz && subsection.quiz.length > 0) {
                 subsection.quiz.forEach((question, questionIndex) => {
                   allQuestionSteps.push({
-                    type: 'question',
+                    type: "question",
                     question: question,
                     questionIndex: questionIndex,
                     sectionIndex: sectionIndex,
                     subsectionIndex: subsectionIndex,
-                    savedAnswerData: getSavedAnswerData(sectionIndex, subsectionIndex, questionIndex)
-                  })
-                })
+                    savedAnswerData: getSavedAnswerData(
+                      sectionIndex,
+                      subsectionIndex,
+                      questionIndex,
+                    ),
+                  });
+                });
               }
-            })
+            });
           }
-        })
+        });
       }
 
       // Fisher-Yates shuffle algorithm
-      const shuffled = [...allQuestionSteps]
+      const shuffled = [...allQuestionSteps];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
       // Add display numbers to shuffled questions
       reviewQuestionOrder.value = shuffled.map((step, index) => ({
         ...step,
-        displayNumber: index + 1
-      }))
+        displayNumber: index + 1,
+      }));
 
       // Enable step flow mode and reset to first step
-      useStepFlow.value = true
-      currentStepIndex.value = 0
-      initialStepIndex.value = 0
-      showOverview.value = false // Skip overview in review
-      currentSectionIndex.value = 0
+      useStepFlow.value = true;
+      currentStepIndex.value = 0;
+      initialStepIndex.value = 0;
+      showOverview.value = false; // Skip overview in review
+      currentSectionIndex.value = 0;
 
       // Focus step flow container after render
       nextTick(() => {
         if (stepFlowContainer.value) {
-          stepFlowContainer.value.focus()
+          stepFlowContainer.value.focus();
         }
-      })
+      });
 
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     const goToCourses = () => {
-      router.push('/courses')
-    }
+      router.push("/courses");
+    };
 
     const exitReviewMode = () => {
-      reviewMode.value = false
-      showReviewComparison.value = false
-      endedEarly.value = false // Reset ended early flag
+      reviewMode.value = false;
+      showReviewComparison.value = false;
+      endedEarly.value = false; // Reset ended early flag
 
       // Find the last incomplete section to return to
-      let lastIncompleteIndex = 0
+      let lastIncompleteIndex = 0;
       for (let i = 0; i < course.value.sections.length; i++) {
         if (!isSectionComplete(i)) {
-          lastIncompleteIndex = i
-          break
+          lastIncompleteIndex = i;
+          break;
         }
         if (i === course.value.sections.length - 1) {
-          lastIncompleteIndex = i // All complete, stay at last
+          lastIncompleteIndex = i; // All complete, stay at last
         }
       }
-      currentSectionIndex.value = lastIncompleteIndex
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+      currentSectionIndex.value = lastIncompleteIndex;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     const getAccuracyClass = (accuracy) => {
-      if (accuracy >= 80) return 'success'
-      if (accuracy >= 60) return 'good'
-      return 'needs-review'
-    }
+      if (accuracy >= 80) return "success";
+      if (accuracy >= 60) return "good";
+      return "needs-review";
+    };
 
     // Load course on mount if we have an ID
     onMounted(async () => {
       if (route.params.id) {
-        await loadCourse()
+        await loadCourse();
         // Load saved progress after course is loaded
-        await loadSavedProgress()
+        await loadSavedProgress();
       } else if (!course.value) {
-        error.value = 'No course data available'
+        error.value = "No course data available";
       }
-    })
+    });
 
     // Watch for course ID changes
-    watch(() => route.params.id, () => {
-      if (route.params.id) {
-        loadCourse()
-      }
-    })
+    watch(
+      () => route.params.id,
+      () => {
+        if (route.params.id) {
+          loadCourse();
+        }
+      },
+    );
 
     // Admin controls
-    const adminMessage = ref('')
-    const adminMessageType = ref('success')
+    const adminMessage = ref("");
+    const adminMessageType = ref("success");
 
     const completeAllQuestions = () => {
-      if (!authStore.user?.isAdmin) return
+      if (!authStore.user?.isAdmin) return;
 
       // Mark all questions as correct
-      score.value = totalQuestions.value
+      score.value = totalQuestions.value;
 
       // Add all questions to answered set
       if (course.value?.sections) {
         const addAllQuestions = (sections, sectionIndex) => {
           sections.forEach((section, idx) => {
-            const actualSectionIndex = sectionIndex !== undefined ? sectionIndex : idx
+            const actualSectionIndex =
+              sectionIndex !== undefined ? sectionIndex : idx;
 
             // Main section questions
             if (section.quiz) {
               section.quiz.forEach((_, qIndex) => {
-                const questionKey = `${actualSectionIndex}-main-${qIndex}`
-                answeredQuestions.value.add(questionKey)
-              })
+                const questionKey = `${actualSectionIndex}-main-${qIndex}`;
+                answeredQuestions.value.add(questionKey);
+              });
             }
 
             // Subsection questions
@@ -1300,46 +1557,50 @@ export default {
               section.subsections.forEach((subsection, subIdx) => {
                 if (subsection.quiz) {
                   subsection.quiz.forEach((_, qIndex) => {
-                    const questionKey = `${actualSectionIndex}-${subIdx}-${qIndex}`
-                    answeredQuestions.value.add(questionKey)
-                  })
+                    const questionKey = `${actualSectionIndex}-${subIdx}-${qIndex}`;
+                    answeredQuestions.value.add(questionKey);
+                  });
                 }
-              })
+              });
             }
-          })
-        }
+          });
+        };
 
-        addAllQuestions(course.value.sections)
+        addAllQuestions(course.value.sections);
       }
 
-      adminMessage.value = `✅ Completed all ${totalQuestions.value} questions!`
-      adminMessageType.value = 'success'
-      setTimeout(() => { adminMessage.value = '' }, 3000)
-    }
+      adminMessage.value = `✅ Completed all ${totalQuestions.value} questions!`;
+      adminMessageType.value = "success";
+      setTimeout(() => {
+        adminMessage.value = "";
+      }, 3000);
+    };
 
     const resetProgress = () => {
-      if (!authStore.user?.isAdmin) return
+      if (!authStore.user?.isAdmin) return;
 
       // Reset score and answered questions
-      score.value = 0
-      answeredQuestions.value.clear()
-      currentSectionIndex.value = 0
+      score.value = 0;
+      answeredQuestions.value.clear();
+      currentSectionIndex.value = 0;
 
       // Clear saved progress
-      const courseId = route.params.id
+      const courseId = route.params.id;
       if (courseId) {
-        const progressKey = `course_progress_${courseId}`
-        localStorage.removeItem(progressKey)
+        const progressKey = `course_progress_${courseId}`;
+        localStorage.removeItem(progressKey);
       }
 
-      adminMessage.value = '🔄 Progress reset successfully!'
-      adminMessageType.value = 'success'
-      setTimeout(() => { adminMessage.value = '' }, 3000)
-    }
+      adminMessage.value = "🔄 Progress reset successfully!";
+      adminMessageType.value = "success";
+      setTimeout(() => {
+        adminMessage.value = "";
+      }, 3000);
+    };
 
     const saveProgress = async () => {
-      const courseId = route.params.id
-      if (!courseId) return
+      const courseId = route.params.id;
+      if (!courseId) return;
 
       await courseStore.updateProgress(
         courseId,
@@ -1347,139 +1608,159 @@ export default {
         score.value,
         currentSectionIndex.value,
         answerData.value,
-        initialStepIndex.value
-      )
-    }
+        initialStepIndex.value,
+      );
+    };
 
     const loadSavedProgress = async () => {
-      const courseId = route.params.id
-      if (!courseId) return
+      const courseId = route.params.id;
+      if (!courseId) return;
 
-      const result = await courseStore.loadProgress(courseId)
+      const result = await courseStore.loadProgress(courseId);
 
       if (result.success && result.progress) {
-        const progress = result.progress
+        const progress = result.progress;
 
         // Restore answered questions (convert array back to Set)
-        if (progress.answered_questions && Array.isArray(progress.answered_questions)) {
-          answeredQuestions.value = new Set(progress.answered_questions)
+        if (
+          progress.answered_questions &&
+          Array.isArray(progress.answered_questions)
+        ) {
+          answeredQuestions.value = new Set(progress.answered_questions);
         }
 
         // Restore score
-        if (typeof progress.score === 'number') {
-          score.value = progress.score
+        if (typeof progress.score === "number") {
+          score.value = progress.score;
         }
 
         // Restore current section index
-        if (typeof progress.current_section_index === 'number') {
-          currentSectionIndex.value = progress.current_section_index
+        if (typeof progress.current_section_index === "number") {
+          currentSectionIndex.value = progress.current_section_index;
         }
 
         // Restore answer data
-        if (progress.answer_data && typeof progress.answer_data === 'object') {
-          answerData.value = progress.answer_data
+        if (progress.answer_data && typeof progress.answer_data === "object") {
+          answerData.value = progress.answer_data;
         }
 
         // Calculate initial step index based on answered questions
         // Find the first unanswered question
-        let calculatedStepIndex = 0
+        let calculatedStepIndex = 0;
         if (answeredQuestions.value.size > 0) {
           // Wait for course to be loaded and steps to be generated
-          await nextTick()
+          await nextTick();
 
           for (let i = 0; i < courseSteps.value.length; i++) {
-            const step = courseSteps.value[i]
-            if (step.type === 'question') {
-              const questionKey = `${step.sectionIndex}-${step.subsectionIndex ?? 'main'}-${step.questionIndex}`
+            const step = courseSteps.value[i];
+            if (step.type === "question") {
+              const questionKey = `${step.sectionIndex}-${step.subsectionIndex ?? "main"}-${step.questionIndex}`;
               if (!answeredQuestions.value.has(questionKey)) {
-                calculatedStepIndex = i
-                break
+                calculatedStepIndex = i;
+                break;
               }
             }
           }
           // If all questions answered, set to last step
           if (calculatedStepIndex === 0 && answeredQuestions.value.size > 0) {
-            calculatedStepIndex = courseSteps.value.length - 1
+            calculatedStepIndex = courseSteps.value.length - 1;
           }
         }
 
-        initialStepIndex.value = calculatedStepIndex
-        currentStepIndex.value = calculatedStepIndex
+        initialStepIndex.value = calculatedStepIndex;
+        currentStepIndex.value = calculatedStepIndex;
 
-        console.log('[CourseView] Loaded progress:', progress)
-        console.log('[CourseView] Calculated initial step index:', calculatedStepIndex)
+        console.log("[CourseView] Loaded progress:", progress);
+        console.log(
+          "[CourseView] Calculated initial step index:",
+          calculatedStepIndex,
+        );
       }
-    }
+    };
 
     const endCourseEarly = () => {
       // Save progress one final time
-      saveProgress()
+      saveProgress();
 
       // Set flag to show conclusion
-      endedEarly.value = true
+      endedEarly.value = true;
 
       // Show the conclusion screen
       // We'll scroll to bottom where conclusion appears
       setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-      }, 100)
-    }
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        });
+      }, 100);
+    };
 
-    const getSavedAnswerData = (sectionIndex, subsectionIndex, questionIndex) => {
-      const questionKey = `${sectionIndex}-${subsectionIndex ?? 'main'}-${questionIndex}`
-      return answerData.value[questionKey] || null
-    }
+    const getSavedAnswerData = (
+      sectionIndex,
+      subsectionIndex,
+      questionIndex,
+    ) => {
+      const questionKey = `${sectionIndex}-${subsectionIndex ?? "main"}-${questionIndex}`;
+      return answerData.value[questionKey] || null;
+    };
 
     // Achievement Badges Logic
     const earnedBadges = computed(() => {
-      const badges = []
+      const badges = [];
       if (course.value?.sections && isSectionComplete(0)) {
-        badges.push(achievements.find(a => a.id === 'first-section'))
+        badges.push(achievements.find((a) => a.id === "first-section"));
       }
-      if (course.value?.sections && course.value.sections.every((_, idx) => isSectionComplete(idx))) {
-        badges.push(achievements.find(a => a.id === 'all-sections'))
+      if (
+        course.value?.sections &&
+        course.value.sections.every((_, idx) => isSectionComplete(idx))
+      ) {
+        badges.push(achievements.find((a) => a.id === "all-sections"));
       }
       if (score.value === totalQuestions.value && totalQuestions.value > 0) {
-        badges.push(achievements.find(a => a.id === 'quiz-master'))
+        badges.push(achievements.find((a) => a.id === "quiz-master"));
       }
       if (accuracyPercentage.value >= 80 && totalQuestions.value > 0) {
-        badges.push(achievements.find(a => a.id === 'accuracy-80'))
+        badges.push(achievements.find((a) => a.id === "accuracy-80"));
       }
       if (answeredQuestions.value.size > 0) {
-        badges.push(achievements.find(a => a.id === 'participation'))
+        badges.push(achievements.find((a) => a.id === "participation"));
       }
-      return badges.filter(Boolean)
-    })
+      return badges.filter(Boolean);
+    });
 
     // Convert course sections into linear steps for StepFlow
     const courseSteps = computed(() => {
-      if (!course.value?.sections) return []
+      if (!course.value?.sections) return [];
 
-      const steps = []
+      const steps = [];
 
       course.value.sections.forEach((section, sectionIndex) => {
         // Add section explanation as a step
         if (!reviewMode.value && section.explanation) {
           steps.push({
-            type: 'explanation',
+            type: "explanation",
             title: section.section_title,
             content: section.explanation,
-            sectionIndex
-          })
+            sectionIndex,
+          });
         }
 
         // Add section questions as steps
         if (section.quiz && section.quiz.length > 0) {
           section.quiz.forEach((question, questionIndex) => {
             steps.push({
-              type: 'question',
+              type: "question",
               question: question,
               questionIndex: questionIndex,
               sectionIndex: sectionIndex,
               subsectionIndex: null,
-              savedAnswerData: getSavedAnswerData(sectionIndex, null, questionIndex)
-            })
-          })
+              savedAnswerData: getSavedAnswerData(
+                sectionIndex,
+                null,
+                questionIndex,
+              ),
+            });
+          });
         }
 
         // Add subsections
@@ -1488,48 +1769,52 @@ export default {
             // Add subsection explanation
             if (!reviewMode.value && subsection.section_title) {
               steps.push({
-                type: 'explanation',
+                type: "explanation",
                 title: subsection.section_title,
-                content: subsection.explanation || '',
+                content: subsection.explanation || "",
                 sectionIndex,
-                subsectionIndex
-              })
+                subsectionIndex,
+              });
             }
 
             // Add subsection questions
             if (subsection.quiz && subsection.quiz.length > 0) {
               subsection.quiz.forEach((question, questionIndex) => {
                 steps.push({
-                  type: 'question',
+                  type: "question",
                   question: question,
                   questionIndex: questionIndex,
                   sectionIndex: sectionIndex,
                   subsectionIndex: subsectionIndex,
-                  savedAnswerData: getSavedAnswerData(sectionIndex, subsectionIndex, questionIndex)
-                })
-              })
+                  savedAnswerData: getSavedAnswerData(
+                    sectionIndex,
+                    subsectionIndex,
+                    questionIndex,
+                  ),
+                });
+              });
             }
-          })
+          });
         }
-      })
+      });
 
       // In review mode, use shuffled order (set in reviewCourse function)
       if (reviewMode.value && reviewQuestionOrder.value.length > 0) {
         // Return shuffled questions with updated display numbers
-        return reviewQuestionOrder.value
+        return reviewQuestionOrder.value;
       }
 
-      return steps
-    })
+      return steps;
+    });
 
     const handleEndEarly = () => {
       // Save final progress
-      initialStepIndex.value = currentStepIndex.value
-      saveProgress()
+      initialStepIndex.value = currentStepIndex.value;
+      saveProgress();
 
       // Show conclusion
-      endedEarly.value = true
-    }
+      endedEarly.value = true;
+    };
 
     return {
       loading,
@@ -1594,10 +1879,10 @@ export default {
       canProceedForStep,
       getQuestionDisplayNumber,
       scrollToStep,
-      scrollToContent
-    }
-  }
-}
+      scrollToContent,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -1782,7 +2067,9 @@ export default {
   border: 2px solid var(--border-color);
   margin-bottom: 2rem;
   padding: 1.5rem;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
 }
 
 /* Step flow appended cards */
@@ -1805,7 +2092,9 @@ export default {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
 }
 
 .navigation-controls.per-step {
@@ -1834,7 +2123,11 @@ export default {
 }
 
 .btn-admin {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-light));
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    var(--accent-light)
+  );
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -1943,7 +2236,11 @@ export default {
 }
 
 .conclusion-card {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--bg-primary) 0%,
+    var(--bg-secondary) 100%
+  );
   border-radius: 1.5rem;
   padding: 2rem;
   max-width: 600px;
@@ -1961,7 +2258,6 @@ export default {
 }
 
 @keyframes bounce {
-
   0%,
   100% {
     transform: translateY(0);
@@ -1975,7 +2271,11 @@ export default {
 .conclusion-title {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-secondary) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2011,7 +2311,11 @@ export default {
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-secondary) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2153,16 +2457,18 @@ export default {
 }
 
 .progress-fill::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.3) 50%,
-      rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
   animation: shimmer 2s infinite;
 }
 
@@ -2287,7 +2593,7 @@ export default {
 
 .accuracy-badge.good {
   background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36,  0.3);
+  border: 1px solid rgba(251, 191, 36, 0.3);
   color: #fbbf24;
 }
 
@@ -2564,7 +2870,11 @@ export default {
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    var(--accent-secondary)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2807,7 +3117,11 @@ export default {
 }
 
 .btn-continue {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    var(--accent-secondary)
+  );
   color: white;
   border: none;
   padding: 1.25rem 3rem;
@@ -2834,7 +3148,6 @@ export default {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     transform: scale(1);
@@ -2930,7 +3243,6 @@ export default {
 }
 
 @keyframes pulseLightTheme {
-
   0%,
   100% {
     transform: scale(1);
