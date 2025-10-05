@@ -7,6 +7,11 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
+      component: () => import('../views/ChatView.vue')
+    },
+    {
+      path: '/old-home',
+      name: 'old-home',
       component: () => import('../views/HomeView.vue')
     },
     {
