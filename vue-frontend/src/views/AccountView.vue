@@ -2,7 +2,9 @@
   <div class="account-view">
     <div class="container-sm">
       <div class="account-card card">
-        <h1 class="page-title">Account Settings</h1>
+        <h1 class="page-title">
+          Account Settings
+        </h1>
         
         <!-- Tabs -->
         <div class="tabs">
@@ -28,16 +30,36 @@
         </div>
 
         <!-- Profile Tab -->
-        <div v-if="activeTab === 'profile'" class="tab-content">
-          <h2 class="section-title">Profile Information</h2>
+        <div
+          v-if="activeTab === 'profile'"
+          class="tab-content"
+        >
+          <h2 class="section-title">
+            Profile Information
+          </h2>
           
           <!-- Google Profile Picture -->
-          <div v-if="authStore.user?.picture" class="profile-picture-section">
-            <img :src="authStore.user.picture" alt="Profile" class="profile-picture" />
-            <p v-if="isGoogleUser" class="google-badge">🔗 Linked with Google</p>
+          <div
+            v-if="authStore.user?.picture"
+            class="profile-picture-section"
+          >
+            <img
+              :src="authStore.user.picture"
+              alt="Profile"
+              class="profile-picture"
+            >
+            <p
+              v-if="isGoogleUser"
+              class="google-badge"
+            >
+              🔗 Linked with Google
+            </p>
           </div>
           
-          <form @submit.prevent="updateProfile" class="form">
+          <form
+            class="form"
+            @submit.prevent="updateProfile"
+          >
             <div class="form-group">
               <label class="form-label">Username</label>
               <input
@@ -45,8 +67,10 @@
                 type="text"
                 class="form-input"
                 disabled
-              />
-              <p class="form-hint">Username cannot be changed</p>
+              >
+              <p class="form-hint">
+                Username cannot be changed
+              </p>
             </div>
 
             <div class="form-group">
@@ -56,7 +80,7 @@
                 type="text"
                 class="form-input"
                 required
-              />
+              >
             </div>
 
             <div class="form-group">
@@ -67,28 +91,51 @@
                 class="form-input"
                 :disabled="isGoogleUser"
                 required
-              />
-              <p v-if="isGoogleUser" class="form-hint">Email cannot be changed for Google accounts</p>
+              >
+              <p
+                v-if="isGoogleUser"
+                class="form-hint"
+              >
+                Email cannot be changed for Google accounts
+              </p>
             </div>
 
-            <div v-if="profileError" class="alert alert-error">
+            <div
+              v-if="profileError"
+              class="alert alert-error"
+            >
               {{ profileError }}
             </div>
 
-            <div v-if="profileSuccess" class="alert alert-success">
+            <div
+              v-if="profileSuccess"
+              class="alert alert-success"
+            >
               {{ profileSuccess }}
             </div>
 
-            <button type="submit" :disabled="profileLoading" class="btn btn-primary">
+            <button
+              type="submit"
+              :disabled="profileLoading"
+              class="btn btn-primary"
+            >
               {{ profileLoading ? 'Saving...' : 'Save Changes' }}
             </button>
           </form>
         </div>
 
         <!-- Security Tab -->
-        <div v-if="activeTab === 'security'" class="tab-content">
-          <h2 class="section-title">Change Password</h2>
-          <form @submit.prevent="changePassword" class="form">
+        <div
+          v-if="activeTab === 'security'"
+          class="tab-content"
+        >
+          <h2 class="section-title">
+            Change Password
+          </h2>
+          <form
+            class="form"
+            @submit.prevent="changePassword"
+          >
             <div class="form-group">
               <label class="form-label">Current Password</label>
               <input
@@ -96,7 +143,7 @@
                 type="password"
                 class="form-input"
                 required
-              />
+              >
             </div>
 
             <div class="form-group">
@@ -107,7 +154,7 @@
                 class="form-input"
                 required
                 minlength="6"
-              />
+              >
             </div>
 
             <div class="form-group">
@@ -118,30 +165,47 @@
                 class="form-input"
                 required
                 minlength="6"
-              />
+              >
             </div>
 
-            <div v-if="securityError" class="alert alert-error">
+            <div
+              v-if="securityError"
+              class="alert alert-error"
+            >
               {{ securityError }}
             </div>
 
-            <div v-if="securitySuccess" class="alert alert-success">
+            <div
+              v-if="securitySuccess"
+              class="alert alert-success"
+            >
               {{ securitySuccess }}
             </div>
 
-            <button type="submit" :disabled="securityLoading" class="btn btn-primary">
+            <button
+              type="submit"
+              :disabled="securityLoading"
+              class="btn btn-primary"
+            >
               {{ securityLoading ? 'Changing...' : 'Change Password' }}
             </button>
           </form>
         </div>
 
         <!-- Danger Zone Tab -->
-        <div v-if="activeTab === 'danger'" class="tab-content">
-          <h2 class="section-title">Danger Zone</h2>
+        <div
+          v-if="activeTab === 'danger'"
+          class="tab-content"
+        >
+          <h2 class="section-title">
+            Danger Zone
+          </h2>
           <div class="danger-zone">
-            
             <!-- Unlink Google Account (for Google users with password) -->
-            <div v-if="isGoogleUser && hasPassword" class="danger-section">
+            <div
+              v-if="isGoogleUser && hasPassword"
+              class="danger-section"
+            >
               <div class="danger-warning">
                 <h3>🔗 Unlink Google Account</h3>
                 <p>
@@ -149,15 +213,32 @@
                   with your username and password.
                 </p>
               </div>
-              <button @click="unlinkGoogle" :disabled="unlinkLoading" class="btn btn-warning">
+              <button
+                :disabled="unlinkLoading"
+                class="btn btn-warning"
+                @click="unlinkGoogle"
+              >
                 {{ unlinkLoading ? 'Unlinking...' : 'Unlink Google Account' }}
               </button>
-              <div v-if="unlinkError" class="alert alert-error">{{ unlinkError }}</div>
-              <div v-if="unlinkSuccess" class="alert alert-success">{{ unlinkSuccess }}</div>
+              <div
+                v-if="unlinkError"
+                class="alert alert-error"
+              >
+                {{ unlinkError }}
+              </div>
+              <div
+                v-if="unlinkSuccess"
+                class="alert alert-success"
+              >
+                {{ unlinkSuccess }}
+              </div>
             </div>
 
             <!-- Link Google Account (for traditional users) -->
-            <div v-if="!isGoogleUser" class="danger-section">
+            <div
+              v-if="!isGoogleUser"
+              class="danger-section"
+            >
               <div class="danger-warning">
                 <h3>🔗 Link Google Account</h3>
                 <p>
@@ -165,7 +246,11 @@
                   with either your username/password or Google.
                 </p>
               </div>
-              <button @click="linkGoogle" :disabled="linkLoading" class="btn btn-primary">
+              <button
+                :disabled="linkLoading"
+                class="btn btn-primary"
+                @click="linkGoogle"
+              >
                 {{ linkLoading ? 'Linking...' : 'Link Google Account' }}
               </button>
             </div>
@@ -181,12 +266,18 @@
               </div>
 
               <div v-if="!showDeleteConfirm">
-                <button @click="showDeleteConfirm = true" class="btn btn-danger">
+                <button
+                  class="btn btn-danger"
+                  @click="showDeleteConfirm = true"
+                >
                   Delete My Account
                 </button>
               </div>
 
-              <div v-else class="delete-confirm">
+              <div
+                v-else
+                class="delete-confirm"
+              >
                 <p class="confirm-text">
                   Are you absolutely sure? Type your username 
                   <strong>{{ authStore.user?.username }}</strong> to confirm:
@@ -196,24 +287,27 @@
                   type="text"
                   class="form-input"
                   placeholder="Type your username to confirm"
-                />
+                >
 
-                <div v-if="deleteError" class="alert alert-error">
+                <div
+                  v-if="deleteError"
+                  class="alert alert-error"
+                >
                   {{ deleteError }}
                 </div>
 
                 <div class="button-group">
                   <button 
-                    @click="deleteAccount" 
-                    :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading"
+                    :disabled="deleteConfirmText !== authStore.user?.username || deleteLoading" 
                     class="btn btn-danger"
+                    @click="deleteAccount"
                   >
                     {{ deleteLoading ? 'Deleting...' : 'Yes, Delete My Account' }}
                   </button>
                   <button 
-                    @click="showDeleteConfirm = false; deleteConfirmText = ''" 
-                    class="btn btn-secondary"
+                    class="btn btn-secondary" 
                     :disabled="deleteLoading"
+                    @click="showDeleteConfirm = false; deleteConfirmText = ''"
                   >
                     Cancel
                   </button>

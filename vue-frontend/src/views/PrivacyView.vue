@@ -2,7 +2,9 @@
   <div class="privacy-view">
     <div class="container-sm">
       <div class="content-card card">
-        <h1 class="page-title">Privacy Policy</h1>
+        <h1 class="page-title">
+          Privacy Policy
+        </h1>
         
         <div class="content">
           <section class="section">
@@ -50,7 +52,11 @@
             <p>
               Your uploaded documents are processed using Google's Gemini AI to generate course content. 
               The documents are sent to Google's servers for processing. Please review 
-              <a href="https://ai.google.dev/terms" target="_blank" rel="noopener">Google's AI Terms of Service</a> 
+              <a
+                href="https://ai.google.dev/terms"
+                target="_blank"
+                rel="noopener"
+              >Google's AI Terms of Service</a> 
               for more information about how they handle data.
             </p>
           </section>

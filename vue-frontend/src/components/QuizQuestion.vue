@@ -5,20 +5,17 @@
       <span class="question-type">{{ formatQuestionType(question.type) }}</span>
     </div>
 
-    <div class="question-text">{{ question.question }}</div>
+    <div class="question-text">
+      {{ question.question }}
+    </div>
 
     <!-- Multiple Choice -->
     <div v-if="isMultipleChoice" class="options-container">
-      <div 
-        v-for="(option, index) in question.options" 
-        :key="index"
-        :class="['option', { 
-          selected: selectedAnswer === option,
-          correct: isAnswered && option === question.answer,
-          incorrect: isAnswered && selectedAnswer === option && option !== question.answer
-        }]"
-        @click="!isAnswered && selectAnswer(option)"
-      >
+      <div v-for="(option, index) in question.options" :key="index" :class="['option', {
+        selected: selectedAnswer === option,
+        correct: isAnswered && option === question.answer,
+        incorrect: isAnswered && selectedAnswer === option && option !== question.answer
+      }]" @click="!isAnswered && selectAnswer(option)">
         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
         <span class="option-text">{{ option }}</span>
         <span v-if="isAnswered && option === question.answer" class="option-icon">✓</span>
@@ -28,25 +25,19 @@
 
     <!-- True/False -->
     <div v-else-if="isTrueFalse" class="options-container">
-      <div 
-        :class="['option', { 
-          selected: selectedAnswer === true,
-          correct: isAnswered && question.answer === true,
-          incorrect: isAnswered && selectedAnswer === true && question.answer !== true
-        }]"
-        @click="!isAnswered && selectAnswer(true)"
-      >
+      <div :class="['option', {
+        selected: selectedAnswer === true,
+        correct: isAnswered && question.answer === true,
+        incorrect: isAnswered && selectedAnswer === true && question.answer !== true
+      }]" @click="!isAnswered && selectAnswer(true)">
         <span class="option-text">✓ True</span>
         <span v-if="isAnswered && question.answer === true" class="option-icon">✓</span>
       </div>
-      <div 
-        :class="['option', { 
-          selected: selectedAnswer === false,
-          correct: isAnswered && question.answer === false,
-          incorrect: isAnswered && selectedAnswer === false && question.answer !== false
-        }]"
-        @click="!isAnswered && selectAnswer(false)"
-      >
+      <div :class="['option', {
+        selected: selectedAnswer === false,
+        correct: isAnswered && question.answer === false,
+        incorrect: isAnswered && selectedAnswer === false && question.answer !== false
+      }]" @click="!isAnswered && selectAnswer(false)">
         <span class="option-text">✗ False</span>
         <span v-if="isAnswered && question.answer === false" class="option-icon">✓</span>
       </div>
@@ -54,39 +45,19 @@
 
     <!-- Fill in the Blank -->
     <div v-else-if="isFillInBlank" class="answer-input-container">
-      <input
-        v-model="userAnswer"
-        type="text"
-        class="form-input"
-        :disabled="isAnswered"
-        placeholder="Type your answer here..."
-        @keyup.enter="submitFillInBlank"
-      />
-      <button 
-        v-if="!isAnswered" 
-        @click="submitFillInBlank"
-        :disabled="!userAnswer.trim()"
-        class="btn btn-primary"
-      >
+      <input v-model="userAnswer" type="text" class="form-input" :disabled="isAnswered"
+        placeholder="Type your answer here..." @keyup.enter="submitFillInBlank">
+      <button v-if="!isAnswered" :disabled="!userAnswer.trim()" class="btn btn-primary" @click="submitFillInBlank">
         Submit
       </button>
     </div>
 
     <!-- Short Answer -->
     <div v-else-if="isShortAnswer" class="answer-input-container">
-      <textarea
-        v-model="userAnswer"
-        class="form-textarea"
-        :disabled="isAnswered || validating"
-        placeholder="Type your detailed answer here..."
-        rows="4"
-      ></textarea>
-      <button 
-        v-if="!isAnswered" 
-        @click="submitShortAnswer"
-        :disabled="!userAnswer.trim() || validating"
-        class="btn btn-primary"
-      >
+      <textarea v-model="userAnswer" class="form-textarea" :disabled="isAnswered || validating"
+        placeholder="Type your detailed answer here..." rows="4" />
+      <button v-if="!isAnswered" :disabled="!userAnswer.trim() || validating" class="btn btn-primary"
+        @click="submitShortAnswer">
         {{ validating ? 'Validating...' : 'Submit' }}
       </button>
     </div>
@@ -97,23 +68,15 @@
         Match each item on the left with the correct answer on the right
       </div>
       <div class="matching-pairs">
-        <div 
-          v-for="(key, index) in matchingKeys" 
-          :key="index"
-          class="matching-row"
-        >
-          <div class="matching-key">{{ key }}</div>
-          <select 
-            v-model="matchingAnswers[key]"
-            :disabled="isAnswered"
-            class="form-select matching-select"
-          >
-            <option value="">Select...</option>
-            <option 
-              v-for="(value, vIndex) in matchingValues" 
-              :key="vIndex"
-              :value="value"
-            >
+        <div v-for="(key, index) in matchingKeys" :key="index" class="matching-row">
+          <div class="matching-key">
+            {{ key }}
+          </div>
+          <select v-model="matchingAnswers[key]" :disabled="isAnswered" class="form-select matching-select">
+            <option value="">
+              Select...
+            </option>
+            <option v-for="(value, vIndex) in matchingValues" :key="vIndex" :value="value">
               {{ value }}
             </option>
           </select>
@@ -122,12 +85,7 @@
           </span>
         </div>
       </div>
-      <button 
-        v-if="!isAnswered" 
-        @click="submitMatching"
-        :disabled="!isMatchingComplete"
-        class="btn btn-primary"
-      >
+      <button v-if="!isAnswered" :disabled="!isMatchingComplete" class="btn btn-primary" @click="submitMatching">
         Submit
       </button>
     </div>
@@ -179,7 +137,7 @@ export default {
   setup(props, { emit }) {
     // Initialize from saved data if available
     const savedData = props.savedAnswerData
-    
+
     const selectedAnswer = ref(savedData?.answer || null)
     const userAnswer = ref(savedData?.userAnswer || '')
     const matchingAnswers = ref(savedData?.answer && typeof savedData.answer === 'object' ? { ...savedData.answer } : {})
@@ -253,7 +211,7 @@ export default {
       if (typeof answer === 'object' && !Array.isArray(answer)) {
         return JSON.stringify(answer, null, 2)
       }
-      
+
       // For fill-in-the-blank with multiple answers, format nicely
       const answerStr = String(answer)
       if (isFillInBlank.value && answerStr.includes(',')) {
@@ -262,7 +220,7 @@ export default {
           return `Any of: ${answers.join(', ')}`
         }
       }
-      
+
       return answerStr
     }
 
@@ -273,30 +231,30 @@ export default {
 
     const submitFillInBlank = () => {
       if (!userAnswer.value.trim()) return
-      
+
       // Handle multiple correct answers separated by commas
       const correctAnswers = String(props.question.answer)
         .split(',')
         .map(ans => ans.trim().toLowerCase())
-      
+
       const userAnswerLower = userAnswer.value.trim().toLowerCase()
       const correct = correctAnswers.includes(userAnswerLower)
-      
+
       checkAnswer(userAnswer.value, correct)
     }
 
     const submitShortAnswer = async () => {
       if (!userAnswer.value.trim()) return
-      
+
       validating.value = true
-      
+
       try {
         const response = await api.post('/quiz/validate-answer', {
           question: props.question.question,
           user_answer: userAnswer.value,
           expected_answer: String(props.question.answer)
         })
-        
+
         const correct = response.data.is_correct
         explanation.value = response.data.explanation
         checkAnswer(userAnswer.value, correct)
@@ -314,7 +272,7 @@ export default {
 
     const submitMatching = () => {
       if (!isMatchingComplete.value) return
-      
+
       let allCorrect = true
       for (const key of matchingKeys.value) {
         if (matchingAnswers.value[key] !== props.question.answer[key]) {
@@ -322,13 +280,13 @@ export default {
           break
         }
       }
-      
+
       checkAnswer(matchingAnswers.value, allCorrect)
     }
 
     const checkAnswer = (answer, correctOverride = null) => {
       let correct = correctOverride
-      
+
       if (correct === null) {
         // Determine correctness based on question type
         if (isMultipleChoice.value || isTrueFalse.value) {
@@ -341,11 +299,11 @@ export default {
           correct = correctAnswers.includes(String(answer).toLowerCase().trim())
         }
       }
-      
+
       isCorrect.value = correct
       isAnswered.value = true
       expectedAnswer.value = props.question.answer
-      
+
       // Emit result to parent with answer data for saving
       emit('answer-submitted', {
         isCorrect: correct,
@@ -368,7 +326,7 @@ export default {
         explanation.value = ''
         expectedAnswer.value = null
         validating.value = false
-        
+
         // Initialize matching answers if needed
         if (isMatching.value && props.question.answer) {
           matchingAnswers.value = Object.keys(props.question.answer).reduce((acc, key) => {
@@ -637,9 +595,11 @@ export default {
   0% {
     transform: scale(0);
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
   }
@@ -657,6 +617,7 @@ export default {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -688,16 +649,16 @@ export default {
 }
 
 .feedback-text {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 0.5rem;
 }
 
 .correct-answer {
-  color: #cbd5e0;
+  color: var(--text-secondary);
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-color);
 }
 
 .correct-answer strong {

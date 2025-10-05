@@ -42,17 +42,31 @@ app = FastAPI(
 )
 
 # Configure CORS
+# Allow configuring CORS origins from an environment variable for deployed environments.
+# Set ALLOWED_ORIGINS as a comma-separated list (example: https://alpha-ai-loom-frontend.onrender.com,https://app.ailoom.me)
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if _allowed_origins_env:
+    # support '*' as a special value to allow all origins
+    if _allowed_origins_env.strip() == "*":
+        _allowed_origins = ["*"]
+    else:
+        _allowed_origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
+else:
+    _allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "https://app.ailoom.me",
+        "https://alpha-ai-loom-frontend.onrender.com",
+        "https://ai-loom-frontend.onrender.com",
+        "https://ailoom.me",
+    ]
+
+print(f"CORS allowed origins: {_allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://localhost:8080", 
-        "http://localhost:5173",
-        "https://app.ailoom.me",  # Production frontend (custom domain),
-        "https://alpha-ai-loom-frontend.onrender.com",
-        "https://ailoom.me"
-
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

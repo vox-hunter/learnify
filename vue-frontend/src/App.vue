@@ -4,21 +4,61 @@
       <div class="container">
         <nav class="navbar">
           <div class="brand">
-            <router-link to="/" class="brand-link">
-              <img src="/logo.png" alt="AI Loom" class="brand-logo" />
+            <router-link
+              to="/"
+              class="brand-link"
+            >
+              <img
+                src="/logo.png"
+                alt="AI Loom"
+                class="brand-logo"
+              >
               <span class="brand-name">AI Loom</span>
             </router-link>
           </div>
           <div class="nav-links">
-            <router-link to="/" class="nav-link">Home</router-link>
-            <router-link to="/courses" class="nav-link">My Courses</router-link>
-            <router-link v-if="!isAuthenticated" to="/login" class="nav-link">Login</router-link>
-            <div v-else class="user-menu">
-              <router-link to="/account" class="nav-link account-link">👤 Account</router-link>
-                <span class="username">Welcome, {{ username }}</span>
-              <button @click="logout" class="logout-btn">Logout</button>
+            <router-link
+              to="/"
+              class="nav-link"
+            >
+              Home
+            </router-link>
+            <router-link
+              to="/courses"
+              class="nav-link"
+            >
+              My Courses
+            </router-link>
+            <router-link
+              v-if="!isAuthenticated"
+              to="/login"
+              class="nav-link"
+            >
+              Login
+            </router-link>
+            <div
+              v-else
+              class="user-menu"
+            >
+              <router-link
+                to="/account"
+                class="nav-link account-link"
+              >
+                👤 Account
+              </router-link>
+              <span class="username">Welcome, {{ username }}</span>
+              <button
+                class="logout-btn"
+                @click="logout"
+              >
+                Logout
+              </button>
             </div>
-            <button @click="toggleTheme" class="theme-toggle" :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+            <button
+              class="theme-toggle"
+              :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+              @click="toggleTheme"
+            >
               <span v-if="theme === 'dark'">☀️</span>
               <span v-else>🌙</span>
             </button>
@@ -35,15 +75,33 @@
       <div class="container">
         <div class="footer-content">
           <div class="footer-brand">
-            <img src="/logo.png" alt="AI Loom" class="footer-logo" />
+            <img
+              src="/logo.png"
+              alt="AI Loom"
+              class="footer-logo"
+            >
             <div>
-              <p class="footer-title">AI Loom</p>
-              <p class="footer-copyright">&copy; 2025 AI Loom. All rights reserved.</p>
+              <p class="footer-title">
+                AI Loom
+              </p>
+              <p class="footer-copyright">
+                &copy; 2025 AI Loom. All rights reserved.
+              </p>
             </div>
           </div>
           <div class="footer-links">
-            <router-link to="/privacy" class="footer-link">Privacy Policy</router-link>
-            <router-link to="/terms" class="footer-link">Terms & Conditions</router-link>
+            <router-link
+              to="/privacy"
+              class="footer-link"
+            >
+              Privacy Policy
+            </router-link>
+            <router-link
+              to="/terms"
+              class="footer-link"
+            >
+              Terms & Conditions
+            </router-link>
           </div>
         </div>
       </div>

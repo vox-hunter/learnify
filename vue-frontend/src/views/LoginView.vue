@@ -2,7 +2,9 @@
   <div class="login-view">
     <div class="container-sm">
       <div class="login-card card">
-        <h1 class="page-title">Welcome Back</h1>
+        <h1 class="page-title">
+          Welcome Back
+        </h1>
         
         <!-- Tabs -->
         <div class="tabs">
@@ -21,7 +23,11 @@
         </div>
 
         <!-- Login Form -->
-        <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="auth-form">
+        <form
+          v-if="activeTab === 'login'"
+          class="auth-form"
+          @submit.prevent="handleLogin"
+        >
           <div class="form-group">
             <label class="form-label">Username or Email</label>
             <input
@@ -30,7 +36,7 @@
               class="form-input"
               required
               placeholder="Enter your username or email"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -41,7 +47,7 @@
               class="form-input"
               required
               placeholder="Enter your password"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -51,30 +57,37 @@
                   v-model="loginForm.rememberMe"
                   type="checkbox"
                   class="checkbox-input"
-                />
+                >
                 <span>Remember me</span>
               </label>
               <button 
                 type="button" 
-                @click="showForgotPassword = true; activeTab = 'forgot'"
                 class="btn-link forgot-link"
+                @click="showForgotPassword = true; activeTab = 'forgot'"
               >
                 Forgot password?
               </button>
             </div>
           </div>
 
-          <div v-if="error" class="alert alert-error">
+          <div
+            v-if="error"
+            class="alert alert-error"
+          >
             {{ error }}
           </div>
 
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="btn btn-primary btn-block"
+          >
             {{ loading ? 'Logging in...' : 'Login' }}
           </button>
 
           <!-- OAuth Divider -->
           <div class="oauth-divider">
-            <span>Or continue with</span>
+            <span>Or</span>
           </div>
 
           <!-- Google Login Button -->
@@ -82,9 +95,15 @@
         </form>
 
         <!-- Forgot Password - Step 1: Enter Email -->
-        <form v-if="activeTab === 'forgot' && !showResetVerification" @submit.prevent="handleForgotPassword" class="auth-form">
+        <form
+          v-if="activeTab === 'forgot' && !showResetVerification"
+          class="auth-form"
+          @submit.prevent="handleForgotPassword"
+        >
           <div class="forgot-header">
-            <h2 class="verification-title">🔐 Reset Password</h2>
+            <h2 class="verification-title">
+              🔐 Reset Password
+            </h2>
             <p class="verification-text">
               Enter your email address and we'll send you a verification code
             </p>
@@ -98,26 +117,42 @@
               class="form-input"
               required
               placeholder="Enter your email"
-            />
+            >
           </div>
 
-          <div v-if="error" class="alert alert-error">
+          <div
+            v-if="error"
+            class="alert alert-error"
+          >
             {{ error }}
           </div>
 
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="btn btn-primary btn-block"
+          >
             {{ loading ? 'Sending code...' : 'Send Verification Code' }}
           </button>
 
-          <button @click="activeTab = 'login'; showForgotPassword = false; error = null" class="btn-link" type="button">
+          <button
+            class="btn-link"
+            type="button"
+            @click="activeTab = 'login'; showForgotPassword = false; error = null"
+          >
             ← Back to login
           </button>
         </form>
 
         <!-- Forgot Password - Step 2: Verify Code & Reset -->
-        <div v-if="activeTab === 'forgot' && showResetVerification" class="auth-form">
+        <div
+          v-if="activeTab === 'forgot' && showResetVerification"
+          class="auth-form"
+        >
           <div class="verification-header">
-            <h2 class="verification-title">🔐 Reset Password</h2>
+            <h2 class="verification-title">
+              🔐 Reset Password
+            </h2>
             <p class="verification-text">
               We've sent a 6-digit code to <strong>{{ forgotPasswordForm.email }}</strong>
             </p>
@@ -133,7 +168,7 @@
               placeholder="Enter 6-digit code"
               maxlength="6"
               pattern="[0-9]{6}"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -145,7 +180,7 @@
               required
               placeholder="Enter new password"
               minlength="6"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -157,44 +192,58 @@
               required
               placeholder="Confirm new password"
               minlength="6"
-            />
+            >
           </div>
 
-          <div v-if="error" class="alert alert-error">
+          <div
+            v-if="error"
+            class="alert alert-error"
+          >
             {{ error }}
           </div>
 
-          <div v-if="success" class="alert alert-success">
+          <div
+            v-if="success"
+            class="alert alert-success"
+          >
             {{ success }}
           </div>
 
           <button 
-            @click="handleResetPassword" 
-            :disabled="loading || forgotPasswordForm.code.length !== 6"
+            :disabled="loading || forgotPasswordForm.code.length !== 6" 
             class="btn btn-primary btn-block"
             type="button"
+            @click="handleResetPassword"
           >
             {{ loading ? 'Resetting...' : 'Reset Password' }}
           </button>
 
           <div class="resend-section">
             <button 
-              @click="handleResendResetCode" 
-              :disabled="resetResendCooldown > 0"
+              :disabled="resetResendCooldown > 0" 
               class="btn-link"
               type="button"
+              @click="handleResendResetCode"
             >
               {{ resetResendCooldown > 0 ? `Resend code in ${resetResendCooldown}s` : 'Resend verification code' }}
             </button>
           </div>
 
-          <button @click="showResetVerification = false; error = null; success = null" class="btn-link" type="button">
+          <button
+            class="btn-link"
+            type="button"
+            @click="showResetVerification = false; error = null; success = null"
+          >
             ← Back to email entry
           </button>
         </div>
 
         <!-- Register Form - Step 1: User Details -->
-        <form v-if="activeTab === 'register' && !showVerification" @submit.prevent="handleRegister" class="auth-form">
+        <form
+          v-if="activeTab === 'register' && !showVerification"
+          class="auth-form"
+          @submit.prevent="handleRegister"
+        >
           <div class="form-group">
             <label class="form-label">Email</label>
             <input
@@ -203,8 +252,10 @@
               class="form-input"
               required
               placeholder="Enter your email"
-            />
-            <p class="form-hint">We'll send a verification code to this email</p>
+            >
+            <p class="form-hint">
+              We'll send a verification code to this email
+            </p>
           </div>
 
           <div class="form-group">
@@ -215,7 +266,7 @@
               class="form-input"
               required
               placeholder="Choose a username"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -226,7 +277,7 @@
               class="form-input"
               required
               placeholder="Enter your full name"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -238,7 +289,7 @@
               required
               placeholder="Choose a password"
               minlength="6"
-            />
+            >
           </div>
 
           <div class="form-group">
@@ -247,22 +298,29 @@
                 v-model="registerForm.marketing_consent"
                 type="checkbox"
                 class="checkbox-input"
-              />
+              >
               <span>I agree to receive marketing emails</span>
             </label>
           </div>
 
-          <div v-if="error" class="alert alert-error">
+          <div
+            v-if="error"
+            class="alert alert-error"
+          >
             {{ error }}
           </div>
 
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="btn btn-primary btn-block"
+          >
             {{ loading ? 'Sending verification code...' : 'Continue' }}
           </button>
 
           <!-- OAuth Divider -->
           <div class="oauth-divider">
-            <span>Or continue with</span>
+            <span>Or</span>
           </div>
 
           <!-- Google Login Button -->
@@ -270,9 +328,14 @@
         </form>
 
         <!-- Register Form - Step 2: Email Verification -->
-        <div v-if="activeTab === 'register' && showVerification" class="auth-form">
+        <div
+          v-if="activeTab === 'register' && showVerification"
+          class="auth-form"
+        >
           <div class="verification-header">
-            <h2 class="verification-title">📧 Verify Your Email</h2>
+            <h2 class="verification-title">
+              📧 Verify Your Email
+            </h2>
             <p class="verification-text">
               We've sent a 6-digit code to <strong>{{ registerForm.email }}</strong>
             </p>
@@ -288,48 +351,48 @@
               placeholder="Enter 6-digit code"
               maxlength="6"
               pattern="[0-9]{6}"
-            />
+            >
           </div>
 
-          <div v-if="error" class="alert alert-error">
+          <div
+            v-if="error"
+            class="alert alert-error"
+          >
             {{ error }}
           </div>
 
-          <div v-if="success" class="alert alert-success">
+          <div
+            v-if="success"
+            class="alert alert-success"
+          >
             {{ success }}
           </div>
 
           <button 
-            @click="handleVerifyEmail" 
-            :disabled="loading || verificationCode.length !== 6"
+            :disabled="loading || verificationCode.length !== 6" 
             class="btn btn-primary btn-block"
+            @click="handleVerifyEmail"
           >
             {{ loading ? 'Verifying...' : 'Verify & Complete Registration' }}
           </button>
 
           <div class="resend-section">
             <button 
-              @click="handleResendCode" 
-              :disabled="resendCooldown > 0"
+              :disabled="resendCooldown > 0" 
               class="btn-link"
               type="button"
+              @click="handleResendCode"
             >
               {{ resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend verification code' }}
             </button>
           </div>
 
-          <button @click="showVerification = false; error = null" class="btn-link" type="button">
+          <button
+            class="btn-link"
+            type="button"
+            @click="showVerification = false; error = null"
+          >
             ← Back to registration
-          </button>
-        </div>
-
-        <!-- OAuth Options (placeholder for future implementation) -->
-        <div class="oauth-section">
-          <div class="divider">
-            <span>Or continue with</span>
-          </div>
-          <button class="btn-oauth" disabled>
-            <span>🔒 Google OAuth (Coming Soon)</span>
           </button>
         </div>
       </div>

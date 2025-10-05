@@ -2,26 +2,46 @@
   <div class="oauth-callback">
     <div class="container">
       <div class="callback-card">
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
+          <div class="spinner" />
           <h2>Completing Google Sign In...</h2>
           <p>Please wait while we verify your account</p>
         </div>
 
-        <div v-else-if="error" class="error-state">
-          <div class="error-icon">⚠️</div>
+        <div
+          v-else-if="error"
+          class="error-state"
+        >
+          <div class="error-icon">
+            ⚠️
+          </div>
           <h2>Authentication Failed</h2>
-          <p class="error-message">{{ error }}</p>
-          <button @click="$router.push('/login')" class="btn btn-primary">
+          <p class="error-message">
+            {{ error }}
+          </p>
+          <button
+            class="btn btn-primary"
+            @click="$router.push('/login')"
+          >
             Back to Login
           </button>
         </div>
 
-        <div v-else-if="success" class="success-state">
-          <div class="success-icon">✓</div>
+        <div
+          v-else-if="success"
+          class="success-state"
+        >
+          <div class="success-icon">
+            ✓
+          </div>
           <h2>{{ isLinking ? 'Account Linked!' : `Welcome${userName ? `, ${userName}` : ''}!` }}</h2>
           <p>{{ isNewUser ? 'Your account has been created successfully.' : isLinking ? 'Google account has been linked to your account.' : 'Successfully signed in.' }}</p>
-          <p class="redirect-message">Redirecting{{ isLinking ? ' to account settings' : ' to home' }}...</p>
+          <p class="redirect-message">
+            Redirecting{{ isLinking ? ' to account settings' : ' to home' }}...
+          </p>
         </div>
       </div>
     </div>

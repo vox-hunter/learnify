@@ -2,29 +2,57 @@
   <div class="username-selection">
     <div class="container">
       <div class="username-card">
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
+          <div class="spinner" />
           <h2>Setting up your account...</h2>
         </div>
 
-        <div v-else-if="error" class="error-state">
-          <div class="error-icon">⚠️</div>
+        <div
+          v-else-if="error"
+          class="error-state"
+        >
+          <div class="error-icon">
+            ⚠️
+          </div>
           <h2>Error</h2>
-          <p class="error-message">{{ error }}</p>
-          <button @click="$router.push('/login')" class="btn btn-primary">
+          <p class="error-message">
+            {{ error }}
+          </p>
+          <button
+            class="btn btn-primary"
+            @click="$router.push('/login')"
+          >
             Back to Login
           </button>
         </div>
 
-        <div v-else class="form-state">
+        <div
+          v-else
+          class="form-state"
+        >
           <div class="header">
-            <img v-if="userInfo.picture" :src="userInfo.picture" alt="Profile" class="profile-pic" />
+            <img
+              v-if="userInfo.picture"
+              :src="userInfo.picture"
+              alt="Profile"
+              class="profile-pic"
+            >
             <h2>Choose Your Username</h2>
-            <p class="welcome-text">Welcome, {{ userInfo.name }}!</p>
-            <p class="email-text">{{ userInfo.email }}</p>
+            <p class="welcome-text">
+              Welcome, {{ userInfo.name }}!
+            </p>
+            <p class="email-text">
+              {{ userInfo.email }}
+            </p>
           </div>
 
-          <form @submit.prevent="completeSignup" class="username-form">
+          <form
+            class="username-form"
+            @submit.prevent="completeSignup"
+          >
             <div class="form-group">
               <label class="form-label">Username</label>
               <input
@@ -34,13 +62,31 @@
                 required
                 placeholder="Choose a unique username"
                 @input="checkUsername"
-              />
-              <p v-if="usernameChecking" class="form-hint checking">Checking availability...</p>
-              <p v-else-if="usernameAvailable === false" class="form-hint error">Username is already taken</p>
-              <p v-else-if="usernameAvailable === true" class="form-hint success">Username is available!</p>
+              >
+              <p
+                v-if="usernameChecking"
+                class="form-hint checking"
+              >
+                Checking availability...
+              </p>
+              <p
+                v-else-if="usernameAvailable === false"
+                class="form-hint error"
+              >
+                Username is already taken
+              </p>
+              <p
+                v-else-if="usernameAvailable === true"
+                class="form-hint success"
+              >
+                Username is available!
+              </p>
             </div>
 
-            <div v-if="submitError" class="alert alert-error">
+            <div
+              v-if="submitError"
+              class="alert alert-error"
+            >
               {{ submitError }}
             </div>
 
