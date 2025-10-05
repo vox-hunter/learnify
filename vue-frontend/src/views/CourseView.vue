@@ -200,46 +200,46 @@
             </div>
 
             <div class="step-container">
-              <!-- Current Step Content -->
-              <transition name="slide-fade" mode="out-in">
-                <div :key="currentStepIndex" class="step-content">
+              <!-- Render all revealed steps up to currentStepIndex -->
+              <transition-group name="fade" tag="div" class="steps-list">
+                <div v-for="(step, idx) in courseSteps.slice(0, currentStepIndex + 1)" :key="`step-${idx}`"
+                  :id="`step-${idx}`" class="step-card">
                   <!-- Explanation Block -->
-                  <div v-if="currentStep?.type === 'explanation'" class="explanation-step">
+                  <div v-if="step.type === 'explanation'" class="explanation-step">
                     <div class="step-header">
                       <h2 class="step-title">
-                        {{ currentStep.title }}
+                        {{ step.title }}
                       </h2>
-                      <span class="step-indicator">{{ currentStepIndex + 1 }} / {{ courseSteps.length }}</span>
+                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
                     <div class="explanation-text">
-                      <p>{{ currentStep.content }}</p>
+                      <p>{{ step.content }}</p>
                     </div>
                   </div>
 
                   <!-- Question Block -->
-                  <div v-else-if="currentStep?.type === 'question'" class="question-step">
+                  <div v-else-if="step.type === 'question'" class="question-step">
                     <div class="step-header">
                       <h3 class="step-title">
-                        Question {{ currentQuestionNumber }}
+                        Question {{ getQuestionDisplayNumber(idx) }}
                       </h3>
-                      <span class="step-indicator">{{ currentStepIndex + 1 }} / {{ courseSteps.length }}</span>
+                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
-                    <QuizQuestion :question="currentStep.question" :question-index="currentStep.questionIndex"
-                      :section-index="currentStep.sectionIndex" :subsection-index="currentStep.subsectionIndex"
-                      :saved-answer-data="currentStep.savedAnswerData" @answer-submitted="handleStepFlowAnswerSubmit" />
+                    <QuizQuestion :question="step.question" :question-index="step.questionIndex"
+                      :section-index="step.sectionIndex" :subsection-index="step.subsectionIndex"
+                      :saved-answer-data="step.savedAnswerData" @answer-submitted="handleStepFlowAnswerSubmit" />
+                  </div>
+
+                  <!-- Per-step Navigation Controls (button sits at bottom of each step) -->
+                  <div class="navigation-controls per-step centered">
+                    <button class="btn-continue" :class="{ 'pulse': showContinueHint && idx === currentStepIndex }"
+                      :disabled="idx !== currentStepIndex || !canProceedForStep(idx)"
+                      @click="idx === currentStepIndex && nextStep()">
+                      {{ idx === courseSteps.length - 1 ? 'Finish' : (idx === currentStepIndex ? (isLastStep ? 'Finish' : 'Continue') : 'Continue') }} →
+                    </button>
                   </div>
                 </div>
-              </transition>
-
-              <!-- Navigation Controls -->
-              <div v-if="canProceedToNextStep" class="navigation-controls">
-                <button class="btn-continue" :class="{ 'pulse': showContinueHint }" @click="nextStep">
-                  {{ isLastStep ? 'Finish' : 'Continue' }} →
-                </button>
-                <p class="hint-text">
-                  Press Enter to continue
-                </p>
-              </div>
+              </transition-group>
             </div>
           </div>
         </div>
@@ -844,9 +844,9 @@ export default {
         initialStepIndex.value = currentStepIndex.value
         saveProgress()
 
-        // Scroll to content and refocus
+        // Scroll to newly revealed step and refocus
         setTimeout(() => {
-          scrollToContent()
+          scrollToStep(currentStepIndex.value)
           if (stepFlowContainer.value) {
             stepFlowContainer.value.focus()
           }
@@ -875,11 +875,96 @@ export default {
     }
 
     const scrollToContent = () => {
-      // Scroll to the step content, not the very top
-      const stepContent = document.querySelector('.step-content')
-      if (stepContent) {
-        stepContent.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Backwards-compatible: scroll to current step
+      scrollToStep(currentStepIndex.value)
+    }
+
+    const scrollToStep = (index) => {
+      const el = document.getElementById(`step-${index}`)
+      if (el) {
+        // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
+        const isExplanation = !!el.querySelector('.explanation-step')
+        const headerEl = document.querySelector('.progress-bar-top')
+        const headerHeight = headerEl ? headerEl.offsetHeight : 0
+
+        if (isExplanation) {
+          // Calculate target Y so the step sits just below the sticky header
+          const rect = el.getBoundingClientRect()
+          const target = window.scrollY + rect.top - headerHeight - 12
+          window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
+        } else {
+          // For questions, center in viewport
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+
+        // Focus the step element without causing additional scroll (preventScroll)
+        if (typeof el.focus === 'function') {
+          try {
+            el.focus({ preventScroll: true })
+          } catch (e) {
+            // fallback for older browsers
+            el.focus()
+          }
+        }
+
+        // If this is a question step with a text input (fill-in or short answer), auto-focus it
+        // Delay slightly so the smooth scroll can complete before the input receives focus
+        nextTick(() => {
+          try {
+            const step = courseSteps.value[index]
+            if (step && step.type === 'question' && step.question) {
+              const qType = String(step.question.type || '').toLowerCase().replace(/[_\s]/g, '')
+              if (qType === 'fillintheblank' || qType === 'shortanswer') {
+                // Prefer textarea for shortanswer, input for fill-in
+                const inputSelector = 'textarea.form-textarea, input.form-input'
+                const focusInput = () => {
+                  const inputEl = el.querySelector(inputSelector)
+                  if (inputEl && !inputEl.disabled) {
+                    try {
+                      inputEl.focus()
+                    } catch (e) {
+                      // ignore
+                    }
+                    // place cursor at end for text inputs
+                    const len = inputEl.value?.length || 0
+                    if (typeof inputEl.setSelectionRange === 'function') {
+                      inputEl.setSelectionRange(len, len)
+                    }
+                  }
+                }
+
+                // Wait ~350ms to let smooth scroll finish, then focus input
+                setTimeout(focusInput, 350)
+              }
+            }
+          } catch (err) {
+            // fail silently
+          }
+        })
       }
+    }
+
+    const canProceedForStep = (idx) => {
+      const step = courseSteps.value[idx]
+      if (!step) return false
+
+      if (step.type === 'explanation') return true
+
+      if (step.type === 'question') {
+        const questionKey = `${step.sectionIndex}-${step.subsectionIndex ?? 'main'}-${step.questionIndex}`
+        return answeredQuestions.value.has(questionKey)
+      }
+
+      return false
+    }
+
+    const getQuestionDisplayNumber = (idx) => {
+      // Count question steps up to idx (inclusive)
+      let count = 0
+      for (let i = 0; i <= idx; i++) {
+        if (courseSteps.value[i]?.type === 'question') count++
+      }
+      return count
     }
 
     const handleStepFlowAnswerSubmit = (data) => {
@@ -1504,7 +1589,12 @@ export default {
       nextStep,
       handleStepEnterKey,
       handleStepFlowAnswerSubmit,
-      handleEndEarly
+      handleEndEarly,
+      // Expose new helpers for step rendering
+      canProceedForStep,
+      getQuestionDisplayNumber,
+      scrollToStep,
+      scrollToContent
     }
   }
 }
@@ -1692,6 +1782,42 @@ export default {
   border: 2px solid var(--border-color);
   margin-bottom: 2rem;
   padding: 1.5rem;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+/* Step flow appended cards */
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.step-card {
+  opacity: 1;
+}
+
+/* Fade transition for newly revealed steps */
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.navigation-controls.per-step {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.btn-continue[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .admin-title {
@@ -2161,7 +2287,7 @@ export default {
 
 .accuracy-badge.good {
   background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid rgba(251, 191, 36,  0.3);
   color: #fbbf24;
 }
 
@@ -2647,12 +2773,10 @@ export default {
 }
 
 .step-indicator {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
+  white-space: nowrap;
   font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 0.5rem;
 }
 
 .explanation-text {
