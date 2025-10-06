@@ -36,6 +36,7 @@ MONGODB_URI = None
 DB_NAME = "learnify_courses"
 COURSES_COLLECTION = "courses"
 USER_COURSES_COLLECTION = "user_courses"
+COURSE_RATINGS_COLLECTION = "course_ratings"
 
 # Try Streamlit secrets first
 if STREAMLIT_AVAILABLE:
@@ -65,6 +66,7 @@ class MongoCourseManager:
             self.db = self.client[DB_NAME]
             self.courses_collection = self.db[COURSES_COLLECTION]
             self.user_courses_collection = self.db[USER_COURSES_COLLECTION]
+            self.course_ratings_collection = self.db[COURSE_RATINGS_COLLECTION]
             # Test connection
             self.client.admin.command('ping')
             # Create indexes for better performance
@@ -76,6 +78,7 @@ class MongoCourseManager:
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
+            self.course_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -87,6 +90,7 @@ class MongoCourseManager:
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
+            self.course_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -98,6 +102,7 @@ class MongoCourseManager:
             self.db = None
             self.courses_collection = None
             self.user_courses_collection = None
+            self.course_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -122,9 +127,24 @@ class MongoCourseManager:
                 self.courses_collection.create_index("course_id", unique=True)
                 self.courses_collection.create_index("creator")
                 self.courses_collection.create_index("is_public")
+                self.courses_collection.create_index("title")
+                self.courses_collection.create_index("tags")
+                self.courses_collection.create_index("subject")
+                self.courses_collection.create_index("created_at")
+                # Text search index for title and content
+                self.courses_collection.create_index([
+                    ("title", "text"),
+                    ("description", "text"),
+                    ("tags", "text"),
+                    ("subject", "text")
+                ])
             
             if self.user_courses_collection is not None:
                 self.user_courses_collection.create_index([("user_identifier", 1), ("course_id", 1)], unique=True)
+            
+            if self.course_ratings_collection is not None:
+                self.course_ratings_collection.create_index([("course_id", 1), ("user_identifier", 1)], unique=True)
+                self.course_ratings_collection.create_index("course_id")
         except Exception:
             pass
 
@@ -193,6 +213,10 @@ class MongoCourseManager:
                         serializable_course_data.append(item)
 
             course_id = self.generate_course_id()
+            
+            # Extract metadata for public courses
+            metadata = self._extract_course_metadata(serializable_course_data, course_title)
+            
             course_document = {
                 "course_id": course_id,
                 "title": course_title,
@@ -204,7 +228,13 @@ class MongoCourseManager:
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
                 "total_questions": self._count_questions(serializable_course_data), # Use robust _count_questions
-                "total_sections": len(serializable_course_data) if serializable_course_data else 0 # Handle if serializable_course_data is empty
+                "total_sections": len(serializable_course_data) if serializable_course_data else 0, # Handle if serializable_course_data is empty
+                "description": metadata['description'],
+                "subject": ', '.join(metadata['subjects']) if metadata['subjects'] else '',
+                "tags": metadata['tags'],
+                "rating": 0.0,
+                "total_ratings": 0,
+                "popularity_score": 0.0
             }
             
             if self.courses_collection is not None:
@@ -365,7 +395,7 @@ class MongoCourseManager:
             return 0, f"An unexpected error occurred: {e}"
 
     def delete_course(self, course_id: str, user_identifier: str, is_guest: bool = False) -> Tuple[bool, Optional[str]]:
-        """Delete a course (only by its creator)"""
+        """Remove a course from user's account (but keep public courses accessible to others)"""
         if not self._ensure_connection():
             return False, "Database connection error."
         
@@ -380,13 +410,38 @@ class MongoCourseManager:
                 if not course:
                     return False, "Course not found or you don't have permission to delete it."
                 
-                result = self.courses_collection.delete_one(query)
-                self.user_courses_collection.delete_one({
-                    "user_identifier": user_identifier,
-                    "course_id": course_id
-                })
-                
-                return result.deleted_count > 0, None
+                # If course is public, only remove from user's account but keep it public
+                if course.get('is_public', False):
+                    # Just remove from user_courses_collection
+                    self.user_courses_collection.delete_one({
+                        "user_identifier": user_identifier,
+                        "course_id": course_id
+                    })
+                    
+                    # Mark course as "orphaned" (no longer owned by original creator)
+                    # but keep it public and accessible
+                    self.courses_collection.update_one(
+                        {"course_id": course_id},
+                        {
+                            "$set": {
+                                "creator": "[deleted user]",
+                                "is_guest": False,
+                                "updated_at": datetime.now(timezone.utc)
+                            },
+                            "$unset": {"session_id": ""}
+                        }
+                    )
+                    
+                    return True, None
+                else:
+                    # Private course - delete completely
+                    result = self.courses_collection.delete_one(query)
+                    self.user_courses_collection.delete_one({
+                        "user_identifier": user_identifier,
+                        "course_id": course_id
+                    })
+                    
+                    return result.deleted_count > 0, None
             else:
                 return False, "Database connection error."
             
@@ -595,6 +650,283 @@ class MongoCourseManager:
                 if isinstance(subsections_list, list): 
                     total_questions_count += self._count_questions(subsections_list) # Recursive call
         return total_questions_count
+
+    def _extract_course_metadata(self, course_data: List[Dict], course_title: str) -> Dict:
+        """Extract metadata from course content for search and organization"""
+        # Extract subjects/topics from course content
+        subjects = set()
+        tags = set()
+        
+        # Look for subject indicators in title and content
+        title_lower = course_title.lower()
+        
+        # Common academic subjects
+        subject_keywords = {
+            'mathematics': ['math', 'algebra', 'geometry', 'calculus', 'statistics'],
+            'science': ['physics', 'chemistry', 'biology', 'science'],
+            'history': ['history', 'historical'],
+            'literature': ['literature', 'english', 'writing'],
+            'computer_science': ['programming', 'coding', 'software', 'computer'],
+            'business': ['business', 'economics', 'finance', 'marketing'],
+            'language': ['spanish', 'french', 'german', 'chinese', 'japanese'],
+            'art': ['art', 'design', 'music', 'drawing'],
+            'medicine': ['medical', 'health', 'medicine', 'anatomy'],
+            'engineering': ['engineering', 'mechanical', 'electrical']
+        }
+        
+        for subject, keywords in subject_keywords.items():
+            if any(keyword in title_lower for keyword in keywords):
+                subjects.add(subject)
+                tags.update(keywords)
+        
+        # Extract from course content
+        for section in course_data:
+            if isinstance(section, dict):
+                section_title = section.get('section_title', '').lower()
+                explanation = section.get('explanation', '').lower()
+                
+                for subject, keywords in subject_keywords.items():
+                    if any(keyword in section_title or keyword in explanation for keyword in keywords):
+                        subjects.add(subject)
+                        tags.update([kw for kw in keywords if kw in section_title or kw in explanation])
+        
+        # Generate description from first section
+        description = ""
+        if course_data and len(course_data) > 0:
+            first_section = course_data[0]
+            if isinstance(first_section, dict):
+                explanation = first_section.get('explanation', '')
+                if explanation:
+                    # Get first 200 characters for description
+                    description = explanation[:200] + ("..." if len(explanation) > 200 else "")
+        
+        return {
+            'subjects': list(subjects),
+            'tags': list(tags),
+            'description': description
+        }
+
+    def get_public_courses(self, page: int = 0, limit: int = 20, sort_by: str = 'created_at', 
+                          sort_order: int = -1) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Get paginated list of public courses"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        try:
+            if self.courses_collection is not None:
+                skip = page * limit
+                
+                courses = list(self.courses_collection.find(
+                    {"is_public": True},
+                    {"_id": 0, "content": 0}  # Exclude content for performance
+                ).sort(sort_by, sort_order).skip(skip).limit(limit))
+                
+                # Transform MongoDB structure to API structure
+                for course in courses:
+                    if 'title' in course:
+                        course['course_title'] = course.pop('title')
+                
+                return courses, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving public courses: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving public courses: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def search_public_courses(self, query: str, page: int = 0, limit: int = 20) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Search public courses by text query"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        try:
+            if self.courses_collection is not None:
+                skip = page * limit
+                
+                # Use MongoDB text search
+                search_filter = {
+                    "is_public": True,
+                    "$text": {"$search": query}
+                }
+                
+                courses = list(self.courses_collection.find(
+                    search_filter,
+                    {"_id": 0, "content": 0, "score": {"$meta": "textScore"}}
+                ).sort([("score", {"$meta": "textScore"})]).skip(skip).limit(limit))
+                
+                # Transform MongoDB structure to API structure
+                for course in courses:
+                    if 'title' in course:
+                        course['course_title'] = course.pop('title')
+                
+                return courses, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error searching public courses: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error searching public courses: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def get_courses_by_subject(self, subject: str, page: int = 0, limit: int = 20) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Get public courses by subject/tag"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        try:
+            if self.courses_collection is not None:
+                skip = page * limit
+                
+                courses = list(self.courses_collection.find(
+                    {
+                        "is_public": True,
+                        "$or": [
+                            {"subject": {"$regex": subject, "$options": "i"}},
+                            {"tags": {"$regex": subject, "$options": "i"}}
+                        ]
+                    },
+                    {"_id": 0, "content": 0}
+                ).sort("created_at", -1).skip(skip).limit(limit))
+                
+                # Transform MongoDB structure to API structure
+                for course in courses:
+                    if 'title' in course:
+                        course['course_title'] = course.pop('title')
+                
+                return courses, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving courses by subject: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving courses by subject: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def rate_course(self, course_id: str, user_identifier: str, rating: int) -> Tuple[bool, Optional[str]]:
+        """Rate a course (1-5 stars)"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        if rating < 1 or rating > 5:
+            return False, "Rating must be between 1 and 5"
+        
+        try:
+            if self.course_ratings_collection is not None and self.courses_collection is not None:
+                # Upsert rating
+                self.course_ratings_collection.update_one(
+                    {"course_id": course_id, "user_identifier": user_identifier},
+                    {
+                        "$set": {
+                            "course_id": course_id,
+                            "user_identifier": user_identifier,
+                            "rating": rating,
+                            "created_at": datetime.now(timezone.utc)
+                        }
+                    },
+                    upsert=True
+                )
+                
+                # Update course average rating
+                self._update_course_rating(course_id)
+                
+                return True, None
+            else:
+                return False, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error rating course: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error rating course: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def _update_course_rating(self, course_id: str):
+        """Update average rating for a course"""
+        try:
+            if self.course_ratings_collection is not None and self.courses_collection is not None:
+                # Calculate average rating
+                pipeline = [
+                    {"$match": {"course_id": course_id}},
+                    {"$group": {
+                        "_id": "$course_id",
+                        "avg_rating": {"$avg": "$rating"},
+                        "total_ratings": {"$sum": 1}
+                    }}
+                ]
+                
+                result = list(self.course_ratings_collection.aggregate(pipeline))
+                
+                if result:
+                    avg_rating = round(result[0]['avg_rating'], 2)
+                    total_ratings = result[0]['total_ratings']
+                    
+                    # Update course document
+                    self.courses_collection.update_one(
+                        {"course_id": course_id},
+                        {
+                            "$set": {
+                                "rating": avg_rating,
+                                "total_ratings": total_ratings,
+                                "popularity_score": avg_rating * total_ratings  # Simple popularity metric
+                            }
+                        }
+                    )
+        except Exception:
+            pass  # Fail silently to not break the main operation
+
+    def clone_course(self, course_id: str, new_creator: str, is_guest: bool = False, 
+                    session_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+        """Clone a public course for a user to modify"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+        
+        try:
+            if self.courses_collection is not None:
+                # Get original course
+                original_course = self.courses_collection.find_one({"course_id": course_id, "is_public": True})
+                
+                if not original_course:
+                    return None, "Course not found or not public"
+                
+                # Create new course ID
+                new_course_id = self.generate_course_id()
+                
+                # Clone course document
+                cloned_course = {
+                    "course_id": new_course_id,
+                    "title": f"Copy of {original_course.get('title', 'Untitled Course')}",
+                    "content": original_course.get('content', []),
+                    "creator": new_creator,
+                    "is_guest": is_guest,
+                    "session_id": session_id if is_guest else None,
+                    "is_public": False,  # Cloned courses are private by default
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                    "total_questions": original_course.get('total_questions', 0),
+                    "total_sections": original_course.get('total_sections', 0),
+                    "cloned_from": course_id  # Track original course
+                }
+                
+                # Insert cloned course
+                self.courses_collection.insert_one(cloned_course)
+                
+                # Add to user courses
+                user_identifier = session_id if is_guest else new_creator
+                if user_identifier:
+                    self._add_to_user_courses(user_identifier, new_course_id, is_guest)
+                
+                return new_course_id, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error cloning course: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error cloning course: {e}")
+            return None, f"An unexpected error occurred: {e}"
 
 # Module-level instance
 _course_manager = None

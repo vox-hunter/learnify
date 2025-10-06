@@ -10,8 +10,13 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
 import sys
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / ".env"
@@ -26,6 +31,7 @@ from local_backend import generate_course, validate_short_answer_with_ai
 from mongo_auth import MongoAuthManager
 from mongo_course_manager import MongoCourseManager, get_session_id
 from file_security import validate_file_security
+from chat_manager import ChatSessionManager
 from google_oauth_fastapi import (
     get_google_auth_url,
     exchange_code_for_token,
@@ -54,6 +60,7 @@ if _allowed_origins_env:
 else:
     _allowed_origins = [
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:8080",
         "http://localhost:5173",
         "https://app.ailoom.me",
@@ -75,14 +82,16 @@ app.add_middleware(
 # Initialize managers
 auth_manager = None
 course_manager = None
+chat_manager = None
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global auth_manager, course_manager
+    global auth_manager, course_manager, chat_manager
     try:
         auth_manager = MongoAuthManager()
         course_manager = MongoCourseManager()
+        chat_manager = ChatSessionManager()
     except Exception as e:
         print(f"Warning: Could not initialize managers: {e}")
 
@@ -581,6 +590,12 @@ class GoogleCompleteRequest(BaseModel):
     state: str
     username: str
 
+class RateCourseRequest(BaseModel):
+    rating: int
+
+class CloneCourseRequest(BaseModel):
+    course_id: str
+
 @app.post("/auth/google/complete")
 async def complete_google_signup(request: GoogleCompleteRequest):
     """Complete Google OAuth signup with chosen username"""
@@ -1010,6 +1025,261 @@ async def get_progress(course_id: str, username: Optional[str] = None):
     
     return progress or {"answered_questions": [], "score": 0, "current_section_index": 0, "answer_data": {}}
 
+
+# Public Course Library endpoints
+@app.get("/library/courses")
+async def get_public_courses(
+    page: int = 0,
+    limit: int = 20,
+    sort_by: str = 'created_at',
+    sort_order: int = -1
+):
+    """Get paginated list of public courses"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.get_public_courses(page, limit, sort_by, sort_order)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.get("/library/search")
+async def search_public_courses(
+    q: str,
+    page: int = 0,
+    limit: int = 20
+):
+    """Search public courses by text query"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.search_public_courses(q, page, limit)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.get("/library/subject/{subject}")
+async def get_courses_by_subject(
+    subject: str,
+    page: int = 0,
+    limit: int = 20
+):
+    """Get public courses by subject/tag"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.get_courses_by_subject(subject, page, limit)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.post("/library/course/{course_id}/rate")
+async def rate_course(course_id: str, request: RateCourseRequest, username: Optional[str] = None):
+    """Rate a public course (1-5 stars)"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    # Use session ID for guests, username for authenticated users
+    user_identifier = username or get_session_id()
+    
+    success, error = course_manager.rate_course(course_id, user_identifier, request.rating)
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {"success": success}
+
+
+@app.post("/library/course/{course_id}/clone")
+async def clone_course(course_id: str, username: Optional[str] = None):
+    """Clone a public course to user's account"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    is_guest = username is None
+    user_identifier = username or get_session_id()
+    session_id = get_session_id() if is_guest else None
+    
+    new_course_id, error = course_manager.clone_course(
+        course_id=course_id,
+        new_creator=user_identifier,
+        is_guest=is_guest,
+        session_id=session_id
+    )
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {
+        "success": True,
+        "course_id": new_course_id,
+        "message": "Course cloned successfully"
+    }
+
+
+# Delete a course
+@app.delete("/course/{course_id}")
+async def delete_course(course_id: str, username: Optional[str] = None):
+    """Delete a course owned by the user
+    For authenticated users, `username` parameter should be provided (axios interceptor attaches it).
+    Guest deletions are handled client-side (localStorage) and won't call this endpoint.
+    """
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+
+    user_identifier = username or get_session_id()
+    is_guest = username is None
+
+    success, error = course_manager.delete_course(course_id=course_id, user_identifier=user_identifier, is_guest=is_guest)
+
+    if error:
+        # If deletion failed due to permissions or not found, return 400
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"success": success}
+
+# Chat endpoints
+@app.post("/chat/message")
+async def chat_message(
+    message: str = Form(...),
+    session_id: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    url: Optional[str] = Form(None)
+):
+    """
+    Send a message to the AI chat with optional file or URL context.
+    Uses Gemini SDK's multi-turn chat API for conversation management.
+    
+    Args:
+        message: User's text message
+        session_id: Optional existing session ID to continue conversation
+        file: Optional file upload for context
+        url: Optional URL for AI to fetch and analyze
+        
+    Returns:
+        {
+            "success": bool,
+            "reply": str,
+            "session_id": str,
+            "error": Optional[str]
+        }
+    """
+    if not chat_manager:
+        raise HTTPException(status_code=503, detail="Chat service unavailable")
+    
+    try:
+        file_data = None
+        file_mime_type = None
+        
+        # Process uploaded file if provided
+        if file:
+            # Read file content as bytes for Gemini API
+            file_data = await file.read()
+            file_mime_type = file.content_type or "application/octet-stream"
+            
+            logger.info(f"Processing uploaded file: {file.filename} ({file_mime_type}, {len(file_data)} bytes)")
+            
+            # Validate file security (reuse existing validation)
+            validation_result = validate_file_security(
+                file_data=file_data,
+                filename=file.filename
+            )
+            
+            if not validation_result["valid"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File validation failed: {validation_result['error']}"
+                )
+        
+        # Send message to chat session using Gemini SDK
+        # The ChatSessionManager handles:
+        # - Creating/retrieving chat sessions
+        # - Sending messages with file/URL context
+        # - Managing conversation history automatically via SDK
+        result = chat_manager.send_message(
+            session_id=session_id,
+            message=message,
+            file_data=file_data,
+            file_mime_type=file_mime_type,
+            url=url
+        )
+        
+        if not result['success']:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Chat processing failed'))
+        
+        # Return enhanced response with course detection
+        return {
+            "success": True,
+            "reply": result['reply'],
+            "session_id": result['session_id'],
+            "is_course": result.get('is_course', False),
+            "course_data": result.get('course_data')
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in chat_message: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chat/history/{session_id}")
+async def get_chat_history(session_id: str):
+    """
+    Get conversation history for a chat session.
+    
+    Args:
+        session_id: The chat session identifier
+        
+    Returns:
+        List of messages in the conversation
+    """
+    if not chat_manager:
+        raise HTTPException(status_code=503, detail="Chat service unavailable")
+    
+    history = chat_manager.get_history(session_id)
+    
+    if history is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "success": True,
+        "session_id": session_id,
+        "history": history
+    }
+
+@app.delete("/chat/session/{session_id}")
+async def delete_chat_session(session_id: str):
+    """
+    Delete a chat session and its history.
+    
+    Args:
+        session_id: The chat session identifier
+        
+    Returns:
+        Success confirmation
+    """
+    if not chat_manager:
+        raise HTTPException(status_code=503, detail="Chat service unavailable")
+    
+    deleted = chat_manager.delete_session(session_id)
+    
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "success": True,
+        "message": "Session deleted successfully"
+    }
+
 # Analytics endpoints
 @app.get("/analytics/courses")
 async def get_course_analytics(username: Optional[str] = None):
@@ -1031,4 +1301,10 @@ async def get_course_analytics(username: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        reload_dirs=["../api", "../backend"]  # Watch both api and backend directories
+    )

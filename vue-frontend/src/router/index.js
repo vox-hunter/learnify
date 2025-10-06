@@ -7,6 +7,11 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
+      component: () => import('../views/ChatView.vue')
+    },
+    {
+      path: '/old-home',
+      name: 'old-home',
       component: () => import('../views/HomeView.vue')
     },
     {
@@ -18,6 +23,11 @@ const router = createRouter({
       path: '/courses',
       name: 'courses',
       component: () => import('../views/CoursesView.vue')
+    },
+    {
+      path: '/library',
+      name: 'library',
+      component: () => import('../views/LibraryView.vue')
     },
     {
       path: '/course/:id',
