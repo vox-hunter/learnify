@@ -199,75 +199,90 @@ class ChatSessionManager:
                     if hasattr(part, 'text'):
                         reply_text += part.text
 
-            # Redact accidental system-instruction or tool-description leaks
-            try:
-                preview_lower = (reply_text or '').lower()
-                leaked = False
-
-                # If the model echoed an explicit request to show system instructions
-                if 'here are my full system instructions' in preview_lower or 'okay, here are my full system instructions' in preview_lower:
-                    leaked = True
-
-                # If the reply contains a large substring of the system instruction, treat as leak
-                if not leaked and self.system_instruction:
-                    si = self.system_instruction.strip()
-                    # compare by checking a reasonably long prefix to avoid false positives
-                    if len(si) > 100 and si[:100].lower() in preview_lower:
-                        leaked = True
-
-                if leaked:
-                    logger.warning(f"Detected potential system-instruction leak from session {session_id}; redacting reply")
-                    reply_text = "I'm sorry — I can't share internal system instructions or tool definitions. How can I help instead?"
-            except Exception:
-                # Don't let redaction errors break flow
-                pass
-
-            logger.info(f"Received reply from session {session_id} ({len(reply_text)} chars)")
-            
-            # Detect if response is JSON (course generation mode)
+            # Try to extract JSON course payload from the reply (search anywhere)
             is_json = False
             course_data = None
-            
-            # Extract JSON if wrapped in markdown code blocks
-            json_text = reply_text.strip()
-            
-            # Debug: Log first 200 chars of response
-            logger.info(f"Response preview: {json_text[:200]}...")
-            
-            # Check for markdown code block wrapping: ```json ... ``` or ``` ... ```
-            if json_text.startswith('```'):
-                logger.info("Detected markdown code block, extracting JSON...")
-                # Remove opening ```json or ```
-                if json_text.startswith('```json'):
-                    json_text = json_text[7:]
-                elif json_text.startswith('```'):
-                    json_text = json_text[3:]
-                
-                # Remove closing ```
-                if json_text.endswith('```'):
-                    json_text = json_text[:-3]
-                
-                json_text = json_text.strip()
-            
-            # Fix common JSON issues from AI responses
-            # 1. Remove trailing commas before ] or }
-            json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
-            
-            try:
-                # Try to parse as JSON
-                parsed_json = json.loads(json_text)
-                
-                # Validate it has course structure
-                if isinstance(parsed_json, dict) and 'course_title' in parsed_json and 'sections' in parsed_json:
-                    is_json = True
-                    course_data = parsed_json
-                    logger.info(f"✓ Detected course JSON response: {parsed_json.get('course_title')}")
-                else:
-                    logger.info(f"JSON parsed but missing course structure. Keys: {list(parsed_json.keys()) if isinstance(parsed_json, dict) else 'not a dict'}")
-            except (json.JSONDecodeError, ValueError) as e:
-                # Not JSON, treat as normal conversation
-                logger.info(f"Response is not valid JSON: {str(e)[:100]}")
-                pass
+            json_text = None
+
+            # 1) Look for fenced code blocks anywhere: ```json ... ``` or ``` ... ```
+            m = re.search(r"```(?:json)?\s*(.*?)\s*```", reply_text, re.DOTALL | re.IGNORECASE)
+            if m:
+                json_text = m.group(1).strip()
+                logger.info("Found fenced code block candidate for JSON")
+
+            # 2) If none, look for HTML <pre> or <code> blocks
+            if not json_text:
+                m = re.search(r"<pre[^>]*>(.*?)</pre>", reply_text, re.DOTALL | re.IGNORECASE)
+                if m:
+                    json_text = m.group(1).strip()
+                    logger.info("Found <pre> block candidate for JSON")
+            if not json_text:
+                m = re.search(r"<code[^>]*>(.*?)</code>", reply_text, re.DOTALL | re.IGNORECASE)
+                if m:
+                    json_text = m.group(1).strip()
+                    logger.info("Found <code> block candidate for JSON")
+
+            # 3) If still none, attempt to extract the first balanced-brace JSON substring
+            if not json_text:
+                start = reply_text.find('{')
+                if start != -1:
+                    depth = 0
+                    i = start
+                    while i < len(reply_text):
+                        ch = reply_text[i]
+                        if ch == '{':
+                            depth += 1
+                        elif ch == '}':
+                            depth -= 1
+                            if depth == 0:
+                                json_text = reply_text[start:i+1].strip()
+                                logger.info("Found balanced-brace candidate for JSON")
+                                break
+                        i += 1
+
+            # Debug: log preview
+            logger.info(f"Response preview: {(reply_text or '')[:200]}...")
+
+            # If we have a candidate json_text, try to clean common issues and parse
+            if json_text:
+                # Remove leading/trailing fences or language markers (e.g., 'json') already stripped above
+                # Fix common JSON issues from AI responses: remove trailing commas before ] or }
+                cleaned = re.sub(r',(\s*[}\]])', r'\1', json_text)
+                # Remove any Markdown code ticks inside
+                cleaned = cleaned.replace('`', '')
+                try:
+                    parsed_json = json.loads(cleaned)
+                    if isinstance(parsed_json, dict) and 'course_title' in parsed_json and 'sections' in parsed_json:
+                        is_json = True
+                        course_data = parsed_json
+                        logger.info(f"✓ Detected course JSON response: {parsed_json.get('course_title')}")
+                    else:
+                        logger.info("JSON parsed but missing course structure keys")
+                except Exception as e:
+                    logger.info(f"Candidate JSON parse failed: {str(e)[:200]}")
+
+            # If no valid JSON was found, run redaction to avoid leaking system prompts
+            if not is_json:
+                try:
+                    preview_lower = (reply_text or '').lower()
+                    leaked = False
+
+                    # If the model echoed an explicit request to show system instructions
+                    if 'here are my full system instructions' in preview_lower or 'okay, here are my full system instructions' in preview_lower:
+                        leaked = True
+
+                    # If the reply contains a large substring of the system instruction, treat as leak
+                    if not leaked and self.system_instruction:
+                        si = self.system_instruction.strip()
+                        if len(si) > 100 and si[:100].lower() in preview_lower:
+                            leaked = True
+
+                    if leaked:
+                        logger.warning(f"Detected potential system-instruction leak from session {session_id}; redacting reply")
+                        reply_text = "I'm sorry — I can't share internal system instructions or tool definitions. How can I help instead?"
+                except Exception:
+                    # Don't let redaction errors break flow
+                    pass
             
             return {
                 'success': True,
