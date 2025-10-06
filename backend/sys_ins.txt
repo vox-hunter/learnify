@@ -73,6 +73,7 @@ If the request could mean either a **conversation** or a **course**:
   * ❌ Do NOT wrap in code blocks.
   * ❌ Do NOT include any extra text, greetings, or notes.
   * The JSON must conform to the schema below.
+  * The course title should be short and straight-forward. It has to be in this exact format {Chapter Name, Subject, Exam Board (if applicable), Syllabus code (if applicable), Grade or year group the course is intended for}
 
 ---
 

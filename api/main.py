@@ -590,6 +590,12 @@ class GoogleCompleteRequest(BaseModel):
     state: str
     username: str
 
+class RateCourseRequest(BaseModel):
+    rating: int
+
+class CloneCourseRequest(BaseModel):
+    course_id: str
+
 @app.post("/auth/google/complete")
 async def complete_google_signup(request: GoogleCompleteRequest):
     """Complete Google OAuth signup with chosen username"""
@@ -1018,6 +1024,106 @@ async def get_progress(course_id: str, username: Optional[str] = None):
         raise HTTPException(status_code=500, detail=error)
     
     return progress or {"answered_questions": [], "score": 0, "current_section_index": 0, "answer_data": {}}
+
+
+# Public Course Library endpoints
+@app.get("/library/courses")
+async def get_public_courses(
+    page: int = 0,
+    limit: int = 20,
+    sort_by: str = 'created_at',
+    sort_order: int = -1
+):
+    """Get paginated list of public courses"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.get_public_courses(page, limit, sort_by, sort_order)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.get("/library/search")
+async def search_public_courses(
+    q: str,
+    page: int = 0,
+    limit: int = 20
+):
+    """Search public courses by text query"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.search_public_courses(q, page, limit)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.get("/library/subject/{subject}")
+async def get_courses_by_subject(
+    subject: str,
+    page: int = 0,
+    limit: int = 20
+):
+    """Get public courses by subject/tag"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    courses, error = course_manager.get_courses_by_subject(subject, page, limit)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"courses": courses or []}
+
+
+@app.post("/library/course/{course_id}/rate")
+async def rate_course(course_id: str, request: RateCourseRequest, username: Optional[str] = None):
+    """Rate a public course (1-5 stars)"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    # Use session ID for guests, username for authenticated users
+    user_identifier = username or get_session_id()
+    
+    success, error = course_manager.rate_course(course_id, user_identifier, request.rating)
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {"success": success}
+
+
+@app.post("/library/course/{course_id}/clone")
+async def clone_course(course_id: str, username: Optional[str] = None):
+    """Clone a public course to user's account"""
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    is_guest = username is None
+    user_identifier = username or get_session_id()
+    session_id = get_session_id() if is_guest else None
+    
+    new_course_id, error = course_manager.clone_course(
+        course_id=course_id,
+        new_creator=user_identifier,
+        is_guest=is_guest,
+        session_id=session_id
+    )
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {
+        "success": True,
+        "course_id": new_course_id,
+        "message": "Course cloned successfully"
+    }
 
 
 # Delete a course

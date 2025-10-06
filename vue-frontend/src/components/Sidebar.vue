@@ -29,6 +29,11 @@
                 <span v-if="!isCollapsed" class="nav-label">Courses</span>
             </router-link>
 
+            <router-link to="/library" class="nav-item" :title="isCollapsed ? 'Library' : ''">
+                <span class="nav-icon">🏛️</span>
+                <span v-if="!isCollapsed" class="nav-label">Library</span>
+            </router-link>
+
             <router-link v-if="!isAuthenticated" to="/login" class="nav-item" :title="isCollapsed ? 'Login' : ''">
                 <span class="nav-icon">🔐</span>
                 <span v-if="!isCollapsed" class="nav-label">Login</span>
