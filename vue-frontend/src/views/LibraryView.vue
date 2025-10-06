@@ -1,168 +1,156 @@
 <template>
-  <div class="library-view">
-    <div class="container">
-      <div class="library-header">
-        <h1 class="page-title">Course Library</h1>
-        <p class="page-subtitle">Explore and learn from courses created by the community</p>
-        
-        <!-- Search Bar -->
-        <div class="search-section">
-          <div class="search-bar">
-            <input
-              v-model="searchQuery"
-              @keyup.enter="searchCourses"
-              type="text"
-              placeholder="Search courses by title, topic, or keyword..."
-              class="search-input"
-            >
-            <button @click="searchCourses" class="search-btn" :disabled="loading">
-              🔍
-            </button>
-          </div>
-          
-          <!-- Subject Filter -->
-          <div class="filter-section">
-            <select v-model="selectedSubject" @change="filterBySubject" class="subject-filter">
-              <option value="">All Subjects</option>
-              <option value="mathematics">Mathematics</option>
-              <option value="science">Science</option>
-              <option value="history">History</option>
-              <option value="literature">Literature</option>
-              <option value="computer_science">Computer Science</option>
-              <option value="business">Business</option>
-              <option value="language">Languages</option>
-              <option value="art">Art & Design</option>
-              <option value="medicine">Medicine</option>
-              <option value="engineering">Engineering</option>
-            </select>
-            
-            <select v-model="sortBy" @change="loadCourses" class="sort-filter">
-              <option value="created_at">Newest First</option>
-              <option value="rating">Highest Rated</option>
-              <option value="popularity_score">Most Popular</option>
-              <option value="title">Alphabetical</option>
-            </select>
-          </div>
-        </div>
-      </div>
+    <div class="library-view">
+        <div class="container">
+            <div class="library-header">
+                <h1 class="page-title">Course Library</h1>
+                <p class="page-subtitle">Explore and learn from courses created by the community</p>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner" />
-        <p>Loading courses...</p>
-      </div>
+                <!-- Search Bar -->
+                <div class="search-section">
+                    <div class="search-bar">
+                        <input v-model="searchQuery" @keyup.enter="searchCourses" type="text"
+                            placeholder="Search courses by title, topic, or keyword..." class="search-input">
+                        <button @click="searchCourses" class="search-btn" :disabled="loading">
+                            🔍
+                        </button>
+                    </div>
 
-      <!-- Empty State -->
-      <div v-else-if="courses.length === 0" class="empty-state card">
-        <div class="empty-icon">📚</div>
-        <h2>No courses found</h2>
-        <p v-if="searchQuery">Try searching with different keywords or browse all courses.</p>
-        <p v-else>No public courses available yet. Be the first to create one!</p>
-        <button @click="clearFilters" v-if="searchQuery || selectedSubject" class="btn btn-secondary">
-          Clear Filters
-        </button>
-      </div>
+                    <!-- Subject Filter -->
+                    <div class="filter-section">
+                        <select v-model="selectedSubject" @change="filterBySubject" class="subject-filter">
+                            <option value="">All Subjects</option>
+                            <option value="mathematics">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="history">History</option>
+                            <option value="literature">Literature</option>
+                            <option value="computer_science">Computer Science</option>
+                            <option value="business">Business</option>
+                            <option value="language">Languages</option>
+                            <option value="art">Art & Design</option>
+                            <option value="medicine">Medicine</option>
+                            <option value="engineering">Engineering</option>
+                        </select>
 
-      <!-- Courses Grid -->
-      <div v-else class="courses-grid">
-        <div
-          v-for="course in courses"
-          :key="course.course_id"
-          class="course-card card"
-        >
-          <div class="course-card-header">
-            <h3 class="course-card-title">
-              {{ course.course_title || 'Untitled Course' }}
-            </h3>
-            <div class="course-rating" v-if="course.rating > 0">
-              <span class="stars">
-                {{ getStarRating(course.rating) }}
-              </span>
-              <span class="rating-text">{{ course.rating.toFixed(1) }}</span>
-              <span class="rating-count">({{ course.total_ratings || 0 }})</span>
+                        <select v-model="sortBy" @change="loadCourses" class="sort-filter">
+                            <option value="created_at">Newest First</option>
+                            <option value="rating">Highest Rated</option>
+                            <option value="popularity_score">Most Popular</option>
+                            <option value="title">Alphabetical</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-          </div>
-          
-          <div class="course-description" v-if="course.description">
-            <p>{{ course.description }}</p>
-          </div>
-          
-          <div class="course-card-meta">
-            <span class="meta-badge">
-              📚 {{ course.total_sections || 0 }} Sections
-            </span>
-            <span class="meta-badge">
-              ❓ {{ course.total_questions || 0 }} Questions
-            </span>
-            <span class="meta-badge" v-if="course.subject">
-              🏷️ {{ course.subject }}
-            </span>
-            <span class="meta-badge">
-              👤 {{ course.creator || 'Anonymous' }}
-            </span>
-            <span class="meta-badge">
-              📅 {{ formatDate(course.created_at) }}
-            </span>
-          </div>
-          
-          <div class="course-tags" v-if="course.tags && course.tags.length > 0">
-            <span v-for="tag in course.tags.slice(0, 3)" :key="tag" class="tag">
-              {{ tag }}
-            </span>
-          </div>
-          
-          <div class="course-card-footer">
-            <button @click="viewCourse(course.course_id)" class="btn btn-secondary btn-sm">
-              View Course
-            </button>
-            <button @click="cloneCourse(course.course_id)" class="btn btn-primary btn-sm" :disabled="cloning[course.course_id]">
-              <span v-if="!cloning[course.course_id]">Clone & Edit</span>
-              <span v-else>Cloning...</span>
-            </button>
-            <button @click="showRatingModal(course)" class="btn btn-outline btn-sm">
-              Rate
-            </button>
-          </div>
+
+            <!-- Loading State -->
+            <div v-if="loading" class="loading-state">
+                <div class="spinner" />
+                <p>Loading courses...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="courses.length === 0" class="empty-state card">
+                <div class="empty-icon">📚</div>
+                <h2>No courses found</h2>
+                <p v-if="searchQuery">Try searching with different keywords or browse all courses.</p>
+                <p v-else>No public courses available yet. Be the first to create one!</p>
+                <button @click="clearFilters" v-if="searchQuery || selectedSubject" class="btn btn-secondary">
+                    Clear Filters
+                </button>
+            </div>
+
+            <!-- Courses Grid -->
+            <div v-else class="courses-grid">
+                <div v-for="course in courses" :key="course.course_id" class="course-card card">
+                    <div class="course-card-header">
+                        <h3 class="course-card-title">
+                            {{ course.course_title || 'Untitled Course' }}
+                        </h3>
+                        <div class="course-rating" v-if="course.rating > 0">
+                            <span class="stars">
+                                {{ getStarRating(course.rating) }}
+                            </span>
+                            <span class="rating-text">{{ course.rating.toFixed(1) }}</span>
+                            <span class="rating-count">({{ course.total_ratings || 0 }})</span>
+                        </div>
+                    </div>
+
+                    <div class="course-description" v-if="course.description">
+                        <p>{{ course.description }}</p>
+                    </div>
+
+                    <div class="course-card-meta">
+                        <span class="meta-badge">
+                            📚 {{ course.total_sections || 0 }} Sections
+                        </span>
+                        <span class="meta-badge">
+                            ❓ {{ course.total_questions || 0 }} Questions
+                        </span>
+                        <span class="meta-badge" v-if="course.subject">
+                            🏷️ {{ course.subject }}
+                        </span>
+                        <span class="meta-badge">
+                            👤 {{ course.creator || 'Anonymous' }}
+                        </span>
+                        <span class="meta-badge">
+                            📅 {{ formatDate(course.created_at) }}
+                        </span>
+                    </div>
+
+                    <div class="course-tags" v-if="course.tags && course.tags.length > 0">
+                        <span v-for="tag in course.tags.slice(0, 3)" :key="tag" class="tag">
+                            {{ tag }}
+                        </span>
+                    </div>
+
+                    <div class="course-card-footer">
+                        <button @click="viewCourse(course.course_id)" class="btn btn-secondary btn-sm">
+                            View Course
+                        </button>
+                        <button @click="cloneCourse(course.course_id)" class="btn btn-primary btn-sm"
+                            :disabled="cloning[course.course_id]">
+                            <span v-if="!cloning[course.course_id]">Clone & Edit</span>
+                            <span v-else>Cloning...</span>
+                        </button>
+                        <button @click="showRatingModal(course)" class="btn btn-outline btn-sm">
+                            Rate
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Load More Button -->
+            <div v-if="courses.length > 0 && hasMore" class="load-more-section">
+                <button @click="loadMore" class="btn btn-secondary" :disabled="loading">
+                    <span v-if="!loading">Load More</span>
+                    <span v-else>Loading...</span>
+                </button>
+            </div>
         </div>
-      </div>
-      
-      <!-- Load More Button -->
-      <div v-if="courses.length > 0 && hasMore" class="load-more-section">
-        <button @click="loadMore" class="btn btn-secondary" :disabled="loading">
-          <span v-if="!loading">Load More</span>
-          <span v-else>Loading...</span>
-        </button>
-      </div>
+
+        <!-- Rating Modal -->
+        <div v-if="showRating" class="modal-overlay" @click="closeRatingModal">
+            <div class="modal-content" @click.stop>
+                <h3>Rate Course</h3>
+                <p>{{ ratingCourse?.course_title }}</p>
+
+                <div class="rating-stars">
+                    <button v-for="star in 5" :key="star" @click="selectRating(star)" class="star-btn"
+                        :class="{ active: star <= selectedRating }">
+                        ⭐
+                    </button>
+                </div>
+
+                <div class="modal-actions">
+                    <button @click="closeRatingModal" class="btn btn-secondary">Cancel</button>
+                    <button @click="submitRating" class="btn btn-primary"
+                        :disabled="selectedRating === 0 || submittingRating">
+                        <span v-if="!submittingRating">Submit Rating</span>
+                        <span v-else>Submitting...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <!-- Rating Modal -->
-    <div v-if="showRating" class="modal-overlay" @click="closeRatingModal">
-      <div class="modal-content" @click.stop>
-        <h3>Rate Course</h3>
-        <p>{{ ratingCourse?.course_title }}</p>
-        
-        <div class="rating-stars">
-          <button
-            v-for="star in 5"
-            :key="star"
-            @click="selectRating(star)"
-            class="star-btn"
-            :class="{ active: star <= selectedRating }"
-          >
-            ⭐
-          </button>
-        </div>
-        
-        <div class="modal-actions">
-          <button @click="closeRatingModal" class="btn btn-secondary">Cancel</button>
-          <button @click="submitRating" class="btn btn-primary" :disabled="selectedRating === 0 || submittingRating">
-            <span v-if="!submittingRating">Submit Rating</span>
-            <span v-else>Submitting...</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script>
@@ -173,513 +161,513 @@ import { useCourseStore } from '../stores/course'
 import api from '../services/api'
 
 export default {
-  name: 'LibraryView',
-  setup() {
-    const router = useRouter()
-    const authStore = useAuthStore()
-    const courseStore = useCourseStore()
+    name: 'LibraryView',
+    setup() {
+        const router = useRouter()
+        const authStore = useAuthStore()
+        const courseStore = useCourseStore()
 
-    const courses = ref([])
-    const loading = ref(false)
-    const searchQuery = ref('')
-    const selectedSubject = ref('')
-    const sortBy = ref('created_at')
-    const currentPage = ref(0)
-    const hasMore = ref(true)
-    const cloning = ref({})
-    
-    // Rating modal state
-    const showRating = ref(false)
-    const ratingCourse = ref(null)
-    const selectedRating = ref(0)
-    const submittingRating = ref(false)
+        const courses = ref([])
+        const loading = ref(false)
+        const searchQuery = ref('')
+        const selectedSubject = ref('')
+        const sortBy = ref('created_at')
+        const currentPage = ref(0)
+        const hasMore = ref(true)
+        const cloning = ref({})
 
-    const isAuthenticated = computed(() => authStore.isAuthenticated)
+        // Rating modal state
+        const showRating = ref(false)
+        const ratingCourse = ref(null)
+        const selectedRating = ref(0)
+        const submittingRating = ref(false)
 
-    const loadCourses = async (reset = true) => {
-      loading.value = true
-      
-      if (reset) {
-        currentPage.value = 0
-        courses.value = []
-      }
-      
-      try {
-        let url = `/library/courses?page=${currentPage.value}&limit=20&sort_by=${sortBy.value}&sort_order=-1`
-        
-        if (searchQuery.value.trim()) {
-          url = `/library/search?q=${encodeURIComponent(searchQuery.value)}&page=${currentPage.value}&limit=20`
-        } else if (selectedSubject.value) {
-          url = `/library/subject/${selectedSubject.value}?page=${currentPage.value}&limit=20`
+        const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+        const loadCourses = async (reset = true) => {
+            loading.value = true
+
+            if (reset) {
+                currentPage.value = 0
+                courses.value = []
+            }
+
+            try {
+                let url = `/library/courses?page=${currentPage.value}&limit=20&sort_by=${sortBy.value}&sort_order=-1`
+
+                if (searchQuery.value.trim()) {
+                    url = `/library/search?q=${encodeURIComponent(searchQuery.value)}&page=${currentPage.value}&limit=20`
+                } else if (selectedSubject.value) {
+                    url = `/library/subject/${selectedSubject.value}?page=${currentPage.value}&limit=20`
+                }
+
+                const response = await api.get(url)
+                const newCourses = response.data.courses || []
+
+                if (reset) {
+                    courses.value = newCourses
+                } else {
+                    courses.value = [...courses.value, ...newCourses]
+                }
+
+                hasMore.value = newCourses.length === 20
+            } catch (error) {
+                console.error('Error loading courses:', error)
+                courses.value = []
+            } finally {
+                loading.value = false
+            }
         }
-        
-        const response = await api.get(url)
-        const newCourses = response.data.courses || []
-        
-        if (reset) {
-          courses.value = newCourses
-        } else {
-          courses.value = [...courses.value, ...newCourses]
+
+        const loadMore = () => {
+            currentPage.value++
+            loadCourses(false)
         }
-        
-        hasMore.value = newCourses.length === 20
-      } catch (error) {
-        console.error('Error loading courses:', error)
-        courses.value = []
-      } finally {
-        loading.value = false
-      }
-    }
 
-    const loadMore = () => {
-      currentPage.value++
-      loadCourses(false)
-    }
-
-    const searchCourses = () => {
-      loadCourses(true)
-    }
-
-    const filterBySubject = () => {
-      searchQuery.value = ''
-      loadCourses(true)
-    }
-
-    const clearFilters = () => {
-      searchQuery.value = ''
-      selectedSubject.value = ''
-      loadCourses(true)
-    }
-
-    const viewCourse = (courseId) => {
-      router.push(`/course/${courseId}`)
-    }
-
-    const cloneCourse = async (courseId) => {
-      cloning.value = { ...cloning.value, [courseId]: true }
-      
-      try {
-        const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
-        const response = await api.post(`/library/course/${courseId}/clone`, {}, { params })
-        
-        if (response.data.success) {
-          alert('Course cloned successfully! You can find it in your courses.')
-          router.push(`/course/${response.data.course_id}`)
+        const searchCourses = () => {
+            loadCourses(true)
         }
-      } catch (error) {
-        console.error('Error cloning course:', error)
-        alert('Failed to clone course. Please try again.')
-      } finally {
-        cloning.value = { ...cloning.value, [courseId]: false }
-      }
-    }
 
-    const showRatingModal = (course) => {
-      ratingCourse.value = course
-      selectedRating.value = 0
-      showRating.value = true
-    }
+        const filterBySubject = () => {
+            searchQuery.value = ''
+            loadCourses(true)
+        }
 
-    const closeRatingModal = () => {
-      showRating.value = false
-      ratingCourse.value = null
-      selectedRating.value = 0
-    }
+        const clearFilters = () => {
+            searchQuery.value = ''
+            selectedSubject.value = ''
+            loadCourses(true)
+        }
 
-    const selectRating = (rating) => {
-      selectedRating.value = rating
-    }
+        const viewCourse = (courseId) => {
+            router.push(`/course/${courseId}`)
+        }
 
-    const submitRating = async () => {
-      if (!ratingCourse.value || selectedRating.value === 0) return
-      
-      submittingRating.value = true
-      
-      try {
-        const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
-        await api.post(`/library/course/${ratingCourse.value.course_id}/rate`, {
-          rating: selectedRating.value
-        }, { params })
-        
-        alert('Thank you for rating this course!')
-        closeRatingModal()
-        
-        // Refresh the course in the list
-        loadCourses(true)
-      } catch (error) {
-        console.error('Error rating course:', error)
-        alert('Failed to submit rating. Please try again.')
-      } finally {
-        submittingRating.value = false
-      }
-    }
+        const cloneCourse = async (courseId) => {
+            cloning.value = { ...cloning.value, [courseId]: true }
 
-    const getStarRating = (rating) => {
-      const fullStars = Math.floor(rating)
-      const hasHalfStar = rating % 1 >= 0.5
-      return '⭐'.repeat(fullStars) + (hasHalfStar ? '⭐' : '')
-    }
+            try {
+                const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
+                const response = await api.post(`/library/course/${courseId}/clone`, {}, { params })
 
-    const formatDate = (dateString) => {
-      if (!dateString) return 'Unknown date'
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      })
-    }
+                if (response.data.success) {
+                    alert('Course cloned successfully! You can find it in your courses.')
+                    router.push(`/course/${response.data.course_id}`)
+                }
+            } catch (error) {
+                console.error('Error cloning course:', error)
+                alert('Failed to clone course. Please try again.')
+            } finally {
+                cloning.value = { ...cloning.value, [courseId]: false }
+            }
+        }
 
-    onMounted(() => {
-      loadCourses()
-    })
+        const showRatingModal = (course) => {
+            ratingCourse.value = course
+            selectedRating.value = 0
+            showRating.value = true
+        }
 
-    return {
-      courses,
-      loading,
-      searchQuery,
-      selectedSubject,
-      sortBy,
-      hasMore,
-      cloning,
-      showRating,
-      ratingCourse,
-      selectedRating,
-      submittingRating,
-      isAuthenticated,
-      loadCourses,
-      loadMore,
-      searchCourses,
-      filterBySubject,
-      clearFilters,
-      viewCourse,
-      cloneCourse,
-      showRatingModal,
-      closeRatingModal,
-      selectRating,
-      submitRating,
-      getStarRating,
-      formatDate
+        const closeRatingModal = () => {
+            showRating.value = false
+            ratingCourse.value = null
+            selectedRating.value = 0
+        }
+
+        const selectRating = (rating) => {
+            selectedRating.value = rating
+        }
+
+        const submitRating = async () => {
+            if (!ratingCourse.value || selectedRating.value === 0) return
+
+            submittingRating.value = true
+
+            try {
+                const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
+                await api.post(`/library/course/${ratingCourse.value.course_id}/rate`, {
+                    rating: selectedRating.value
+                }, { params })
+
+                alert('Thank you for rating this course!')
+                closeRatingModal()
+
+                // Refresh the course in the list
+                loadCourses(true)
+            } catch (error) {
+                console.error('Error rating course:', error)
+                alert('Failed to submit rating. Please try again.')
+            } finally {
+                submittingRating.value = false
+            }
+        }
+
+        const getStarRating = (rating) => {
+            const fullStars = Math.floor(rating)
+            const hasHalfStar = rating % 1 >= 0.5
+            return '⭐'.repeat(fullStars) + (hasHalfStar ? '⭐' : '')
+        }
+
+        const formatDate = (dateString) => {
+            if (!dateString) return 'Unknown date'
+            const date = new Date(dateString)
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            })
+        }
+
+        onMounted(() => {
+            loadCourses()
+        })
+
+        return {
+            courses,
+            loading,
+            searchQuery,
+            selectedSubject,
+            sortBy,
+            hasMore,
+            cloning,
+            showRating,
+            ratingCourse,
+            selectedRating,
+            submittingRating,
+            isAuthenticated,
+            loadCourses,
+            loadMore,
+            searchCourses,
+            filterBySubject,
+            clearFilters,
+            viewCourse,
+            cloneCourse,
+            showRatingModal,
+            closeRatingModal,
+            selectRating,
+            submitRating,
+            getStarRating,
+            formatDate
+        }
     }
-  }
 }
 </script>
 
 <style scoped>
 .library-view {
-  padding: 2rem 0;
-  min-height: calc(100vh - 200px);
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
 }
 
 .library-header {
-  text-align: center;
-  margin-bottom: 3rem;
+    text-align: center;
+    margin-bottom: 3rem;
 }
 
 .page-title {
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
 }
 
 .page-subtitle {
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
 }
 
 .search-section {
-  max-width: 800px;
-  margin: 0 auto;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 .search-bar {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .search-input {
-  flex: 1;
-  padding: 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
+    flex: 1;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
 }
 
 .search-input:focus {
-  outline: none;
-  border-color: var(--accent-primary);
+    outline: none;
+    border-color: var(--accent-primary);
 }
 
 .search-btn {
-  padding: 1rem 1.5rem;
-  background: var(--accent-primary);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+    padding: 1rem 1.5rem;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
 }
 
 .search-btn:hover:not(:disabled) {
-  background: var(--accent-secondary);
+    background: var(--accent-secondary);
 }
 
 .search-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .filter-section {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
 }
 
 .subject-filter,
 .sort-filter {
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: 0.5rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
 }
 
 .loading-state {
-  text-align: center;
-  padding: 4rem 0;
-  color: var(--text-secondary);
+    text-align: center;
+    padding: 4rem 0;
+    color: var(--text-secondary);
 }
 
 .empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
+    text-align: center;
+    padding: 4rem 2rem;
 }
 
 .empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
+    font-size: 4rem;
+    margin-bottom: 1rem;
 }
 
 .empty-state h2 {
-  font-size: 2rem;
-  color: var(--text-primary);
-  margin-bottom: 1rem;
+    font-size: 2rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
 }
 
 .empty-state p {
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
 }
 
 .courses-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
 }
 
 .course-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  position: relative;
-  transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
 .course-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(119, 51, 255, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(119, 51, 255, 0.2);
 }
 
 .course-card-header {
-  margin-bottom: 1rem;
+    margin-bottom: 1rem;
 }
 
 .course-card-title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--accent-primary);
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
 }
 
 .course-rating {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
 }
 
 .stars {
-  font-size: 0.9rem;
+    font-size: 0.9rem;
 }
 
 .rating-text {
-  font-weight: 600;
-  color: var(--text-primary);
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .rating-count {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
 
 .course-description {
-  margin-bottom: 1rem;
-  flex: 1;
+    margin-bottom: 1rem;
+    flex: 1;
 }
 
 .course-description p {
-  color: var(--text-secondary);
-  line-height: 1.5;
-  font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-size: 0.95rem;
 }
 
 .course-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .meta-badge {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
 }
 
 .course-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .tag {
-  background: linear-gradient(135deg, rgba(119, 51, 255, 0.2), rgba(0, 212, 255, 0.2));
-  color: var(--accent-primary);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+    background: linear-gradient(135deg, rgba(119, 51, 255, 0.2), rgba(0, 212, 255, 0.2));
+    color: var(--accent-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .course-card-footer {
-  display: flex;
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-  flex-wrap: wrap;
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
 }
 
 .btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  flex: 1;
-  min-width: 80px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    flex: 1;
+    min-width: 80px;
 }
 
 .btn-outline {
-  background: transparent;
-  border: 1px solid var(--accent-primary);
-  color: var(--accent-primary);
+    background: transparent;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .btn-outline:hover {
-  background: var(--accent-primary);
-  color: white;
+    background: var(--accent-primary);
+    color: white;
 }
 
 .load-more-section {
-  text-align: center;
-  padding: 2rem 0;
+    text-align: center;
+    padding: 2rem 0;
 }
 
 /* Modal Styles */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
 }
 
 .modal-content {
-  background: var(--card-bg);
-  padding: 2rem;
-  border-radius: 1rem;
-  border: 1px solid var(--border-color);
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
 }
 
 .modal-content h3 {
-  color: var(--text-primary);
-  margin-bottom: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
 }
 
 .rating-stars {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin: 2rem 0;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 2rem 0;
 }
 
 .star-btn {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  opacity: 0.3;
-  transition: opacity 0.2s ease;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
 }
 
 .star-btn.active {
-  opacity: 1;
+    opacity: 1;
 }
 
 .star-btn:hover {
-  opacity: 0.8;
+    opacity: 0.8;
 }
 
 .modal-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
 }
 
 @media (max-width: 768px) {
-  .courses-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .filter-section {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .course-card-footer {
-    flex-direction: column;
-  }
-  
-  .btn-sm {
-    flex: none;
-  }
+    .courses-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-section {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .course-card-footer {
+        flex-direction: column;
+    }
+
+    .btn-sm {
+        flex: none;
+    }
 }
 </style>
