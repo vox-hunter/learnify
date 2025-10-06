@@ -123,6 +123,8 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import api from '../services/api'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
 
 export default {
     name: 'ChatView',
@@ -168,11 +170,28 @@ export default {
             return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
 
-        const formatMessage = (text) => {
-            // Convert markdown-style links to HTML
-            return text
-                .replace(/\[(\d+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" class="citation-link">[$1]</a>')
-                .replace(/\n/g, '<br>')
+        // Initialize markdown-it with common options
+        const md = new MarkdownIt({
+            html: false,
+            linkify: true,
+            typographer: true
+        })
+
+        const formatMessage = (text, role = 'assistant') => {
+            if (!text) return ''
+
+            // Convert reference-style citation links like [1](https://...)
+            const withCitations = text.replace(/\[(\d+)\]\((https?:\/\/[^\)]+)\)/g, '[$1]($2)')
+
+            if (role === 'assistant') {
+                // Render markdown to HTML and sanitize
+                const rendered = md.render(withCitations)
+                const clean = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
+                return clean
+            }
+
+            // For user messages, keep simple escaping: replace newlines with <br>
+            return withCitations.replace(/\n/g, '<br>')
         }
 
         const handleFileSelect = (event) => {
