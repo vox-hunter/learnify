@@ -1,24 +1,13 @@
 <template>
     <div class="chat-view">
         <div class="container">
-            <!-- Header -->
-            <div class="chat-header">
-                <div class="hero-logo">
-                    <img src="/logo.png" alt="AI Loom" class="logo">
-                </div>
-                <h1 class="chat-title">AI Loom Chat</h1>
-                <p class="chat-subtitle">
-                    Chat with AI to create courses, analyze documents, or get help with learning
-                </p>
-            </div>
-
             <!-- Chat Messages Feed -->
             <div ref="chatFeed" class="chat-feed">
                 <!-- Welcome Message -->
                 <div v-if="messages.length === 0" class="welcome-message">
-                    <div class="welcome-icon">💬</div>
-                    <h2>Start a Conversation</h2>
-                    <p>Upload a document, paste a URL, or just ask me anything!</p>
+                    <div class="welcome-icon">✨</div>
+                    <h2>What do you want to learn today?</h2>
+                    <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
                     <div class="example-prompts">
                         <button v-for="(example, index) in examplePrompts" :key="index" class="example-prompt"
                             @click="sendExamplePrompt(example)">
@@ -106,7 +95,7 @@
 
                     <!-- Message Input -->
                     <input v-else v-model="messageInput" type="text" class="message-input"
-                        placeholder="Type a message..." @keydown.enter="sendMessage" :disabled="isLoading">
+                        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" :disabled="isLoading">
 
                     <!-- Send Button -->
                     <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">
@@ -401,101 +390,92 @@ export default {
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-width: 1200px;
-    margin: 0 auto;
+    /* stretch to fill available space so chat occupies full width */
+    max-width: none;
+    margin: 0;
     width: 100%;
     padding: 0;
     height: 100vh;
 }
 
-.chat-header {
-    text-align: center;
-    padding: 2rem 1rem 1rem;
-    background: var(--card-bg);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.hero-logo {
-    margin-bottom: 1rem;
-}
-
-.logo {
-    height: 60px;
-    width: auto;
-    filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3));
-}
-
-.chat-title {
-    font-size: 2rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
-}
-
-.chat-subtitle {
-    color: var(--text-secondary);
-    font-size: 1rem;
-}
-
 .chat-feed {
     flex: 1;
+    /* only show scrollbar when content overflows */
     overflow-y: auto;
-    padding: 2rem 1rem;
+    padding: 1.25rem 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .welcome-message {
     text-align: center;
-    padding: 3rem 1rem;
+    padding: 4rem 2rem;
     color: var(--text-secondary);
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .welcome-icon {
-    font-size: 4rem;
+    font-size: 3.2rem;
+    /* slightly smaller sparkle */
     margin-bottom: 1rem;
+    filter: drop-shadow(0 0 14px rgba(119, 51, 255, 0.25));
 }
 
 .welcome-message h2 {
     color: var(--text-primary);
+    font-size: 1.6rem;
+    font-weight: 700;
     margin-bottom: 0.5rem;
+}
+
+.welcome-message p {
+    font-size: 1rem;
+    max-width: 420px;
 }
 
 .example-prompts {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 2rem;
-    max-width: 400px;
-    margin-left: auto;
-    margin-right: auto;
+    gap: 0.75rem;
+    margin-top: 3rem;
+    max-width: 500px;
+    width: 100%;
 }
 
 .example-prompt {
     padding: 0.75rem 1rem;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s;
     text-align: left;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .example-prompt:hover {
     background: var(--bg-tertiary);
     border-color: var(--accent-primary);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px var(--shadow-color);
 }
 
 .message {
     display: flex;
     gap: 1rem;
     animation: slideIn 0.3s ease;
+    max-width: 100%;
+    align-items: flex-start;
+    /* ensure avatar and bubble align at top, avoid vertical stretch */
+    width: 100%;
+    /* allow margin-left:auto on user messages to push row to the right */
 }
 
 @keyframes slideIn {
@@ -512,38 +492,56 @@ export default {
 
 .user-message {
     flex-direction: row-reverse;
+    margin-left: auto;
+}
+
+.ai-message {
+    margin-right: auto;
 }
 
 .message-avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: var(--accent-primary);
+    background: linear-gradient(135deg, #7733ff, #00d4ff);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(119, 51, 255, 0.18);
 }
 
 .user-message .message-avatar {
-    background: var(--accent-secondary);
+    background: linear-gradient(135deg, #00d4ff, #7733ff);
 }
 
 .message-content {
-    flex: 1;
+    /* Shrink-to-fit container for the message bubble. It won't grow unnecessarily, but will cap at a percentage of the row. */
+    display: inline-block;
+    flex: 0 0 auto;
+    /* do not grow; size to content */
     max-width: 70%;
+    vertical-align: top;
 }
 
-.user-message .message-content {
-    text-align: right;
+.user-message .message-text {
+    /* Balanced padding and left-aligned text inside the right-side bubble */
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+}
+
+.ai-message .message-text {
+    /* ensure AI bubbles use similar balanced padding */
+    padding: 0.9rem 1rem;
+    text-align: left;
 }
 
 .message-header {
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
     font-size: 0.875rem;
 }
 
@@ -563,16 +561,23 @@ export default {
 .message-text {
     padding: 1rem;
     background: var(--card-bg);
-    border-radius: 1rem;
+    border-radius: 1.25rem;
     color: var(--text-primary);
     line-height: 1.6;
+    font-size: 0.95rem;
     border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.ai-message .message-text {
+    border-top-left-radius: 0.25rem;
 }
 
 .user-message .message-text {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(135deg, #7733ff, #00d4ff);
     color: white;
     border: none;
+    border-top-right-radius: 0.25rem;
 }
 
 .message-attachment {
@@ -592,13 +597,13 @@ export default {
 
 .typing-indicator {
     display: flex;
-    gap: 0.25rem;
-    padding: 1rem;
+    gap: 0.35rem;
+    padding: 1.25rem;
 }
 
 .typing-indicator span {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     background: var(--text-muted);
     border-radius: 50%;
     animation: typing 1.4s infinite;
@@ -628,7 +633,7 @@ export default {
 }
 
 .chat-input-container {
-    padding: 1rem;
+    padding: 1.5rem;
     background: var(--card-bg);
     border-top: 1px solid var(--border-color);
 }
@@ -637,7 +642,7 @@ export default {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .preview-item {
@@ -646,7 +651,7 @@ export default {
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     background: var(--bg-tertiary);
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     font-size: 0.875rem;
 }
 
@@ -675,28 +680,29 @@ export default {
     padding: 0.75rem 1rem;
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     color: #ef4444;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     font-size: 0.875rem;
 }
 
 .input-group {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.6rem;
     align-items: center;
+    max-width: 100%;
 }
 
 .input-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 0.75rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 0.9rem;
     border: 1px solid var(--border-color);
     background: var(--bg-tertiary);
     color: var(--text-primary);
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.18s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -723,13 +729,13 @@ export default {
 .message-input,
 .url-input {
     flex: 1;
-    padding: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
     border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     background: var(--bg-tertiary);
     color: var(--text-primary);
-    font-size: 1rem;
-    transition: all 0.2s;
+    font-size: 0.95rem;
+    transition: all 0.18s;
 }
 
 .message-input:focus,
@@ -737,17 +743,19 @@ export default {
     outline: none;
     border-color: var(--accent-primary);
     background: var(--card-bg);
+    box-shadow: 0 0 0 3px rgba(119, 51, 255, 0.1);
 }
 
 .send-btn {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(135deg, #7733ff, #00d4ff);
     color: white;
     border: none;
+    box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
 }
 
 .send-btn:hover:not(:disabled) {
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
+    box-shadow: 0 6px 20px rgba(119, 51, 255, 0.4);
 }
 
 :deep(.citation-link) {
@@ -764,13 +772,73 @@ export default {
     text-decoration: underline;
 }
 
+/* Markdown styling for AI messages */
+:deep(.message-text) h1,
+:deep(.message-text) h2,
+:deep(.message-text) h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+:deep(.message-text) p {
+    margin-bottom: 0.75rem;
+}
+
+:deep(.message-text) code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-family: 'Courier New', monospace;
+}
+
+:deep(.message-text) pre {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+}
+
+:deep(.message-text) ul,
+:deep(.message-text) ol {
+    margin-left: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+:deep(.message-text) li {
+    margin-bottom: 0.25rem;
+}
+
+:deep(.message-text) a {
+    color: var(--accent-primary);
+    text-decoration: underline;
+}
+
+.user-message :deep(.message-text) code,
+.user-message :deep(.message-text) pre {
+    background: rgba(255, 255, 255, 0.2);
+}
+
 @media (max-width: 768px) {
-    .chat-header {
-        padding: 1rem;
+    .container {
+        max-width: 100%;
     }
 
-    .chat-title {
-        font-size: 1.5rem;
+    .welcome-message {
+        padding: 2rem 1rem;
+    }
+
+    .welcome-icon {
+        font-size: 2.6rem;
+    }
+
+    .welcome-message h2 {
+        font-size: 1.25rem;
+    }
+
+    .welcome-message p {
+        font-size: 0.95rem;
     }
 
     .message-content {
@@ -778,9 +846,38 @@ export default {
     }
 
     .input-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 1rem;
+        width: 38px;
+        height: 38px;
+        font-size: 0.95rem;
     }
+
+    .chat-input-container {
+        padding: 1rem;
+    }
+}
+
+/* Chat-feed scrollbar: hide by default on some platforms, show thin when needed */
+.chat-feed {
+    -ms-overflow-style: auto;
+    /* IE/Edge */
+    scrollbar-width: thin;
+    /* Firefox */
+}
+
+.chat-feed::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-feed::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-feed::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+}
+
+.chat-feed::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
 }
 </style>

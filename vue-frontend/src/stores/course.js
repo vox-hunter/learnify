@@ -68,7 +68,6 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function generateCourse(file) {
-    const authStore = useAuthStore()
     
     // Don't check limit here - check when saving instead
     // This allows guests to generate courses but limits saving
@@ -100,7 +99,6 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function generateCourseFromUrl(url) {
-    const authStore = useAuthStore()
     
     // Don't check limit here - check when saving instead
     // This allows guests to generate courses but limits saving
@@ -242,7 +240,6 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function updateProgress(courseId, answeredQuestions, score, currentSectionIndex, answerData = {}, initialStepIndex = 0) {
-    const authStore = useAuthStore()
     
     try {
       // Convert Set to Array for JSON serialization
@@ -268,20 +265,19 @@ export const useCourseStore = defineStore('course', () => {
       }))
       
       return { success: true }
-    } catch (err) {
-      console.error('[Course Store] Error updating progress:', err)
-      return { success: false, error: err.response?.data?.detail || 'Failed to update progress' }
+    } catch (_) {
+      console.error('[Course Store] Error updating progress:')
+      return { success: false, error: 'Failed to update progress' }
     }
   }
   
   async function loadProgress(courseId) {
-    const authStore = useAuthStore()
     
     try {
       // Try to load from API first
       const response = await api.get(`/course/${courseId}/progress`)
       return { success: true, progress: response.data }
-    } catch (err) {
+    } catch (_) {
       // Fallback to localStorage
       const progressKey = `course_progress_${courseId}`
       const savedProgress = localStorage.getItem(progressKey)
@@ -291,6 +287,37 @@ export const useCourseStore = defineStore('course', () => {
       }
       
       return { success: false, progress: null }
+    }
+  }
+
+  async function deleteCourse(courseId) {
+    const authStore = useAuthStore()
+    try {
+      // If guest user, remove from localStorage
+      if (!authStore.isAuthenticated) {
+        const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
+        const remaining = stored.filter(c => c.course_id !== courseId)
+        localStorage.setItem('guestCourses', JSON.stringify(remaining))
+        // decrement guestCourseCount safely
+        try {
+          guestCourseCount.value = Math.max(0, guestCourseCount.value - 1)
+          localStorage.setItem('guestCourseCount', guestCourseCount.value.toString())
+        } catch (e) {
+          console.warn('Failed to update guestCourseCount on delete', e)
+        }
+        // update in-memory list if loaded
+        courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
+        return { success: true, isLocal: true }
+      }
+
+      // Authenticated user - call API
+      await api.delete(`/course/${courseId}`)
+      // Remove from in-memory list
+      courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
+      return { success: true }
+    } catch (err) {
+      console.error('[Course Store] deleteCourse error:', err)
+      return { success: false, error: err.response?.data?.detail || 'Failed to delete course' }
     }
   }
 
@@ -309,5 +336,7 @@ export const useCourseStore = defineStore('course', () => {
     loadCourse,
     updateProgress,
     loadProgress
+    ,
+    deleteCourse
   }
 })

@@ -6,47 +6,36 @@
       </h1>
 
       <!-- Loading State -->
-      <div
-        v-if="loading"
-        class="loading-state"
-      >
+      <div v-if="loading" class="loading-state">
         <div class="spinner" />
         <p>Loading courses...</p>
       </div>
 
       <!-- Empty State -->
-      <div
-        v-else-if="courses.length === 0"
-        class="empty-state card"
-      >
+      <div v-else-if="courses.length === 0" class="empty-state card">
         <div class="empty-icon">
           📚
         </div>
         <h2>No courses yet</h2>
         <p>Generate your first course to get started!</p>
-        <router-link
-          to="/"
-          class="btn btn-primary"
-        >
+        <router-link to="/" class="btn btn-primary">
           Generate Course
         </router-link>
       </div>
 
       <!-- Courses Grid -->
-      <div
-        v-else
-        class="courses-grid"
-      >
-        <div 
-          v-for="course in courses" 
-          :key="course.course_id || course._id"
-          class="course-card card"
-          @click="openCourse(course.course_id || course._id)"
-        >
+      <div v-else class="courses-grid">
+        <div v-for="course in courses" :key="course.course_id || course._id" class="course-card card"
+          @click="openCourse(course.course_id || course._id)">
           <div class="course-card-header">
             <h3 class="course-card-title">
               {{ course.course_title || 'Untitled Course' }}
             </h3>
+            <button class="delete-btn" title="Delete course" :disabled="deleting[course.course_id || course._id]"
+              @click.stop="confirmDelete(course.course_id || course._id)">
+              <span v-if="!deleting[course.course_id || course._id]">✖</span>
+              <span v-else>⌛</span>
+            </button>
           </div>
           <div class="course-card-meta">
             <span class="meta-badge">
@@ -80,6 +69,7 @@ export default {
 
     const loading = ref(true)
     const courses = ref([])
+    const deleting = ref({})
 
     const loadCourses = async () => {
       loading.value = true
@@ -95,10 +85,10 @@ export default {
     const formatDate = (dateString) => {
       if (!dateString) return 'Unknown date'
       const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
       })
     }
 
@@ -106,9 +96,24 @@ export default {
       loadCourses()
     })
 
+    const confirmDelete = async (courseId) => {
+      if (!confirm('Delete this course? This action cannot be undone.')) return
+      deleting.value = { ...deleting.value, [courseId]: true }
+      const res = await courseStore.deleteCourse(courseId)
+      deleting.value = { ...deleting.value, [courseId]: false }
+      if (!res.success) {
+        alert(res.error || 'Failed to delete course')
+      } else {
+        // refresh local courses binding
+        courses.value = courseStore.courses
+      }
+    }
+
     return {
       loading,
       courses,
+      deleting,
+      confirmDelete,
       openCourse,
       formatDate
     }
@@ -169,6 +174,7 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .course-card:hover {
@@ -192,6 +198,24 @@ export default {
   color: var(--accent-primary);
   margin-bottom: 0.5rem;
   line-height: 1.3;
+}
+
+.delete-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .course-card-meta {

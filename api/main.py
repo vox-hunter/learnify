@@ -60,6 +60,7 @@ if _allowed_origins_env:
 else:
     _allowed_origins = [
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:8080",
         "http://localhost:5173",
         "https://app.ailoom.me",
@@ -1017,6 +1018,28 @@ async def get_progress(course_id: str, username: Optional[str] = None):
         raise HTTPException(status_code=500, detail=error)
     
     return progress or {"answered_questions": [], "score": 0, "current_section_index": 0, "answer_data": {}}
+
+
+# Delete a course
+@app.delete("/course/{course_id}")
+async def delete_course(course_id: str, username: Optional[str] = None):
+    """Delete a course owned by the user
+    For authenticated users, `username` parameter should be provided (axios interceptor attaches it).
+    Guest deletions are handled client-side (localStorage) and won't call this endpoint.
+    """
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+
+    user_identifier = username or get_session_id()
+    is_guest = username is None
+
+    success, error = course_manager.delete_course(course_id=course_id, user_identifier=user_identifier, is_guest=is_guest)
+
+    if error:
+        # If deletion failed due to permissions or not found, return 400
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"success": success}
 
 # Chat endpoints
 @app.post("/chat/message")
