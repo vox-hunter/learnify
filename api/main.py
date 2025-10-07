@@ -82,16 +82,16 @@ app.add_middleware(
 # Initialize managers
 auth_manager = None
 course_manager = None
-chat_manager = None
+# Note: chat_manager is NOT initialized globally - created per-request with user credentials
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global auth_manager, course_manager, chat_manager
+    global auth_manager, course_manager
     try:
         auth_manager = MongoAuthManager()
         course_manager = MongoCourseManager()
-        chat_manager = ChatSessionManager()
+        # chat_manager is created per-request with user OAuth credentials
     except Exception as e:
         print(f"Warning: Could not initialize managers: {e}")
 
@@ -815,6 +815,7 @@ async def delete_account(request: DeleteAccountRequest):
 @app.post("/course/generate/upload")
 async def generate_course_from_upload(
     file: UploadFile = File(...),
+    username: Optional[str] = None
 ):
     """Generate a course from an uploaded file"""
     # Validate file
@@ -834,10 +835,30 @@ async def generate_course_from_upload(
     if not is_safe:
         raise HTTPException(status_code=400, detail=error_message)
     
-    # Generate course
+    # Retrieve user's Gemini OAuth credentials if authenticated
+    user_credentials = None
+    quota_project_id = None
+    if username and auth_manager:
+        oauth_data = auth_manager.get_gemini_oauth(username)
+        if oauth_data:
+            user_credentials = {
+                'token': oauth_data.get('access_token'),
+                'refresh_token': oauth_data.get('refresh_token'),
+                'token_uri': oauth_data.get('token_uri'),
+                'client_id': oauth_data.get('client_id'),
+                'client_secret': oauth_data.get('client_secret'),
+                'expiry': oauth_data.get('expiry')
+            }
+            quota_project_id = oauth_data.get('quota_project_id')
+            logger.info(f"Retrieved Gemini OAuth credentials for user: {username}")
+    
+    # Generate course with user credentials
     course_data, error = generate_course(
         file_content=file_bytes,
-        filename=file.filename
+        filename=file.filename,
+        user_credentials=user_credentials,
+        username=username,
+        quota_project_id=quota_project_id
     )
     
     if error:
@@ -857,14 +878,37 @@ async def generate_course_from_upload(
     }
 
 @app.post("/course/generate/url")
-async def generate_course_from_url(request: CourseGenerationRequest):
+async def generate_course_from_url(
+    request: CourseGenerationRequest,
+    username: Optional[str] = None
+):
     """Generate a course from a URL"""
     if not request.file_url:
         raise HTTPException(status_code=400, detail="file_url is required")
     
-    # Generate course
+    # Retrieve user's Gemini OAuth credentials if authenticated
+    user_credentials = None
+    quota_project_id = None
+    if username and auth_manager:
+        oauth_data = auth_manager.get_gemini_oauth(username)
+        if oauth_data:
+            user_credentials = {
+                'token': oauth_data.get('access_token'),
+                'refresh_token': oauth_data.get('refresh_token'),
+                'token_uri': oauth_data.get('token_uri'),
+                'client_id': oauth_data.get('client_id'),
+                'client_secret': oauth_data.get('client_secret'),
+                'expiry': oauth_data.get('expiry')
+            }
+            quota_project_id = oauth_data.get('quota_project_id')
+            logger.info(f"Retrieved Gemini OAuth credentials for user: {username}")
+    
+    # Generate course with user credentials
     course_data, error = generate_course(
-        file_url=request.file_url
+        file_url=request.file_url,
+        user_credentials=user_credentials,
+        username=username,
+        quota_project_id=quota_project_id
     )
     
     if error:
@@ -885,12 +929,32 @@ async def generate_course_from_url(request: CourseGenerationRequest):
 
 # Quiz validation endpoints
 @app.post("/quiz/validate-answer")
-async def validate_answer(request: ValidateAnswerRequest):
+async def validate_answer(
+    request: ValidateAnswerRequest,
+    username: Optional[str] = None
+):
     """Validate a short answer using AI"""
+    # Retrieve user's Gemini OAuth credentials if authenticated
+    user_credentials = None
+    if username and auth_manager:
+        oauth_data = auth_manager.get_gemini_oauth(username)
+        if oauth_data:
+            user_credentials = {
+                'token': oauth_data.get('access_token'),
+                'refresh_token': oauth_data.get('refresh_token'),
+                'token_uri': oauth_data.get('token_uri'),
+                'client_id': oauth_data.get('client_id'),
+                'client_secret': oauth_data.get('client_secret'),
+                'expiry': oauth_data.get('expiry')
+            }
+            logger.info(f"Retrieved Gemini OAuth credentials for user: {username}")
+    
     is_correct, explanation = validate_short_answer_with_ai(
         question=request.question,
         user_answer=request.user_answer,
-        expected_answer=request.expected_answer
+        expected_answer=request.expected_answer,
+        user_credentials=user_credentials,
+        username=username
     )
     
     if is_correct is None:
@@ -1153,7 +1217,8 @@ async def chat_message(
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
-    url: Optional[str] = Form(None)
+    url: Optional[str] = Form(None),
+    username: Optional[str] = Form(None)
 ):
     """
     Send a message to the AI chat with optional file or URL context.
@@ -1164,6 +1229,7 @@ async def chat_message(
         session_id: Optional existing session ID to continue conversation
         file: Optional file upload for context
         url: Optional URL for AI to fetch and analyze
+        username: Optional username for OAuth credentials
         
     Returns:
         {
@@ -1173,10 +1239,31 @@ async def chat_message(
             "error": Optional[str]
         }
     """
-    if not chat_manager:
-        raise HTTPException(status_code=503, detail="Chat service unavailable")
-    
     try:
+        # Retrieve user's Gemini OAuth credentials if authenticated
+        user_credentials = None
+        quota_project_id = None
+        if username and auth_manager:
+            oauth_data = auth_manager.get_gemini_oauth(username)
+            if oauth_data:
+                user_credentials = {
+                    'token': oauth_data.get('access_token'),
+                    'refresh_token': oauth_data.get('refresh_token'),
+                    'token_uri': oauth_data.get('token_uri'),
+                    'client_id': oauth_data.get('client_id'),
+                    'client_secret': oauth_data.get('client_secret'),
+                    'expiry': oauth_data.get('expiry')
+                }
+                quota_project_id = oauth_data.get('quota_project_id')
+                logger.info(f"Retrieved Gemini OAuth credentials for chat user: {username}")
+        
+        # Create chat manager with user credentials
+        chat_manager = ChatSessionManager(
+            user_credentials=user_credentials,
+            username=username,
+            quota_project_id=quota_project_id
+        )
+        
         file_data = None
         file_mime_type = None
         
@@ -1232,18 +1319,22 @@ async def chat_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/chat/history/{session_id}")
-async def get_chat_history(session_id: str):
+async def get_chat_history(
+    session_id: str,
+    username: Optional[str] = None
+):
     """
     Get conversation history for a chat session.
     
     Args:
         session_id: The chat session identifier
+        username: Optional username for creating manager instance
         
     Returns:
         List of messages in the conversation
     """
-    if not chat_manager:
-        raise HTTPException(status_code=503, detail="Chat service unavailable")
+    # Create chat manager instance (sessions are stored at class level)
+    chat_manager = ChatSessionManager(username=username)
     
     history = chat_manager.get_history(session_id)
     
@@ -1257,18 +1348,22 @@ async def get_chat_history(session_id: str):
     }
 
 @app.delete("/chat/session/{session_id}")
-async def delete_chat_session(session_id: str):
+async def delete_chat_session(
+    session_id: str,
+    username: Optional[str] = None
+):
     """
     Delete a chat session and its history.
     
     Args:
         session_id: The chat session identifier
+        username: Optional username for creating manager instance
         
     Returns:
         Success confirmation
     """
-    if not chat_manager:
-        raise HTTPException(status_code=503, detail="Chat service unavailable")
+    # Create chat manager instance (sessions are stored at class level)
+    chat_manager = ChatSessionManager(username=username)
     
     deleted = chat_manager.delete_session(session_id)
     

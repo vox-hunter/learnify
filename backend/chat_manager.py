@@ -12,6 +12,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 import os
+from gemini_client_factory import create_gemini_client
 
 # Load environment variables
 load_dotenv()
@@ -22,21 +23,31 @@ class ChatSessionManager:
     """
     Manages chat sessions using Gemini SDK's multi-turn chat functionality.
     No manual conversation history tracking needed - SDK handles it internally.
+    
+    Sessions are stored in a class-level store so they persist across manager instances.
     """
     
-    def __init__(self):
-        """Initialize the chat session manager with Gemini client"""
-        # Initialize Gemini client using the SDK
-        try:
-            self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        except Exception:
-            # Defer detailed client errors until runtime use; keep server running
-            self.client = None
+    # Class-level session store shared across all instances
+    # session_id -> {'chat': chat_obj, 'client': client_obj, 'quota_source': str, 'username': str}
+    _sessions: Dict[str, Dict[str, Any]] = {}
+    
+    def __init__(self, user_credentials: Optional[Dict[str, Any]] = None, 
+                 username: Optional[str] = None,
+                 quota_project_id: Optional[str] = None):
+        """
+        Initialize the chat session manager with Gemini client
+        
+        Args:
+            user_credentials: Optional OAuth credentials dict for user quota
+            username: Optional username for logging
+            quota_project_id: Optional GCP project ID for quota billing
+        """
+        # Store user credentials for creating clients per-session
+        self.user_credentials = user_credentials
+        self.username = username
+        self.quota_project_id = quota_project_id
+        
         self.model_id = "gemini-2.0-flash-exp"  # Using latest model with URL context support
-
-        # Simple in-memory session store: session_id -> chat object
-        # For production, this could be moved to Redis or database
-        self.sessions: Dict[str, Any] = {}
 
         # Load system instruction from sys_ins.txt file (robust, non-fatal)
         sys_ins_path = os.path.join(os.path.dirname(__file__), 'sys_ins.txt')
@@ -68,7 +79,7 @@ class ChatSessionManager:
             logger.exception(f"Failed to load sys_ins.txt at {sys_ins_path}; using fallback. Error: {e}")
             self.system_instruction = "You are AI Loom, an educational AI assistant."
 
-        logger.info(f"ChatSessionManager initialized with model: {self.model_id}")
+        logger.info(f"ChatSessionManager initialized with model: {self.model_id}, user: {username or 'anonymous'}")
     
     def create_session(self, system_instruction: Optional[str] = None) -> tuple[str, Any]:
         """
@@ -83,6 +94,16 @@ class ChatSessionManager:
         # Generate unique session ID
         session_id = str(uuid.uuid4())
         
+        # Create Gemini client using factory (OAuth with user quota or API key fallback)
+        client, quota_metadata = create_gemini_client(
+            user_credentials=self.user_credentials,
+            quota_project_id=self.quota_project_id,
+            username=self.username
+        )
+        
+        quota_source = quota_metadata.get('quota_source', 'unknown')
+        logger.info(f"Created chat session {session_id} using quota_source={quota_source}, user={self.username or 'anonymous'}")
+        
         # Configure chat with tools for URL context and Google Search
         # This enables the AI to automatically fetch URLs and search the web
         config = types.GenerateContentConfig(
@@ -94,19 +115,20 @@ class ChatSessionManager:
             temperature=1,  # Balanced creativity and consistency
         )
         
-        # Create chat session using Gemini SDK (if client available)
+        # Create chat session using Gemini SDK
         # The SDK manages conversation history automatically
-        if not self.client:
-            logger.error("Gemini client not initialized; cannot create chat session")
-            raise RuntimeError("Gemini client not initialized")
-
-        chat = self.client.chats.create(
+        chat = client.chats.create(
             model=self.model_id,
             config=config
         )
         
-        # Store chat object in session store
-        self.sessions[session_id] = chat
+        # Store chat object, client, and quota metadata in session store
+        ChatSessionManager._sessions[session_id] = {
+            'chat': chat,
+            'client': client,
+            'quota_source': quota_source,
+            'username': self.username
+        }
         
         logger.info(f"Created new chat session: {session_id}")
         return session_id, chat
@@ -121,7 +143,10 @@ class ChatSessionManager:
         Returns:
             Chat object if found, None otherwise
         """
-        return self.sessions.get(session_id)
+        session_data = ChatSessionManager._sessions.get(session_id)
+        if session_data:
+            return session_data.get('chat')
+        return None
     
     def send_message(
         self,
@@ -333,8 +358,8 @@ class ChatSessionManager:
         Returns:
             True if session was deleted, False if not found
         """
-        if session_id in self.sessions:
-            del self.sessions[session_id]
+        if session_id in ChatSessionManager._sessions:
+            del ChatSessionManager._sessions[session_id]
             logger.info(f"Deleted session: {session_id}")
             return True
         return False

@@ -176,19 +176,22 @@ export const useCourseStore = defineStore('course', () => {
   async function loadCourses() {
     const authStore = useAuthStore()
     loading.value = true
-    
+    console.log('[Course Store] loadCourses started. Authenticated:', authStore.isAuthenticated)
     try {
       if (!authStore.isAuthenticated) {
         // Load from localStorage for guest users
         courses.value = loadFromLocalStorage()
+        console.log('[Course Store] Loaded courses from localStorage:', courses.value.length)
       } else {
         // Load from API for authenticated users
         const response = await api.get('/courses', {
           params: { username: authStore.user?.username }
         })
         courses.value = response.data.courses || []
+        console.log('[Course Store] Loaded courses from API:', courses.value.length)
       }
     } catch (err) {
+      console.error('[Course Store] loadCourses error:', err)
       error.value = err.response?.data?.detail || 'Failed to load courses'
       courses.value = []
     } finally {
@@ -265,7 +268,7 @@ export const useCourseStore = defineStore('course', () => {
       }))
       
       return { success: true }
-    } catch (_) {
+    } catch {
       console.error('[Course Store] Error updating progress:')
       return { success: false, error: 'Failed to update progress' }
     }
@@ -277,7 +280,7 @@ export const useCourseStore = defineStore('course', () => {
       // Try to load from API first
       const response = await api.get(`/course/${courseId}/progress`)
       return { success: true, progress: response.data }
-    } catch (_) {
+    } catch {
       // Fallback to localStorage
       const progressKey = `course_progress_${courseId}`
       const savedProgress = localStorage.getItem(progressKey)

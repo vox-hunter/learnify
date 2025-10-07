@@ -15,6 +15,7 @@ from file_security import validate_file_security, get_mime_type, MAX_FILE_SIZE, 
 from document_converter import convert_to_pdf, should_convert_to_pdf, get_conversion_info
 from file_converter import convert_to_pdf
 from document_converter import convert_to_pdf, should_convert_to_pdf
+from gemini_client_factory import create_gemini_client, get_default_client
 
 try:
     import streamlit as st
@@ -104,32 +105,9 @@ else:
     load_dotenv()  # Fallback to default behavior
     logger.info("Loaded environment variables from default location")
 
-# Validate API key - try Streamlit secrets first, then environment variables
-api_key = None
-
-if STREAMLIT_AVAILABLE:
-    try:
-        api_key = st.secrets.GEMINI_API_KEY
-        logger.info("Successfully loaded API key from Streamlit secrets")
-    except (KeyError, FileNotFoundError, AttributeError, Exception):
-        logger.info("Streamlit secrets not available or key not found, trying environment variables")
-
-# Fallback to environment variables if Streamlit secrets not available
-if not api_key:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        logger.info("Successfully loaded API key from environment variables")
-
-if not api_key:
-    logger.error("GEMINI_API_KEY not found in Streamlit secrets or environment variables. Please check your configuration.")
-    raise ValueError("GEMINI_API_KEY is required but not found in Streamlit secrets or environment variables")
-
-try:
-    client = genai.Client(api_key=api_key)
-    logger.info("Gemini client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Gemini client: {e}")
-    raise
+# Note: Client initialization is now handled by gemini_client_factory
+# The old global `client` variable is replaced with function-specific clients
+# This allows per-user OAuth credentials with fallback to shared API key
 
 # Determine base directory for loading prompt and system instructions
 BASE_DIR = os.path.dirname(__file__)
@@ -174,7 +152,7 @@ def validate_pdf_content(pdf_bytes):
     
     return True
 
-def validate_short_answer_with_ai(question, user_answer, expected_answer):
+def validate_short_answer_with_ai(question, user_answer, expected_answer, user_credentials=None, username=None):
     """
     Use AI to validate a short answer question and provide feedback.
     
@@ -182,6 +160,8 @@ def validate_short_answer_with_ai(question, user_answer, expected_answer):
         question: The original question text
         user_answer: The user's submitted answer
         expected_answer: The expected/correct answer
+        user_credentials: Optional OAuth credentials for user's Gemini quota
+        username: Optional username for logging
         
     Returns:
         tuple: (is_correct, explanation)
@@ -189,6 +169,14 @@ def validate_short_answer_with_ai(question, user_answer, expected_answer):
             - explanation: String explanation of why the answer is correct/incorrect
     """
     try:
+        # Create client with user credentials or fallback to shared API key
+        client, metadata = create_gemini_client(
+            user_credentials=user_credentials,
+            username=username
+        )
+        
+        logger.info(f"Validating answer using quota_source={metadata['quota_source']}, user={username or 'guest'}")
+        
         validation_prompt = f"""
 You are an expert teacher evaluating a student's short answer response. 
 
@@ -229,7 +217,7 @@ Be fair but accurate in your evaluation.
         is_correct = validation_result.get("is_correct", False)
         explanation = validation_result.get("explanation", "No explanation provided")
         
-        logger.info(f"AI validation result: {'Correct' if is_correct else 'Incorrect'}")
+        logger.info(f"AI validation result: {'Correct' if is_correct else 'Incorrect'} (quota_source={metadata['quota_source']})")
         return is_correct, explanation
         
     except json.JSONDecodeError as e:
@@ -239,7 +227,7 @@ Be fair but accurate in your evaluation.
         logger.error(f"Error in AI validation: {e}")
         return None, f"AI validation error: {str(e)}"
     
-def generate_course(file_content=None, file_stream=None, file_url=None, filename=None, status_callback=None):
+def generate_course(file_content=None, file_stream=None, file_url=None, filename=None, status_callback=None, user_credentials=None, username=None):
     """
     Generate a course structure from file content or a file URL.
     Supports multiple file formats: PDF, Word docs, images, audio, video, text files, etc.
@@ -249,6 +237,8 @@ def generate_course(file_content=None, file_stream=None, file_url=None, filename
         file_url: URL to a file
         filename: Original filename for MIME type detection (optional)
         status_callback: Optional callback function to report progress status
+        user_credentials: Optional OAuth credentials for user's Gemini quota
+        username: Optional username for logging
         
     Returns:
         tuple: (course_data, error_message)
@@ -498,7 +488,14 @@ We couldn't convert the downloaded file to a supported format, and the original 
     # Phase 3: AI Upload & Analysis
     try:
         update_status("🤖 Connecting to Gemini AI...", 35)
-        logger.info("Sending request to Gemini AI...")
+        
+        # Create client with user credentials or fallback to shared API key
+        client, metadata = create_gemini_client(
+            user_credentials=user_credentials,
+            username=username
+        )
+        
+        logger.info(f"Sending request to Gemini AI... (quota_source={metadata['quota_source']}, user={username or 'guest'})")
         update_status(f"📤 Uploading file to AI for analysis... (Est. time: {estimated_time})", 45)
         
         # Determine the appropriate MIME type for the file

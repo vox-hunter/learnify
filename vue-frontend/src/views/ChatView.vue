@@ -170,7 +170,7 @@ export default {
             if (!text) return ''
 
             // Convert reference-style citation links like [1](https://...)
-            const withCitations = text.replace(/\[(\d+)\]\((https?:\/\/[^\)]+)\)/g, '[$1]($2)')
+            const withCitations = text.replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
 
             if (role === 'assistant') {
                 // Render markdown to HTML and sanitize

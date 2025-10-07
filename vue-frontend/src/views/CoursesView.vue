@@ -33,8 +33,12 @@
             </h3>
             <button class="delete-btn" title="Delete course" :disabled="deleting[course.course_id || course._id]"
               @click.stop="confirmDelete(course.course_id || course._id)">
-              <span v-if="!deleting[course.course_id || course._id]">✖</span>
-              <span v-else>⌛</span>
+              <!-- Show spinner while deleting -->
+              <span v-if="deleting[course.course_id || course._id]">⌛</span>
+              <!-- If awaiting confirmation, show inline Delete? prompt in red -->
+              <span v-else-if="pendingDelete[course.course_id || course._id]" class="delete-confirm">Delete?</span>
+              <!-- Default: show X -->
+              <span v-else>✖</span>
             </button>
           </div>
           <div class="course-card-meta">
@@ -70,12 +74,41 @@ export default {
     const loading = ref(true)
     const courses = ref([])
     const deleting = ref({})
+    const pendingDelete = ref({})
+
+    // Simple notification helper (re-use library pattern used elsewhere)
+    const showNotification = (message, type = 'success') => {
+      // minimal inline approach: try to log the notification; apps with a global toast
+      // can replace this implementation with a proper toast emitter
+      try {
+        console.log('[notify]', type, message)
+      } catch {
+        alert(message)
+      }
+    }
 
     const loadCourses = async () => {
       loading.value = true
-      await courseStore.loadCourses()
-      courses.value = courseStore.courses
-      loading.value = false
+      try {
+        await courseStore.loadCourses()
+        // courseStore.courses may be a ref or a raw array depending on Pinia proxying.
+        const storeCourses = courseStore.courses
+        let resolved = []
+        if (Array.isArray(storeCourses)) {
+          resolved = storeCourses
+        } else if (storeCourses && Array.isArray(storeCourses.value)) {
+          resolved = storeCourses.value
+        }
+        courses.value = resolved
+        console.log('[CoursesView] Resolved courses count:', courses.value.length, 'sample:', courses.value[0])
+      } catch (err) {
+        console.error('[CoursesView] Error loading courses:', err)
+        // Fallback to empty list so UI doesn't stay stuck
+        courses.value = []
+        showNotification && showNotification('Failed to load courses. Check connection.', 'error')
+      } finally {
+        loading.value = false
+      }
     }
 
     const openCourse = (courseId) => {
@@ -97,15 +130,40 @@ export default {
     })
 
     const confirmDelete = async (courseId) => {
-      if (!confirm('Delete this course? This action cannot be undone.')) return
+      // If this course is not pending delete, set pending and wait for second click
+      if (!pendingDelete.value[courseId]) {
+        pendingDelete.value = { ...pendingDelete.value, [courseId]: true }
+
+        // Auto-clear pending after 5 seconds
+        setTimeout(() => {
+          pendingDelete.value = { ...pendingDelete.value, [courseId]: false }
+        }, 5000)
+
+        return
+      }
+
+      // Second click: proceed to delete
       deleting.value = { ...deleting.value, [courseId]: true }
+      // clear pending state immediately
+      pendingDelete.value = { ...pendingDelete.value, [courseId]: false }
+
       const res = await courseStore.deleteCourse(courseId)
       deleting.value = { ...deleting.value, [courseId]: false }
+
       if (!res.success) {
-        alert(res.error || 'Failed to delete course')
+        showNotification(res.error || 'Failed to delete course', 'error')
       } else {
+        showNotification('Course deleted', 'success')
         // refresh local courses binding
-        courses.value = courseStore.courses
+        const storeCourses2 = courseStore.courses
+        if (Array.isArray(storeCourses2)) {
+          courses.value = storeCourses2
+        } else if (storeCourses2 && Array.isArray(storeCourses2.value)) {
+          courses.value = storeCourses2.value
+        } else {
+          courses.value = []
+        }
+        console.log('[CoursesView] After delete refresh - courses count:', courses.value.length, 'sample:', courses.value[0])
       }
     }
 
@@ -113,6 +171,7 @@ export default {
       loading,
       courses,
       deleting,
+      pendingDelete,
       confirmDelete,
       openCourse,
       formatDate
@@ -216,6 +275,11 @@ export default {
 .delete-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.delete-confirm {
+  color: #ff4d4d;
+  font-weight: 700;
 }
 
 .course-card-meta {

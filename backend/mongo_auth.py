@@ -136,7 +136,8 @@ class MongoAuthManager:
                 "marketing_consent": marketing_consent,
                 "created_at": datetime.utcnow().isoformat(),
                 "google_id": google_id,  # Store Google ID for linking
-                "google_linked": google_linked  # Flag to indicate if account is linked to Google
+                "google_linked": google_linked,  # Flag to indicate if account is linked to Google
+                "gemini_oauth": None  # Placeholder for Gemini OAuth credentials (to be set separately)
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
@@ -627,6 +628,138 @@ class MongoAuthManager:
             return False, f"Error during account deletion: {e}"
         except Exception as e:  # pylint: disable=broad-except
             _log_error(f"Unexpected error deleting account: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    # --- Gemini OAuth Methods ---
+    def store_gemini_oauth(self, username, oauth_data):
+        """
+        Store Gemini OAuth credentials for a user.
+        
+        Args:
+            username: Username to store credentials for
+            oauth_data: Dictionary containing:
+                - access_token: OAuth access token
+                - refresh_token: OAuth refresh token
+                - token_uri: Token endpoint URI
+                - client_id: OAuth client ID
+                - client_secret: OAuth client secret
+                - expiry: Token expiration (ISO format string)
+                - quota_project_id: Project ID for quota billing
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {"$set": {"gemini_oauth": oauth_data}}
+            )
+            if result.modified_count > 0 or result.matched_count > 0:
+                return True, None
+            else:
+                return False, "User not found."
+        except pymongo_errors.PyMongoError as e:
+            _log_error(f"MongoDB error storing Gemini OAuth: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error storing Gemini OAuth: {e}")
+            return False, f"An unexpected error occurred: {e}"
+    
+    def get_gemini_oauth(self, username):
+        """
+        Retrieve Gemini OAuth credentials for a user.
+        
+        Args:
+            username: Username to retrieve credentials for
+        
+        Returns:
+            dict: OAuth credentials or None if not found
+        """
+        if not self._ensure_connection():
+            return None
+        
+        try:
+            user = self.users_collection.find_one({"username": username})
+            if user:
+                return user.get("gemini_oauth")
+            return None
+        except Exception as e:
+            _log_error(f"Error retrieving Gemini OAuth: {e}")
+            return None
+    
+    def update_gemini_oauth_tokens(self, username, access_token, expiry, refresh_token=None):
+        """
+        Update Gemini OAuth access token after refresh.
+        
+        Args:
+            username: Username to update
+            access_token: New access token
+            expiry: New expiry timestamp (ISO format string)
+            refresh_token: New refresh token (if rotated)
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            update_data = {
+                "gemini_oauth.access_token": access_token,
+                "gemini_oauth.expiry": expiry
+            }
+            
+            if refresh_token:
+                update_data["gemini_oauth.refresh_token"] = refresh_token
+            
+            result = self.users_collection.update_one(
+                {"username": username},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0 or result.matched_count > 0:
+                return True, None
+            else:
+                return False, "User not found."
+        except pymongo_errors.PyMongoError as e:
+            _log_error(f"MongoDB error updating Gemini OAuth tokens: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error updating Gemini OAuth tokens: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def remove_gemini_oauth(self, username):
+        """
+        Remove Gemini OAuth credentials from a user.
+        
+        Args:
+            username: Username to remove credentials from
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            result = self.users_collection.update_one(
+                {"username": username},
+                {"$unset": {"gemini_oauth": ""}}
+            )
+            if result.modified_count > 0:
+                return True, None
+            elif result.matched_count > 0:
+                return True, "No Gemini OAuth credentials were set."
+            else:
+                return False, "User not found."
+        except pymongo_errors.PyMongoError as e:
+            _log_error(f"MongoDB error removing Gemini OAuth: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error removing Gemini OAuth: {e}")
             return False, f"An unexpected error occurred: {e}"
 
 # Example usage (optional, for testing this file directly)

@@ -1,6 +1,10 @@
 <template>
     <div class="library-view">
         <div class="container">
+            <!-- In-app notification (shows success / error messages) -->
+            <div v-if="showNotification" :class="['app-notification', notificationType]">
+                {{ notificationMessage }}
+            </div>
             <div class="library-header">
                 <h1 class="page-title">Course Library</h1>
                 <p class="page-subtitle">Explore and learn from courses created by the community</p>
@@ -184,6 +188,11 @@ export default {
 
         const isAuthenticated = computed(() => authStore.isAuthenticated)
 
+        // In-app notification state
+        const showNotification = ref(false)
+        const notificationMessage = ref('')
+        const notificationType = ref('success')
+
         const loadCourses = async (reset = true) => {
             loading.value = true
 
@@ -243,6 +252,15 @@ export default {
             router.push(`/course/${courseId}`)
         }
 
+        const showNotificationMessage = (message, type = 'success', timeout = 3500) => {
+            notificationMessage.value = message
+            notificationType.value = type
+            showNotification.value = true
+            setTimeout(() => {
+                showNotification.value = false
+            }, timeout)
+        }
+
         const cloneCourse = async (courseId) => {
             cloning.value = { ...cloning.value, [courseId]: true }
 
@@ -251,12 +269,12 @@ export default {
                 const response = await api.post(`/library/course/${courseId}/clone`, {}, { params })
 
                 if (response.data.success) {
-                    alert('Course cloned successfully! You can find it in your courses.')
+                    showNotificationMessage('Course cloned successfully! You can find it in your courses.', 'success')
                     router.push(`/course/${response.data.course_id}`)
                 }
             } catch (error) {
                 console.error('Error cloning course:', error)
-                alert('Failed to clone course. Please try again.')
+                showNotificationMessage('Failed to clone course. Please try again.', 'error')
             } finally {
                 cloning.value = { ...cloning.value, [courseId]: false }
             }
@@ -281,24 +299,45 @@ export default {
         const submitRating = async () => {
             if (!ratingCourse.value || selectedRating.value === 0) return
 
-            submittingRating.value = true
+            const courseToRate = ratingCourse.value
+            const ratingValue = selectedRating.value
 
+            // Close modal immediately for instant feedback
+            closeRatingModal()
+
+            // Optimistic UI update: adjust course rating locally
+            const originalCourse = courses.value.find(c => c.course_id === courseToRate.course_id)
+            let rollbackData = null
+            if (originalCourse) {
+                rollbackData = { rating: originalCourse.rating, total_ratings: originalCourse.total_ratings }
+                const originalRating = originalCourse.rating || 0
+                const originalTotalRatings = originalCourse.total_ratings || 0
+                const newTotalRatings = originalTotalRatings + 1
+                const newAverageRating = ((originalRating * originalTotalRatings) + ratingValue) / newTotalRatings
+                originalCourse.rating = newAverageRating
+                originalCourse.total_ratings = newTotalRatings
+            }
+
+            // Show success notification
+            showNotificationMessage('Thanks for rating — submitted!')
+
+            // Submit rating in background and refresh/rollback on failure
             try {
                 const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
-                await api.post(`/library/course/${ratingCourse.value.course_id}/rate`, {
-                    rating: selectedRating.value
+                await api.post(`/library/course/${courseToRate.course_id}/rate`, {
+                    rating: ratingValue
                 }, { params })
 
-                alert('Thank you for rating this course!')
-                closeRatingModal()
-
-                // Refresh the course in the list
+                // Refresh the course in the background to get accurate server values
                 loadCourses(true)
             } catch (error) {
                 console.error('Error rating course:', error)
-                alert('Failed to submit rating. Please try again.')
-            } finally {
-                submittingRating.value = false
+                // Rollback optimistic update if present
+                if (originalCourse && rollbackData) {
+                    originalCourse.rating = rollbackData.rating
+                    originalCourse.total_ratings = rollbackData.total_ratings
+                }
+                showNotificationMessage('Failed to submit rating. Reverted.', 'error')
             }
         }
 
@@ -347,7 +386,11 @@ export default {
             selectRating,
             submitRating,
             getStarRating,
-            formatDate
+            formatDate,
+            // notification state for template
+            showNotification,
+            notificationMessage,
+            notificationType
         }
     }
 }
@@ -669,5 +712,25 @@ export default {
     .btn-sm {
         flex: none;
     }
+}
+
+/* In-app notification */
+.app-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    color: white;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.app-notification.success {
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
+.app-notification.error {
+    background: linear-gradient(90deg, #ff7a7a, #ff4d4d);
 }
 </style>
