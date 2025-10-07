@@ -10,10 +10,7 @@
       <!-- Error State -->
       <div v-else-if="error" class="alert alert-error">
         {{ error }}
-        <button
-          class="btn btn-secondary mt-2"
-          @click="$router.push('/courses')"
-        >
+        <button class="btn btn-secondary mt-2" @click="$router.push('/courses')">
           Back to Courses
         </button>
       </div>
@@ -21,10 +18,7 @@
       <!-- Course Content -->
       <div v-else-if="course" class="course-content">
         <!-- Course Overview Screen -->
-        <div
-          v-if="showOverview && useStepFlow && !reviewMode"
-          class="overview-screen"
-        >
+        <div v-if="showOverview && useStepFlow && !reviewMode" class="overview-screen">
           <div class="overview-card card">
             <div class="overview-icon">📚</div>
             <h1 class="overview-title">
@@ -72,11 +66,7 @@
             </div>
 
             <div class="overview-actions">
-              <button
-                v-if="hasProgress"
-                class="btn btn-secondary"
-                @click="startCourseFromBeginning"
-              >
+              <button v-if="hasProgress" class="btn btn-secondary" @click="startCourseFromBeginning">
                 🔄 Start from Beginning
               </button>
               <button class="btn btn-primary" @click="startCourse">
@@ -114,16 +104,8 @@
               <div v-if="earnedBadges.length" class="stat-card badge-summary">
                 <div class="stat-label">Achievements</div>
                 <div class="badge-grid">
-                  <span
-                    v-for="badge in earnedBadges"
-                    :key="badge.id"
-                    class="badge-grid-item"
-                  >
-                    <img
-                      :src="badge.image"
-                      :alt="badge.label"
-                      class="badge-img-large"
-                    />
+                  <span v-for="badge in earnedBadges" :key="badge.id" class="badge-grid-item">
+                    <img :src="badge.image" :alt="badge.label" class="badge-img-large" />
                   </span>
                 </div>
               </div>
@@ -138,21 +120,13 @@
                 You've successfully completed all
                 {{ course.sections.length }} sections and answered
                 {{ totalQuestions }} questions with
-                <span :class="accuracyClass"
-                  >{{ accuracyPercentage }}% accuracy</span
-                >.
+                <span :class="accuracyClass">{{ accuracyPercentage }}% accuracy</span>.
               </p>
-              <p
-                v-if="accuracyPercentage >= 80"
-                class="summary-message success"
-              >
+              <p v-if="accuracyPercentage >= 80" class="summary-message success">
                 🌟 Excellent work! You have a strong understanding of the
                 material.
               </p>
-              <p
-                v-else-if="accuracyPercentage >= 60"
-                class="summary-message good"
-              >
+              <p v-else-if="accuracyPercentage >= 60" class="summary-message good">
                 👍 Good job! You have a solid grasp of most concepts.
               </p>
               <p v-else class="summary-message needs-review">
@@ -174,25 +148,15 @@
 
         <!-- Step Flow Mode -->
         <div v-else-if="useStepFlow && !reviewMode">
-          <div
-            ref="stepFlowContainer"
-            class="step-flow"
-            tabindex="0"
-            @keydown.enter="handleStepEnterKey"
-          >
+          <div ref="stepFlowContainer" class="step-flow" tabindex="0" @keydown.enter="handleStepEnterKey">
             <!-- Progress Bar at Top -->
             <div class="progress-bar-top">
               <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :style="{ width: stepFlowProgressPercentage + '%' }"
-                />
+                <div class="progress-fill" :style="{ width: stepFlowProgressPercentage + '%' }" />
               </div>
               <div class="progress-text">
-                <span
-                  >{{ answeredQuestions.size }} / {{ totalQuestions }} questions
-                  answered</span
-                >
+                <span>{{ answeredQuestions.size }} / {{ totalQuestions }} questions
+                  answered</span>
                 <span class="score-text">Score: {{ score }}</span>
               </div>
             </div>
@@ -208,19 +172,13 @@
                   🔄 Reset All Progress
                 </button>
               </div>
-              <div
-                v-if="adminMessage"
-                :class="['admin-message', adminMessageType]"
-              >
+              <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
                 {{ adminMessage }}
               </div>
             </div>
 
             <!-- End Course Early Button (hidden in review mode) -->
-            <div
-              v-if="answeredQuestions.size > 0 && !reviewMode"
-              class="end-early-container"
-            >
+            <div v-if="answeredQuestions.size > 0 && !reviewMode" class="end-early-container">
               <button class="btn-end-early" @click="endCourseEarly">
                 🏁 End Course Early
               </button>
@@ -229,27 +187,17 @@
             <div class="step-container">
               <!-- Render all revealed steps up to currentStepIndex -->
               <transition-group name="fade" tag="div" class="steps-list">
-                <div
-                  v-for="(step, idx) in courseSteps.slice(
-                    0,
-                    currentStepIndex + 1,
-                  )"
-                  :key="`step-${idx}`"
-                  :id="`step-${idx}`"
-                  class="step-card"
-                >
+                <div v-for="(step, idx) in courseSteps.slice(
+                  0,
+                  currentStepIndex + 1,
+                )" :key="`step-${idx}`" :id="`step-${idx}`" class="step-card">
                   <!-- Explanation Block -->
-                  <div
-                    v-if="step.type === 'explanation'"
-                    class="explanation-step"
-                  >
+                  <div v-if="step.type === 'explanation'" class="explanation-step">
                     <div class="step-header">
                       <h2 class="step-title">
                         {{ step.title }}
                       </h2>
-                      <span class="step-indicator"
-                        >{{ idx + 1 }} / {{ courseSteps.length }}</span
-                      >
+                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
                     <div class="explanation-text">
                       <p>{{ step.content }}</p>
@@ -257,40 +205,24 @@
                   </div>
 
                   <!-- Question Block -->
-                  <div
-                    v-else-if="step.type === 'question'"
-                    class="question-step"
-                  >
+                  <div v-else-if="step.type === 'question'" class="question-step">
                     <div class="step-header">
                       <h3 class="step-title">
                         Question {{ getQuestionDisplayNumber(idx) }}
                       </h3>
-                      <span class="step-indicator"
-                        >{{ idx + 1 }} / {{ courseSteps.length }}</span
-                      >
+                      <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
-                    <QuizQuestion
-                      :question="step.question"
-                      :question-index="step.questionIndex"
-                      :section-index="step.sectionIndex"
-                      :subsection-index="step.subsectionIndex"
-                      :saved-answer-data="step.savedAnswerData"
-                      @answer-submitted="handleStepFlowAnswerSubmit"
-                    />
+                    <QuizQuestion :question="step.question" :question-index="step.questionIndex"
+                      :section-index="step.sectionIndex" :subsection-index="step.subsectionIndex"
+                      :saved-answer-data="step.savedAnswerData" @answer-submitted="handleStepFlowAnswerSubmit" />
                   </div>
 
                   <!-- Per-step Navigation Controls (button sits at bottom of each step) -->
                   <div class="navigation-controls per-step centered">
-                    <button
-                      class="btn-continue"
-                      :class="{
-                        pulse: showContinueHint && idx === currentStepIndex,
-                      }"
-                      :disabled="
-                        idx !== currentStepIndex || !canProceedForStep(idx)
-                      "
-                      @click="handleContinueButtonClick"
-                    >
+                    <button class="btn-continue" :class="{
+                      pulse: showContinueHint && idx === currentStepIndex,
+                    }" :disabled="idx !== currentStepIndex || !canProceedForStep(idx)
+                        " @click="handleContinueButtonClick">
                       {{
                         idx === courseSteps.length - 1
                           ? "Finish"
@@ -330,49 +262,29 @@
             <div class="progress-container">
               <div class="progress-header">
                 <span class="progress-label">Course Progress</span>
-                <span class="progress-percentage"
-                  >{{ progressPercentage }}%</span
-                >
+                <span class="progress-percentage">{{ progressPercentage }}%</span>
               </div>
               <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :style="{ width: progressPercentage + '%' }"
-                />
+                <div class="progress-fill" :style="{ width: progressPercentage + '%' }" />
               </div>
               <div class="progress-stats">
-                <span class="stat-completed"
-                  >{{ answeredQuestions.size }} completed</span
-                >
-                <span class="stat-remaining"
-                  >{{ totalQuestions - answeredQuestions.size }} remaining</span
-                >
+                <span class="stat-completed">{{ answeredQuestions.size }} completed</span>
+                <span class="stat-remaining">{{ totalQuestions - answeredQuestions.size }} remaining</span>
               </div>
               <!-- Achievement Badges -->
               <div v-if="earnedBadges.length" class="badge-container">
                 <span class="badge-label">Achievements:</span>
-                <span
-                  v-for="badge in earnedBadges"
-                  :key="badge.id"
-                  class="badge-item"
-                >
-                  <img
-                    :src="badge.image"
-                    :alt="badge.label"
-                    class="badge-img"
-                  />
+                <span v-for="badge in earnedBadges" :key="badge.id" class="badge-item">
+                  <img :src="badge.image" :alt="badge.label" class="badge-img" />
                   <span class="badge-text">{{ badge.label }}</span>
                 </span>
               </div>
             </div>
 
             <!-- End Course Button (hidden in review mode) -->
-            <div
-              v-if="
-                !showConclusion && answeredQuestions.size > 0 && !reviewMode
-              "
-              class="end-course-section"
-            >
+            <div v-if="
+              !showConclusion && answeredQuestions.size > 0 && !reviewMode
+            " class="end-course-section">
               <button class="btn btn-secondary" @click="endCourseEarly">
                 🏁 End Course Early
               </button>
@@ -391,10 +303,7 @@
                 🔄 Reset All Progress
               </button>
             </div>
-            <div
-              v-if="adminMessage"
-              :class="['admin-message', adminMessageType]"
-            >
+            <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
               {{ adminMessage }}
             </div>
           </div>
@@ -417,12 +326,8 @@
           </div>
 
           <!-- All Sections (progressively revealed question by question) -->
-          <div
-            v-for="(section, sectionIndex) in visibleSections"
-            :id="`section-${sectionIndex}`"
-            :key="`section-${sectionIndex}`"
-            class="section-card card"
-          >
+          <div v-for="(section, sectionIndex) in visibleSections" :id="`section-${sectionIndex}`"
+            :key="`section-${sectionIndex}`" class="section-card card">
             <div class="section-header">
               <h2 class="section-title">
                 {{ section.section_title }}
@@ -430,11 +335,7 @@
               <div class="section-progress">
                 Section {{ sectionIndex + 1 }} of {{ course.sections.length }}
                 <span v-if="reviewMode" class="review-badge">📝 Review</span>
-                <span
-                  v-if="isSectionComplete(sectionIndex)"
-                  class="complete-badge"
-                  >✓ Complete</span
-                >
+                <span v-if="isSectionComplete(sectionIndex)" class="complete-badge">✓ Complete</span>
               </div>
             </div>
 
@@ -444,49 +345,28 @@
             </div>
 
             <!-- Quiz Questions (progressive reveal) -->
-            <div
-              v-if="section.quiz && section.quiz.length > 0"
-              class="quiz-section"
-            >
+            <div v-if="section.quiz && section.quiz.length > 0" class="quiz-section">
               <h3 class="quiz-title">Quiz Time! 🎯</h3>
 
-              <div
-                v-for="(question, qIndex) in getVisibleQuestions(
-                  sectionIndex,
-                  section.quiz,
-                  'main',
-                )"
-                :id="`question-${sectionIndex}-main-${qIndex}`"
-                :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
-                class="question-card"
-              >
-                <QuizQuestion
-                  :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`"
-                  :question="question"
-                  :question-index="qIndex"
-                  :section-index="sectionIndex"
-                  :saved-answer-data="
-                    getSavedAnswerData(sectionIndex, null, qIndex)
-                  "
-                  @answer-submitted="handleAnswerSubmit"
-                />
+              <div v-for="(question, qIndex) in getVisibleQuestions(
+                sectionIndex,
+                section.quiz,
+                'main',
+              )" :id="`question-${sectionIndex}-main-${qIndex}`" :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
+                class="question-card">
+                <QuizQuestion :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`" :question="question"
+                  :question-index="qIndex" :section-index="sectionIndex" :saved-answer-data="getSavedAnswerData(sectionIndex, null, qIndex)
+                    " @answer-submitted="handleAnswerSubmit" />
               </div>
             </div>
 
             <!-- Subsections (progressive reveal) -->
-            <div
-              v-if="section.subsections && section.subsections.length > 0"
-              class="subsections"
-            >
-              <div
-                v-for="(subsection, subIndex) in getVisibleSubsections(
-                  sectionIndex,
-                  section.subsections,
-                )"
-                :id="`subsection-${sectionIndex}-${subIndex}`"
-                :key="`sub-${sectionIndex}-${subIndex}`"
-                class="subsection-card"
-              >
+            <div v-if="section.subsections && section.subsections.length > 0" class="subsections">
+              <div v-for="(subsection, subIndex) in getVisibleSubsections(
+                sectionIndex,
+                section.subsections,
+              )" :id="`subsection-${sectionIndex}-${subIndex}`" :key="`sub-${sectionIndex}-${subIndex}`"
+                class="subsection-card">
                 <h4 v-if="!reviewMode" class="subsection-title">
                   {{ subsection.section_title }}
                 </h4>
@@ -495,31 +375,17 @@
                 </p>
 
                 <!-- Subsection Quiz (progressive reveal) -->
-                <div
-                  v-if="subsection.quiz && subsection.quiz.length > 0"
-                  class="quiz-section"
-                >
-                  <div
-                    v-for="(question, qIndex) in getVisibleQuestions(
-                      sectionIndex,
-                      subsection.quiz,
-                      subIndex,
-                    )"
-                    :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
-                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`"
-                    class="question-card"
-                  >
-                    <QuizQuestion
-                      :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`"
-                      :question="question"
-                      :question-index="qIndex"
-                      :section-index="sectionIndex"
-                      :subsection-index="subIndex"
-                      :saved-answer-data="
-                        getSavedAnswerData(sectionIndex, subIndex, qIndex)
-                      "
-                      @answer-submitted="handleAnswerSubmit"
-                    />
+                <div v-if="subsection.quiz && subsection.quiz.length > 0" class="quiz-section">
+                  <div v-for="(question, qIndex) in getVisibleQuestions(
+                    sectionIndex,
+                    subsection.quiz,
+                    subIndex,
+                  )" :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
+                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`" class="question-card">
+                    <QuizQuestion :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`" :question="question"
+                      :question-index="qIndex" :section-index="sectionIndex" :subsection-index="subIndex"
+                      :saved-answer-data="getSavedAnswerData(sectionIndex, subIndex, qIndex)
+                        " @answer-submitted="handleAnswerSubmit" />
                   </div>
                 </div>
               </div>
@@ -552,10 +418,7 @@
                   </div>
                   <div class="score-total">/ {{ originalAnsweredCount }}</div>
                 </div>
-                <div
-                  class="accuracy-badge"
-                  :class="getAccuracyClass(originalAccuracy)"
-                >
+                <div class="accuracy-badge" :class="getAccuracyClass(originalAccuracy)">
                   {{ originalAccuracy }}% Accuracy
                 </div>
               </div>
@@ -576,20 +439,14 @@
                     / {{ reviewAnsweredQuestions.size }}
                   </div>
                 </div>
-                <div
-                  class="accuracy-badge"
-                  :class="getAccuracyClass(reviewAccuracy)"
-                >
+                <div class="accuracy-badge" :class="getAccuracyClass(reviewAccuracy)">
                   {{ reviewAccuracy }}% Accuracy
                 </div>
               </div>
             </div>
 
             <div class="improvement-summary">
-              <div
-                v-if="improvementPercentage > 0"
-                class="improvement-message positive"
-              >
+              <div v-if="improvementPercentage > 0" class="improvement-message positive">
                 <span class="improvement-icon">🎉</span>
                 <div class="improvement-text">
                   <h4>Excellent Progress!</h4>
@@ -603,10 +460,7 @@
                   </p>
                 </div>
               </div>
-              <div
-                v-else-if="improvementPercentage < 0"
-                class="improvement-message negative"
-              >
+              <div v-else-if="improvementPercentage < 0" class="improvement-message negative">
                 <span class="improvement-icon">📉</span>
                 <div class="improvement-text">
                   <h4>Room for Growth</h4>
@@ -1067,17 +921,17 @@ export default {
     const handleContinueButtonClick = (event) => {
       // Dedicated handler for Continue button to ensure proper scrolling
       if (!canProceedToNextStep.value) return;
-      
+
       // Blur the button immediately to prevent focus interference
       if (event && event.target) {
         event.target.blur();
       }
-      
+
       // Refocus the container so keyboard shortcuts still work
       if (stepFlowContainer.value) {
         stepFlowContainer.value.focus();
       }
-      
+
       // Call nextStep which handles the scroll
       nextStep();
     };
@@ -2142,11 +1996,9 @@ export default {
 }
 
 .btn-admin {
-  background: linear-gradient(
-    135deg,
-    var(--accent-primary),
-    var(--accent-light)
-  );
+  background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-light));
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -2255,11 +2107,9 @@ export default {
 }
 
 .conclusion-card {
-  background: linear-gradient(
-    135deg,
-    var(--bg-primary) 0%,
-    var(--bg-secondary) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--bg-primary) 0%,
+      var(--bg-secondary) 100%);
   border-radius: 1.5rem;
   padding: 2rem;
   max-width: 600px;
@@ -2277,6 +2127,7 @@ export default {
 }
 
 @keyframes bounce {
+
   0%,
   100% {
     transform: translateY(0);
@@ -2290,11 +2141,9 @@ export default {
 .conclusion-title {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(
-    135deg,
-    var(--accent-primary) 0%,
-    var(--accent-secondary) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--accent-primary) 0%,
+      var(--accent-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2330,11 +2179,9 @@ export default {
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(
-    135deg,
-    var(--accent-primary) 0%,
-    var(--accent-secondary) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--accent-primary) 0%,
+      var(--accent-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2482,12 +2329,10 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%);
   animation: shimmer 2s infinite;
 }
 
@@ -2889,11 +2734,9 @@ export default {
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(
-    135deg,
-    var(--accent-primary),
-    var(--accent-secondary)
-  );
+  background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -3136,11 +2979,9 @@ export default {
 }
 
 .btn-continue {
-  background: linear-gradient(
-    135deg,
-    var(--accent-primary),
-    var(--accent-secondary)
-  );
+  background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-secondary));
   color: white;
   border: none;
   padding: 1.25rem 3rem;
@@ -3167,6 +3008,7 @@ export default {
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     transform: scale(1);
@@ -3262,6 +3104,7 @@ export default {
 }
 
 @keyframes pulseLightTheme {
+
   0%,
   100% {
     transform: scale(1);
