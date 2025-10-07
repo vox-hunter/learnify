@@ -29,7 +29,17 @@ function deleteCookie(name) {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  // Try to load user from localStorage/sessionStorage on startup
+  let initialUser = null;
+  try {
+    const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
+    if (userData) {
+      initialUser = JSON.parse(userData);
+    }
+  } catch (e) {
+    initialUser = null;
+  }
+  const user = ref(initialUser)
   const token = ref(localStorage.getItem('authToken') || null)
 
   const isAuthenticated = computed(() => !!user.value)

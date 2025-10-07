@@ -109,6 +109,7 @@
 
 <script>
 import { ref, computed, nextTick, onMounted } from 'vue'
+import api from '../services/api'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
@@ -150,34 +151,27 @@ export default {
         // Whether current user is authenticated (guest => false)
         const isAuthenticated = computed(() => !!authStore.user)
 
-        // Methods
-        const scrollToBottom = () => {
-            nextTick(() => {
-                if (chatFeed.value) {
-                    chatFeed.value.scrollTop = chatFeed.value.scrollHeight
+        // Detect if last assistant message is the automated login reply
+        const showGoogleLinkButton = computed(() => {
+            if (!messages.value.length) return false;
+            const lastMsg = messages.value[messages.value.length - 1];
+            return lastMsg.role === 'assistant' && lastMsg.text && lastMsg.text.includes('You need to be logged in to use AI features');
+        });
+
+        // Redirect to Google OAuth
+        const linkGoogleAccount = async () => {
+            try {
+                // Get Google OAuth URL from backend
+                const response = await api.get('/auth/google/url');
+                if (response.data && response.data.url) {
+                    window.location.href = response.data.url;
+                } else {
+                    error.value = 'Failed to get Google login URL.';
                 }
-            })
-        }
-
-        const formatTime = (timestamp) => {
-            const date = new Date(timestamp)
-            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-        }
-
-        // Initialize markdown-it with common options
-        const md = new MarkdownIt({
-            html: false,
-            linkify: true,
-            typographer: true
-        })
-
-        const formatMessage = (text, role = 'assistant') => {
-            if (!text) return ''
-
-            // Convert reference-style citation links like [1](https://...)
-            const withCitations = text.replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
-
-            if (role === 'assistant') {
+            } catch (err) {
+                error.value = 'Failed to get Google login URL.';
+            }
+        };
                 // Render markdown to HTML and sanitize
                 const rendered = md.render(withCitations)
                 const clean = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
@@ -194,57 +188,64 @@ export default {
                 // Validate file size (20MB limit)
                 if (file.size > 20 * 1024 * 1024) {
                     error.value = 'File size must be less than 20MB'
-                    return
-                }
-                selectedFile.value = file
-                error.value = null
-            }
-        }
+                    <!-- Input Area -->
+                    <div class="chat-input-container">
+                        <div v-if="showGoogleLinkButton" class="google-link-container">
+                            <button class="btn btn-primary" @click="linkGoogleAccount">
+                                Link Google Account
+                            </button>
+                        </div>
+                        <div v-else>
+                            <!-- File/URL Attachment Preview -->
+                            <div v-if="selectedFile || urlInput" class="attachment-preview">
+                                <div v-if="selectedFile" class="preview-item">
+                                    <span class="preview-icon">📄</span>
+                                    <span class="preview-name">{{ selectedFile.name }}</span>
+                                    <button class="preview-remove" @click="removeFile">×</button>
+                                </div>
+                                <div v-if="urlInput" class="preview-item">
+                                    <span class="preview-icon">🔗</span>
+                                    <span class="preview-name">{{ urlInput }}</span>
+                                    <button class="preview-remove" @click="removeUrl">×</button>
+                                </div>
+                            </div>
 
-        const removeFile = () => {
-            selectedFile.value = null
-            if (fileInput.value) {
-                fileInput.value.value = ''
-            }
-        }
+                            <!-- Error Message -->
+                            <div v-if="error" class="chat-error">
+                                {{ error }}
+                            </div>
 
-        const toggleUrlInput = () => {
-            showUrlInput.value = !showUrlInput.value
-            if (showUrlInput.value) {
-                messageInput.value = ''
-            }
-        }
+                            <!-- Input Group -->
+                            <div class="input-group">
+                                <!-- File Upload Button -->
+                                <label class="input-btn file-btn" title="Upload file">
+                                    <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+                                        hidden @change="handleFileSelect">
+                                    📎
+                                </label>
 
-        const handleUrlSubmit = () => {
-            showUrlInput.value = false
-        }
+                                <!-- URL Input Toggle -->
+                                <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
+                                    @click="toggleUrlInput">
+                                    🔗
+                                </button>
 
-        const removeUrl = () => {
-            urlInput.value = ''
-        }
+                                <!-- URL Input Field (conditionally shown) -->
+                                <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
+                                    placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
+                                    @keydown.esc="showUrlInput = false">
 
-        const sendExamplePrompt = (prompt) => {
-            messageInput.value = prompt
-            sendMessage()
-        }
+                                <!-- Message Input -->
+                                <input v-else v-model="messageInput" type="text" class="message-input"
+                                    placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" :disabled="isLoading">
 
-        const sendMessage = async () => {
-            if (!canSend.value) return
-
-            const userMessage = messageInput.value.trim()
-            const url = urlInput.value.trim()
-            const file = selectedFile.value
-
-            // Add user message to chat
-            const userMsg = {
-                role: 'user',
-                text: userMessage || (url ? `Analyzing URL: ${url}` : 'Uploaded file'),
-                timestamp: Date.now(),
-                attachment: file ? { name: file.name, type: file.type } : null
-            }
-            messages.value.push(userMsg)
-
-            // Clear inputs
+                                <!-- Send Button -->
+                                <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">
+                                    {{ isLoading ? '⏳' : '🚀' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
             messageInput.value = ''
             urlInput.value = ''
             removeFile()
