@@ -165,8 +165,9 @@ export default {
 
         const nonGoogleCount = ref(authStore.user?.username ? getNgCount(authStore.user.username) : 0)
         const reachedNgLimit = computed(() => {
-            // applies only to logged-in users who are NOT Google-linked
-            return !!authStore.user && !authStore.user?.isGoogleUser && nonGoogleCount.value >= 6
+            // Skip limit if user is Google-linked
+            if (authStore.user?.isGoogleUser) return false
+            return !!authStore.user && nonGoogleCount.value >= 6
         })
 
         // Clear the counter when a user becomes Google-linked and keep in sync on user change
