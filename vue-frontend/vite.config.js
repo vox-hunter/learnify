@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// https://vite.dev/config/
+// https://vite.dev/config/ that's the website
 export default defineConfig({
   plugins: [vue()],
   resolve: {
