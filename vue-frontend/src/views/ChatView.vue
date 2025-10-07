@@ -8,23 +8,16 @@
                     <h2>What do you want to learn today?</h2>
                     <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
                     <div class="example-prompts">
-                        <button
-                            v-for="(example, i) in examplePrompts"
-                            :key="i"
-                            class="example-prompt"
-                            @click="sendExamplePrompt(example)"
-                        >
+                        <button v-for="(example, i) in examplePrompts" :key="i" class="example-prompt"
+                            @click="sendExamplePrompt(example)">
                             {{ example }}
                         </button>
                     </div>
                 </div>
 
                 <!-- Message List -->
-                <div
-                    v-for="(msg, index) in messages"
-                    :key="index"
-                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
-                >
+                <div v-for="(msg, index) in messages" :key="index"
+                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']">
                     <div class="message-avatar">
                         <span v-if="msg.role === 'user'">👤</span>
                         <span v-else>🤖</span>
@@ -34,10 +27,7 @@
                             <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
                             <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                         </div>
-                        <div
-                            class="message-text"
-                            v-html="formatMessage(msg.text, msg.role)"
-                        ></div>
+                        <div class="message-text" v-html="formatMessage(msg.text, msg.role)"></div>
                         <div v-if="msg.attachment" class="message-attachment">
                             <span class="attachment-icon">📎</span>
                             <span class="attachment-name">{{ msg.attachment.name }}</span>
@@ -77,27 +67,26 @@
 
                 <div class="input-group">
                     <label class="input-btn file-btn" title="Upload file">
-                        <input
-                            ref="fileInput"
-                            type="file"
-                            accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-                            hidden
-                            @change="handleFileSelect"
-                        />
+                        <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+                            hidden @change="handleFileSelect" />
                         📎
                     </label>
 
-                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL" @click="toggleUrlInput">
+                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
+                        @click="toggleUrlInput">
                         🔗
                     </button>
 
-                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input" placeholder="Paste URL here..."
-                        @keydown.enter="handleUrlSubmit" @keydown.esc="showUrlInput = false" />
+                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
+                        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
+                        @keydown.esc="showUrlInput = false" />
 
-                    <input v-else v-model="messageInput" type="text" class="message-input" placeholder="Ask AI Loom or upload notes..."
-                        @keydown.enter="sendMessage" :disabled="isLoading" />
+                    <input v-else v-model="messageInput" type="text" class="message-input"
+                        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage"
+                        :disabled="isLoading" />
 
-                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">{{ isLoading ? '⏳' : '🚀' }}</button>
+                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">{{
+                        isLoading ? '⏳' : '🚀' }}</button>
                 </div>
             </div>
         </div>
