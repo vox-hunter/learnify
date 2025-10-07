@@ -289,7 +289,7 @@
                       :disabled="
                         idx !== currentStepIndex || !canProceedForStep(idx)
                       "
-                      @click="idx === currentStepIndex && nextStep()"
+                      @click="handleContinueButtonClick"
                     >
                       {{
                         idx === courseSteps.length - 1
@@ -1062,6 +1062,24 @@ export default {
           nextStep();
         }
       }
+    };
+
+    const handleContinueButtonClick = (event) => {
+      // Dedicated handler for Continue button to ensure proper scrolling
+      if (!canProceedToNextStep.value) return;
+      
+      // Blur the button immediately to prevent focus interference
+      if (event && event.target) {
+        event.target.blur();
+      }
+      
+      // Refocus the container so keyboard shortcuts still work
+      if (stepFlowContainer.value) {
+        stepFlowContainer.value.focus();
+      }
+      
+      // Call nextStep which handles the scroll
+      nextStep();
     };
 
     const scrollToContent = () => {
@@ -1873,6 +1891,7 @@ export default {
       stepFlowContainer,
       nextStep,
       handleStepEnterKey,
+      handleContinueButtonClick,
       handleStepFlowAnswerSubmit,
       handleEndEarly,
       // Expose new helpers for step rendering
