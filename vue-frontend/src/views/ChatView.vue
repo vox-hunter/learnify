@@ -5,7 +5,7 @@
                 <!-- Welcome Message -->
                 <div v-if="messages.length === 0" class="welcome-message">
                     <div class="welcome-icon">✨</div>
-                    <h2>What do you want to learn today?</h2>
+                    <h2>Learning starts when you start talking.</h2>
                     <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
                     <div class="example-prompts">
                         <button v-for="(example, i) in examplePrompts" :key="i" class="example-prompt"
