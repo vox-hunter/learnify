@@ -68,11 +68,13 @@
                 <div v-if="reachedNgLimit" class="ng-limit-block">
                     <div class="danger-warning" style="margin-bottom:0.75rem">
                         <strong>You've reached the free chat limit.</strong>
-                        <p style="margin:0.25rem 0 0; color:var(--text-muted)">Link your Google account to continue chatting with your personal quota, or visit the Danger Zone in your account.</p>
+                        <p style="margin:0.25rem 0 0; color:var(--text-muted)">Link your Google account to continue
+                            chatting with your personal quota, or visit the Danger Zone in your account.</p>
                     </div>
                     <div class="input-group">
                         <button class="btn btn-primary" @click.prevent="goToDangerZone">Go to Danger Zone</button>
-                        <button class="btn" style="margin-left:0.5rem" @click.prevent="linkGoogleAccount">Link Google Account</button>
+                        <button class="btn" style="margin-left:0.5rem" @click.prevent="linkGoogleAccount">Link Google
+                            Account</button>
                     </div>
                 </div>
                 <div v-else class="input-group">
