@@ -217,9 +217,16 @@ export default {
         }
       } catch (err) {
         console.error('Signup error:', err)
-        submitError.value = err.response?.data?.detail || 'Failed to complete signup'
+        // Always show backend error message, clarify for user if needed
+        let detail = err.response?.data?.detail || 'Failed to complete signup';
+        if (detail.includes('Username is already taken')) {
+          detail = 'That username is already taken. Please choose another.';
+        } else if (detail.includes('Email already registered')) {
+          detail = 'An account with this email already exists. Please log in.';
+        }
+        submitError.value = detail;
       } finally {
-        submitting.value = false
+        submitting.value = false;
       }
     }
 

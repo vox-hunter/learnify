@@ -264,6 +264,7 @@ export default {
                     scrollToBottom()
                     return
                 }
+
                 // Prepare form data for API request
                 const formData = new FormData()
                 formData.append('message', userMessage || 'Please analyze this content')
@@ -278,6 +279,11 @@ export default {
 
                 if (url) {
                     formData.append('url', url)
+                }
+
+                // Always send username as a form field for backend auth
+                if (authStore.user && authStore.user.username) {
+                    formData.append('username', authStore.user.username)
                 }
 
                 // Send to backend chat endpoint
