@@ -111,6 +111,7 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
+import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
@@ -120,6 +121,7 @@ export default {
     setup() {
         const router = useRouter()
         const courseStore = useCourseStore()
+        const authStore = useAuthStore()
 
         // State
         const messages = ref([])
@@ -144,6 +146,9 @@ export default {
         const canSend = computed(() => {
             return (messageInput.value.trim() || selectedFile.value || urlInput.value) && !isLoading.value
         })
+
+        // Whether current user is authenticated (guest => false)
+        const isAuthenticated = computed(() => !!authStore.user)
 
         // Methods
         const scrollToBottom = () => {
@@ -250,6 +255,15 @@ export default {
             scrollToBottom()
 
             try {
+                // If user is not authenticated, immediately return the fake assistant reply
+                if (!isAuthenticated.value) {
+                    const fakeReply = 'You need to be logged in to use AI features, if you want to try AI Generated course, checkout "library" for community generated courses.'
+                    // Add assistant message
+                    messages.value.push({ role: 'assistant', text: fakeReply, timestamp: Date.now() })
+                    isLoading.value = false
+                    scrollToBottom()
+                    return
+                }
                 // Prepare form data for API request
                 const formData = new FormData()
                 formData.append('message', userMessage || 'Please analyze this content')

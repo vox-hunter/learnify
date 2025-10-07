@@ -1240,6 +1240,26 @@ async def chat_message(
         }
     """
     try:
+        # --- Access control rules ---
+        # If user is not logged in (guest), do not forward to AI. Return a polite assistant-style reply.
+        GUEST_FAKE_REPLY = "You need to be logged in to use AI features, if you want to try AI Generated course, checkout \"library\" for community generated courses."
+
+        # Counters for logged-in users without Gemini OAuth (in-memory)
+        # username -> count
+        # Use a module-level dict to track non-OAuth usage; initialize if missing
+        if '_NON_OAUTH_CHAT_USAGE' not in globals():
+            _NON_OAUTH_CHAT_USAGE = {}
+
+        # If no username provided -> guest behavior
+        if not username:
+            # Return a fake AI reply so frontend can render it naturally
+            return {
+                "success": True,
+                "reply": GUEST_FAKE_REPLY,
+                "session_id": "",
+                "is_course": False
+            }
+
         # Retrieve user's Gemini OAuth credentials if authenticated
         user_credentials = None
         quota_project_id = None
@@ -1256,6 +1276,24 @@ async def chat_message(
                 }
                 quota_project_id = oauth_data.get('quota_project_id')
                 logger.info(f"Retrieved Gemini OAuth credentials for chat user: {username}")
+            else:
+                # User is logged in but does not have Gemini/Google OAuth linked.
+                # Enforce 10-request free limit.
+                current = globals().get('_NON_OAUTH_CHAT_USAGE', {}).get(username, 0)
+                if current >= 10:
+                    # Return polite assistant-style reply forcing Google login
+                    return {
+                        "success": True,
+                        "reply": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
+                        "session_id": "",
+                        "is_course": False
+                    }
+                # Increment usage and allow request to proceed
+                # Update the module-level counter safely
+                usage = globals().get('_NON_OAUTH_CHAT_USAGE', {})
+                usage[username] = current + 1
+                globals()['_NON_OAUTH_CHAT_USAGE'] = usage
+                logger.info(f"Non-OAuth chat usage for {username}: {usage[username]}")
         
         # Create chat manager with user credentials
         chat_manager = ChatSessionManager(

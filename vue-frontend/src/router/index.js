@@ -65,7 +65,7 @@ const router = createRouter({
 // Navigation guard for authentication
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const publicPages = ['/', '/login', '/privacy', '/terms', '/auth/google/callback', '/auth/google/username']
+  const publicPages = ['/', '/login', '/privacy', '/terms', '/auth/google/callback', '/auth/google/username', '/library']
   // Allow guests to view courses (they have localStorage courses)
   const isCoursePage = to.path.startsWith('/course/')
   const authRequired = !publicPages.includes(to.path) && !isCoursePage
