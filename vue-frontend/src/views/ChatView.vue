@@ -65,7 +65,17 @@
 
                 <div v-if="error" class="chat-error">{{ error }}</div>
 
-                <div class="input-group">
+                <div v-if="reachedNgLimit" class="ng-limit-block">
+                    <div class="danger-warning" style="margin-bottom:0.75rem">
+                        <strong>You've reached the free chat limit.</strong>
+                        <p style="margin:0.25rem 0 0; color:var(--text-muted)">Link your Google account to continue chatting with your personal quota, or visit the Danger Zone in your account.</p>
+                    </div>
+                    <div class="input-group">
+                        <button class="btn btn-primary" @click.prevent="goToDangerZone">Go to Danger Zone</button>
+                        <button class="btn" style="margin-left:0.5rem" @click.prevent="linkGoogleAccount">Link Google Account</button>
+                    </div>
+                </div>
+                <div v-else class="input-group">
                     <label class="input-btn file-btn" title="Upload file">
                         <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
                             hidden @change="handleFileSelect" />
@@ -94,7 +104,7 @@
 </template>
 
 <script>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
@@ -132,6 +142,41 @@ export default {
         })
 
         const isAuthenticated = computed(() => !!authStore.user)
+
+        // Non-Google per-user counter (frontend UX enforcement)
+        const ngStorageKey = (username) => `ng_chat_count:${username}`
+        const getNgCount = (username) => {
+            if (!username) return 0
+            const v = parseInt(localStorage.getItem(ngStorageKey(username)) || '0', 10)
+            return Number.isNaN(v) ? 0 : v
+        }
+        const setNgCount = (username, n) => {
+            if (!username) return
+            localStorage.setItem(ngStorageKey(username), String(n))
+        }
+        const incrementNgCount = (username) => {
+            if (!username) return 0
+            const c = getNgCount(username) + 1
+            setNgCount(username, c)
+            return c
+        }
+
+        const nonGoogleCount = ref(authStore.user?.username ? getNgCount(authStore.user.username) : 0)
+        const reachedNgLimit = computed(() => {
+            // applies only to logged-in users who are NOT Google-linked
+            return !!authStore.user && !authStore.user?.isGoogleUser && nonGoogleCount.value >= 6
+        })
+
+        // Clear the counter when a user becomes Google-linked and keep in sync on user change
+        watch(() => authStore.user, (newUser) => {
+            if (newUser?.isGoogleUser && newUser.username) {
+                localStorage.removeItem(ngStorageKey(newUser.username))
+                nonGoogleCount.value = 0
+            }
+            if (newUser?.username) {
+                nonGoogleCount.value = getNgCount(newUser.username)
+            }
+        }, { deep: true })
 
         const showGoogleLinkButton = computed(() => {
             if (!messages.value.length) return false
@@ -212,6 +257,10 @@ export default {
             sendMessage()
         }
 
+        const goToDangerZone = () => {
+            router.push({ path: '/account', query: { tab: 'danger' } })
+        }
+
         const sendMessage = async () => {
             if (!canSend.value) return
 
@@ -227,6 +276,19 @@ export default {
             }
 
             messages.value.push(userMsg)
+
+            // if logged-in and not Google-linked, increment frontend counter and check limit
+            if (authStore.user && !authStore.user?.isGoogleUser && authStore.user.username) {
+                const c = incrementNgCount(authStore.user.username)
+                nonGoogleCount.value = c
+                // If we've hit the limit, show assistant notice and stop further processing
+                if (c >= 6) {
+                    messages.value.push({ role: 'assistant', text: 'You have reached the free chat request limit. Please link your Google account to continue.', timestamp: Date.now() })
+                    isLoading.value = false
+                    scrollToBottom()
+                    return
+                }
+            }
 
             // clear inputs
             messageInput.value = ''
@@ -311,7 +373,9 @@ export default {
             sendExamplePrompt,
             sendMessage,
             showGoogleLinkButton,
-            linkGoogleAccount
+            linkGoogleAccount,
+            reachedNgLimit,
+            goToDangerZone
         }
     }
 }

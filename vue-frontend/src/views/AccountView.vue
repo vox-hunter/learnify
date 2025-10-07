@@ -323,14 +323,15 @@
 
 <script>
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
 
 export default {
   name: 'AccountView',
   setup() {
-    const router = useRouter()
+  const router = useRouter()
+  const route = useRoute()
     const authStore = useAuthStore()
 
     const activeTab = ref('profile')
@@ -377,6 +378,12 @@ export default {
       if (!authStore.user) {
         router.push('/login')
         return
+      }
+
+      // support deep-linking to a specific tab via ?tab=danger
+      const qtab = route.query.tab
+      if (qtab && typeof qtab === 'string') {
+        activeTab.value = qtab
       }
 
       profileForm.value = {
