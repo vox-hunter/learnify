@@ -1,7 +1,6 @@
 <template>
     <div class="chat-view">
         <div class="container">
-            <!-- Chat Messages Feed -->
             <div ref="chatFeed" class="chat-feed">
                 <!-- Welcome Message -->
                 <div v-if="messages.length === 0" class="welcome-message">
@@ -9,16 +8,23 @@
                     <h2>What do you want to learn today?</h2>
                     <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
                     <div class="example-prompts">
-                        <button v-for="(example, index) in examplePrompts" :key="index" class="example-prompt"
-                            @click="sendExamplePrompt(example)">
+                        <button
+                            v-for="(example, i) in examplePrompts"
+                            :key="i"
+                            class="example-prompt"
+                            @click="sendExamplePrompt(example)"
+                        >
                             {{ example }}
                         </button>
                     </div>
                 </div>
 
                 <!-- Message List -->
-                <div v-for="(msg, index) in messages" :key="index"
-                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']">
+                <div
+                    v-for="(msg, index) in messages"
+                    :key="index"
+                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
+                >
                     <div class="message-avatar">
                         <span v-if="msg.role === 'user'">👤</span>
                         <span v-else>🤖</span>
@@ -28,8 +34,10 @@
                             <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
                             <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                         </div>
-                        <div class="message-text" v-html="formatMessage(msg.text)" />
-                        <!-- Attachments -->
+                        <div
+                            class="message-text"
+                            v-html="formatMessage(msg.text, msg.role)"
+                        ></div>
                         <div v-if="msg.attachment" class="message-attachment">
                             <span class="attachment-icon">📎</span>
                             <span class="attachment-name">{{ msg.attachment.name }}</span>
@@ -39,14 +47,12 @@
 
                 <!-- Loading Indicator -->
                 <div v-if="isLoading" class="message ai-message loading">
-                    <div class="message-avatar">
-                        <span>🤖</span>
-                    </div>
+                    <div class="message-avatar"> <span>🤖</span> </div>
                     <div class="message-content">
                         <div class="typing-indicator">
-                            <span />
-                            <span />
-                            <span />
+                            <span></span>
+                            <span></span>
+                            <span></span>
                         </div>
                     </div>
                 </div>
@@ -54,7 +60,6 @@
 
             <!-- Input Area -->
             <div class="chat-input-container">
-                <!-- File/URL Attachment Preview -->
                 <div v-if="selectedFile || urlInput" class="attachment-preview">
                     <div v-if="selectedFile" class="preview-item">
                         <span class="preview-icon">📄</span>
@@ -68,39 +73,31 @@
                     </div>
                 </div>
 
-                <!-- Error Message -->
-                <div v-if="error" class="chat-error">
-                    {{ error }}
-                </div>
+                <div v-if="error" class="chat-error">{{ error }}</div>
 
-                <!-- Input Group -->
                 <div class="input-group">
-                    <!-- File Upload Button -->
                     <label class="input-btn file-btn" title="Upload file">
-                        <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-                            hidden @change="handleFileSelect">
+                        <input
+                            ref="fileInput"
+                            type="file"
+                            accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+                            hidden
+                            @change="handleFileSelect"
+                        />
                         📎
                     </label>
 
-                    <!-- URL Input Toggle -->
-                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
-                        @click="toggleUrlInput">
+                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL" @click="toggleUrlInput">
                         🔗
                     </button>
 
-                    <!-- URL Input Field (conditionally shown) -->
-                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
-                        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
-                        @keydown.esc="showUrlInput = false">
+                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input" placeholder="Paste URL here..."
+                        @keydown.enter="handleUrlSubmit" @keydown.esc="showUrlInput = false" />
 
-                    <!-- Message Input -->
-                    <input v-else v-model="messageInput" type="text" class="message-input"
-                        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" :disabled="isLoading">
+                    <input v-else v-model="messageInput" type="text" class="message-input" placeholder="Ask AI Loom or upload notes..."
+                        @keydown.enter="sendMessage" :disabled="isLoading" />
 
-                    <!-- Send Button -->
-                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">
-                        {{ isLoading ? '⏳' : '🚀' }}
-                    </button>
+                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">{{ isLoading ? '⏳' : '🚀' }}</button>
                 </div>
             </div>
         </div>
@@ -109,7 +106,6 @@
 
 <script>
 import { ref, computed, nextTick, onMounted } from 'vue'
-import api from '../services/api'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
@@ -136,265 +132,198 @@ export default {
         const showUrlInput = ref(false)
         const sessionId = ref(null)
 
-        // Example prompts for new users
         const examplePrompts = [
             'Create a course about Python basics',
             'Help me understand quantum physics',
             'Summarize this document'
         ]
 
-        // Computed
         const canSend = computed(() => {
             return (messageInput.value.trim() || selectedFile.value || urlInput.value) && !isLoading.value
         })
 
-        // Whether current user is authenticated (guest => false)
         const isAuthenticated = computed(() => !!authStore.user)
 
-        // Detect if last assistant message is the automated login reply
         const showGoogleLinkButton = computed(() => {
-            if (!messages.value.length) return false;
-            const lastMsg = messages.value[messages.value.length - 1];
-            return lastMsg.role === 'assistant' && lastMsg.text && lastMsg.text.includes('You need to be logged in to use AI features');
-        });
-
-        // Redirect to Google OAuth
-        const linkGoogleAccount = async () => {
-            try {
-                // Get Google OAuth URL from backend
-                const response = await api.get('/auth/google/url');
-                if (response.data && response.data.url) {
-                    window.location.href = response.data.url;
-                } else {
-                    error.value = 'Failed to get Google login URL.';
-                }
-            } catch (err) {
-                error.value = 'Failed to get Google login URL.';
-            }
-        };
-        // Render markdown to HTML and sanitize
-        const rendered = md.render(withCitations)
-        const clean = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
-        return clean
-    }
-
-            // For user messages, keep simple escaping: replace newlines with <br>
-            return withCitations.replace(/\n/g, '<br>')
-}
-
-const handleFileSelect = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-        // Validate file size (20MB limit)
-        if (file.size > 20 * 1024 * 1024) {
-            error.value = 'File size must be less than 20MB'
-                < !--Input Area-- >
-                    <div class="chat-input-container">
-                        <div v-if="showGoogleLinkButton" class="google-link-container">
-                            <button class="btn btn-primary" @click="linkGoogleAccount">
-                                Link Google Account
-                            </button>
-                        </div>
-                        <div v-else>
-                            <!-- File/URL Attachment Preview -->
-                            <div v-if="selectedFile || urlInput" class="attachment-preview">
-                                <div v-if="selectedFile" class="preview-item">
-                                    <span class="preview-icon">📄</span>
-                                    <span class="preview-name">{{ selectedFile.name }}</span>
-                                    <button class="preview-remove" @click="removeFile">×</button>
-                                </div>
-                                <div v-if="urlInput" class="preview-item">
-                                    <span class="preview-icon">🔗</span>
-                                    <span class="preview-name">{{ urlInput }}</span>
-                                    <button class="preview-remove" @click="removeUrl">×</button>
-                                </div>
-                            </div >
-
-                            < !--Error Message-- >
-                            <div v-if="error" class="chat-error">
-                                {{ error }}
-                            </div>
-
-                            <!--Input Group-- >
-                            <div class="input-group">
-                                <!-- File Upload Button -->
-                                <label class="input-btn file-btn" title="Upload file">
-                                    <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-                                        hidden @change="handleFileSelect">
-                                    📎
-                                </label>
-
-                                <!-- URL Input Toggle -->
-                                <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
-                                    @click="toggleUrlInput">
-                                    🔗
-                                </button>
-
-                                <!--URL Input Field(conditionally shown)-- >
-    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
-        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
-@keydown.esc="showUrlInput = false" >
-
-                                < !--Message Input-- >
-    <input v-else v-model="messageInput" type="text" class="message-input"
-        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" : disabled = "isLoading" >
-
-                                < !--Send Button-- >
-    <button class="input-btn send-btn" : disabled="!canSend || isLoading" @click="sendMessage" >
-        {{ isLoading ? '⏳' : '🚀' }}
-                                </button >
-                            </div >
-                        </div >
-                    </div >
-    messageInput.value = ''
-urlInput.value = ''
-removeFile()
-showUrlInput.value = false
-error.value = null
-isLoading.value = true
-
-scrollToBottom()
-
-try {
-    // If user is not authenticated, immediately return the fake assistant reply
-    if (!isAuthenticated.value) {
-        const fakeReply = 'You need to be logged in to use AI features, if you want to try AI Generated course, checkout "library" for community generated courses.'
-        // Add assistant message
-        messages.value.push({ role: 'assistant', text: fakeReply, timestamp: Date.now() })
-        isLoading.value = false
-        scrollToBottom()
-        return
-    }
-
-    // Prepare form data for API request
-    const formData = new FormData()
-    formData.append('message', userMessage || 'Please analyze this content')
-
-    if (sessionId.value) {
-        formData.append('session_id', sessionId.value)
-    }
-
-    if (file) {
-        formData.append('file', file)
-    }
-
-    if (url) {
-        formData.append('url', url)
-    }
-
-    // Always send username as a form field for backend auth
-    if (authStore.user && authStore.user.username) {
-        formData.append('username', authStore.user.username)
-    }
-
-    // Send to backend chat endpoint
-    const response = await api.post('/chat/message', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    })
-
-    if (response.data.success) {
-        // Store session ID for multi-turn conversation
-        sessionId.value = response.data.session_id
-
-        // Save to localStorage for persistence
-        localStorage.setItem('chat_session_id', sessionId.value)
-
-        // Debug logging
-        console.log('[ChatView] Response:', {
-            is_course: response.data.is_course,
-            has_course_data: !!response.data.course_data,
-            reply_length: response.data.reply?.length
+            if (!messages.value.length) return false
+            const last = messages.value[messages.value.length - 1]
+            return (
+                last.role === 'assistant' &&
+                typeof last.text === 'string' &&
+                last.text.includes('You need to be logged in to use AI features')
+            )
         })
 
-        // Check if this is a course generation response
-        if (response.data.is_course && response.data.course_data) {
-            // AI generated a course - save it and redirect
-            console.log('[ChatView] Course detected, saving...')
-            console.log('[ChatView] Course data:', response.data.course_data)
-
+        const linkGoogleAccount = async () => {
             try {
-                const saveResult = await courseStore.saveCourse(
-                    response.data.course_data.sections,
-                    response.data.course_data.course_title
-                )
-
-                if (saveResult.success) {
-                    // Add a system message to chat feed
-                    messages.value.push({
-                        role: 'system',
-                        text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`,
-                        timestamp: Date.now()
-                    })
-
-                    scrollToBottom()
-
-                    // Redirect to the course after a brief delay
-                    setTimeout(() => {
-                        router.push(`/course/${saveResult.courseId}`)
-                    }, 1500)
+                const resp = await api.get('/auth/google/url')
+                if (resp.data?.url) {
+                    window.location.href = resp.data.url
                 } else {
-                    throw new Error(saveResult.error || 'Failed to save course')
+                    error.value = 'Failed to get Google login URL.'
                 }
-            } catch (saveErr) {
-                console.error('[ChatView] Error saving course:', saveErr)
-                error.value = 'Course generated but failed to save: ' + saveErr.message
+            } catch (e) {
+                error.value = 'Failed to get Google login URL.'
             }
-        } else {
-            // Normal conversation response
-            messages.value.push({
-                role: 'assistant',
-                text: response.data.reply,
-                timestamp: Date.now()
+        }
+
+        const scrollToBottom = () => {
+            nextTick(() => {
+                if (chatFeed.value) chatFeed.value.scrollTop = chatFeed.value.scrollHeight
             })
         }
 
-        scrollToBottom()
-    } else {
-        throw new Error(response.data.error || 'Failed to get response')
-    }
-} catch (err) {
-    console.error('Error sending message:', err)
-    error.value = err.response?.data?.detail || err.message || 'Failed to send message'
-
-    // Remove user message on error
-    messages.value.pop()
-} finally {
-    isLoading.value = false
-}
+        const formatTime = (ts) => {
+            const d = new Date(ts)
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
 
-// Load session ID on mount
-onMounted(() => {
-    const savedSessionId = localStorage.getItem('chat_session_id')
-    if (savedSessionId) {
-        sessionId.value = savedSessionId
-    }
-})
+        const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
-return {
-    messages,
-    messageInput,
-    urlInput,
-    selectedFile,
-    fileInput,
-    chatFeed,
-    isLoading,
-    error,
-    showUrlInput,
-    examplePrompts,
-    canSend,
-    formatTime,
-    formatMessage,
-    handleFileSelect,
-    removeFile,
-    toggleUrlInput,
-    handleUrlSubmit,
-    removeUrl,
-    sendExamplePrompt,
-    sendMessage
-}
+        const formatMessage = (text, role = 'assistant') => {
+            if (!text) return ''
+            // Replace reference-style citation links to safe links
+            const withCitations = String(text).replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
+
+            if (role === 'assistant') {
+                const rendered = md.render(withCitations)
+                return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
+            }
+
+            // simple user message formatting
+            return withCitations.replace(/\n/g, '<br>')
+        }
+
+        const handleFileSelect = (e) => {
+            const f = e.target.files?.[0]
+            if (!f) return
+            selectedFile.value = f
+        }
+
+        const removeFile = () => {
+            selectedFile.value = null
+            if (fileInput.value) fileInput.value.value = null
+        }
+
+        const toggleUrlInput = () => {
+            showUrlInput.value = !showUrlInput.value
+        }
+
+        const handleUrlSubmit = () => {
+            // trigger send
+            sendMessage()
+        }
+
+        const removeUrl = () => {
+            urlInput.value = ''
+        }
+
+        const sendExamplePrompt = (text) => {
+            messageInput.value = text
+            sendMessage()
+        }
+
+        const sendMessage = async () => {
+            if (!canSend.value) return
+
+            const userMessage = messageInput.value.trim()
+            const url = urlInput.value.trim()
+            const file = selectedFile.value
+
+            const userMsg = {
+                role: 'user',
+                text: userMessage || (url ? `Analyzing URL: ${url}` : 'Uploaded file'),
+                timestamp: Date.now(),
+                attachment: file ? { name: file.name, type: file.type } : null
+            }
+
+            messages.value.push(userMsg)
+
+            // clear inputs
+            messageInput.value = ''
+            urlInput.value = ''
+            removeFile()
+            showUrlInput.value = false
+            error.value = null
+            isLoading.value = true
+
+            scrollToBottom()
+
+            try {
+                if (!isAuthenticated.value) {
+                    const fake = 'You need to be logged in to use AI features, if you want to try AI Generated course, checkout "library" for community generated courses.'
+                    messages.value.push({ role: 'assistant', text: fake, timestamp: Date.now() })
+                    isLoading.value = false
+                    scrollToBottom()
+                    return
+                }
+
+                const formData = new FormData()
+                formData.append('message', userMessage || 'Please analyze this content')
+                if (sessionId.value) formData.append('session_id', sessionId.value)
+                if (file) formData.append('file', file)
+                if (url) formData.append('url', url)
+                if (authStore.user?.username) formData.append('username', authStore.user.username)
+
+                const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+
+                if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
+
+                sessionId.value = response.data.session_id
+                localStorage.setItem('chat_session_id', sessionId.value)
+
+                if (response.data.is_course && response.data.course_data) {
+                    const saveResult = await courseStore.saveCourse(response.data.course_data.sections, response.data.course_data.course_title)
+                    if (saveResult.success) {
+                        messages.value.push({ role: 'system', text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                        scrollToBottom()
+                        setTimeout(() => router.push(`/course/${saveResult.courseId}`), 1200)
+                    } else {
+                        throw new Error(saveResult.error || 'Failed to save course')
+                    }
+                } else {
+                    messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                }
+
+                scrollToBottom()
+            } catch (err) {
+                console.error('Error sending message:', err)
+                error.value = err.response?.data?.detail || err.message || 'Failed to send message'
+                messages.value.pop()
+            } finally {
+                isLoading.value = false
+            }
+        }
+
+        onMounted(() => {
+            const saved = localStorage.getItem('chat_session_id')
+            if (saved) sessionId.value = saved
+        })
+
+        return {
+            messages,
+            messageInput,
+            urlInput,
+            selectedFile,
+            fileInput,
+            chatFeed,
+            isLoading,
+            error,
+            showUrlInput,
+            examplePrompts,
+            canSend,
+            formatTime,
+            formatMessage,
+            handleFileSelect,
+            removeFile,
+            toggleUrlInput,
+            handleUrlSubmit,
+            removeUrl,
+            sendExamplePrompt,
+            sendMessage,
+            showGoogleLinkButton,
+            linkGoogleAccount
+        }
     }
 }
 </script>
