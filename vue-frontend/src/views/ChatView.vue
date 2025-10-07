@@ -172,23 +172,23 @@ export default {
                 error.value = 'Failed to get Google login URL.';
             }
         };
-                // Render markdown to HTML and sanitize
-                const rendered = md.render(withCitations)
-                const clean = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
-                return clean
-            }
+        // Render markdown to HTML and sanitize
+        const rendered = md.render(withCitations)
+        const clean = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
+        return clean
+    }
 
             // For user messages, keep simple escaping: replace newlines with <br>
             return withCitations.replace(/\n/g, '<br>')
-        }
+}
 
-        const handleFileSelect = (event) => {
-            const file = event.target.files[0]
-            if (file) {
-                // Validate file size (20MB limit)
-                if (file.size > 20 * 1024 * 1024) {
-                    error.value = 'File size must be less than 20MB'
-                    <!-- Input Area -->
+const handleFileSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+        // Validate file size (20MB limit)
+        if (file.size > 20 * 1024 * 1024) {
+            error.value = 'File size must be less than 20MB'
+                < !--Input Area-- >
                     <div class="chat-input-container">
                         <div v-if="showGoogleLinkButton" class="google-link-container">
                             <button class="btn btn-primary" @click="linkGoogleAccount">
@@ -208,14 +208,14 @@ export default {
                                     <span class="preview-name">{{ urlInput }}</span>
                                     <button class="preview-remove" @click="removeUrl">×</button>
                                 </div>
-                            </div>
+                            </div >
 
-                            <!-- Error Message -->
+                            < !--Error Message-- >
                             <div v-if="error" class="chat-error">
                                 {{ error }}
                             </div>
 
-                            <!-- Input Group -->
+                            <!--Input Group-- >
                             <div class="input-group">
                                 <!-- File Upload Button -->
                                 <label class="input-btn file-btn" title="Upload file">
@@ -230,171 +230,171 @@ export default {
                                     🔗
                                 </button>
 
-                                <!-- URL Input Field (conditionally shown) -->
-                                <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
-                                    placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
-                                    @keydown.esc="showUrlInput = false">
+                                <!--URL Input Field(conditionally shown)-- >
+    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
+        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
+@keydown.esc="showUrlInput = false" >
 
-                                <!-- Message Input -->
-                                <input v-else v-model="messageInput" type="text" class="message-input"
-                                    placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" :disabled="isLoading">
+                                < !--Message Input-- >
+    <input v-else v-model="messageInput" type="text" class="message-input"
+        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage" : disabled = "isLoading" >
 
-                                <!-- Send Button -->
-                                <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">
-                                    {{ isLoading ? '⏳' : '🚀' }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-            messageInput.value = ''
-            urlInput.value = ''
-            removeFile()
-            showUrlInput.value = false
-            error.value = null
-            isLoading.value = true
+                                < !--Send Button-- >
+    <button class="input-btn send-btn" : disabled="!canSend || isLoading" @click="sendMessage" >
+        {{ isLoading ? '⏳' : '🚀' }}
+                                </button >
+                            </div >
+                        </div >
+                    </div >
+    messageInput.value = ''
+urlInput.value = ''
+removeFile()
+showUrlInput.value = false
+error.value = null
+isLoading.value = true
 
-            scrollToBottom()
+scrollToBottom()
 
-            try {
-                // If user is not authenticated, immediately return the fake assistant reply
-                if (!isAuthenticated.value) {
-                    const fakeReply = 'You need to be logged in to use AI features, if you want to try AI Generated course, checkout "library" for community generated courses.'
-                    // Add assistant message
-                    messages.value.push({ role: 'assistant', text: fakeReply, timestamp: Date.now() })
-                    isLoading.value = false
-                    scrollToBottom()
-                    return
-                }
+try {
+    // If user is not authenticated, immediately return the fake assistant reply
+    if (!isAuthenticated.value) {
+        const fakeReply = 'You need to be logged in to use AI features, if you want to try AI Generated course, checkout "library" for community generated courses.'
+        // Add assistant message
+        messages.value.push({ role: 'assistant', text: fakeReply, timestamp: Date.now() })
+        isLoading.value = false
+        scrollToBottom()
+        return
+    }
 
-                // Prepare form data for API request
-                const formData = new FormData()
-                formData.append('message', userMessage || 'Please analyze this content')
+    // Prepare form data for API request
+    const formData = new FormData()
+    formData.append('message', userMessage || 'Please analyze this content')
 
-                if (sessionId.value) {
-                    formData.append('session_id', sessionId.value)
-                }
+    if (sessionId.value) {
+        formData.append('session_id', sessionId.value)
+    }
 
-                if (file) {
-                    formData.append('file', file)
-                }
+    if (file) {
+        formData.append('file', file)
+    }
 
-                if (url) {
-                    formData.append('url', url)
-                }
+    if (url) {
+        formData.append('url', url)
+    }
 
-                // Always send username as a form field for backend auth
-                if (authStore.user && authStore.user.username) {
-                    formData.append('username', authStore.user.username)
-                }
+    // Always send username as a form field for backend auth
+    if (authStore.user && authStore.user.username) {
+        formData.append('username', authStore.user.username)
+    }
 
-                // Send to backend chat endpoint
-                const response = await api.post('/chat/message', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    }
-                })
-
-                if (response.data.success) {
-                    // Store session ID for multi-turn conversation
-                    sessionId.value = response.data.session_id
-
-                    // Save to localStorage for persistence
-                    localStorage.setItem('chat_session_id', sessionId.value)
-
-                    // Debug logging
-                    console.log('[ChatView] Response:', {
-                        is_course: response.data.is_course,
-                        has_course_data: !!response.data.course_data,
-                        reply_length: response.data.reply?.length
-                    })
-
-                    // Check if this is a course generation response
-                    if (response.data.is_course && response.data.course_data) {
-                        // AI generated a course - save it and redirect
-                        console.log('[ChatView] Course detected, saving...')
-                        console.log('[ChatView] Course data:', response.data.course_data)
-
-                        try {
-                            const saveResult = await courseStore.saveCourse(
-                                response.data.course_data.sections,
-                                response.data.course_data.course_title
-                            )
-
-                            if (saveResult.success) {
-                                // Add a system message to chat feed
-                                messages.value.push({
-                                    role: 'system',
-                                    text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`,
-                                    timestamp: Date.now()
-                                })
-
-                                scrollToBottom()
-
-                                // Redirect to the course after a brief delay
-                                setTimeout(() => {
-                                    router.push(`/course/${saveResult.courseId}`)
-                                }, 1500)
-                            } else {
-                                throw new Error(saveResult.error || 'Failed to save course')
-                            }
-                        } catch (saveErr) {
-                            console.error('[ChatView] Error saving course:', saveErr)
-                            error.value = 'Course generated but failed to save: ' + saveErr.message
-                        }
-                    } else {
-                        // Normal conversation response
-                        messages.value.push({
-                            role: 'assistant',
-                            text: response.data.reply,
-                            timestamp: Date.now()
-                        })
-                    }
-
-                    scrollToBottom()
-                } else {
-                    throw new Error(response.data.error || 'Failed to get response')
-                }
-            } catch (err) {
-                console.error('Error sending message:', err)
-                error.value = err.response?.data?.detail || err.message || 'Failed to send message'
-
-                // Remove user message on error
-                messages.value.pop()
-            } finally {
-                isLoading.value = false
-            }
+    // Send to backend chat endpoint
+    const response = await api.post('/chat/message', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
         }
+    })
 
-        // Load session ID on mount
-        onMounted(() => {
-            const savedSessionId = localStorage.getItem('chat_session_id')
-            if (savedSessionId) {
-                sessionId.value = savedSessionId
-            }
+    if (response.data.success) {
+        // Store session ID for multi-turn conversation
+        sessionId.value = response.data.session_id
+
+        // Save to localStorage for persistence
+        localStorage.setItem('chat_session_id', sessionId.value)
+
+        // Debug logging
+        console.log('[ChatView] Response:', {
+            is_course: response.data.is_course,
+            has_course_data: !!response.data.course_data,
+            reply_length: response.data.reply?.length
         })
 
-        return {
-            messages,
-            messageInput,
-            urlInput,
-            selectedFile,
-            fileInput,
-            chatFeed,
-            isLoading,
-            error,
-            showUrlInput,
-            examplePrompts,
-            canSend,
-            formatTime,
-            formatMessage,
-            handleFileSelect,
-            removeFile,
-            toggleUrlInput,
-            handleUrlSubmit,
-            removeUrl,
-            sendExamplePrompt,
-            sendMessage
+        // Check if this is a course generation response
+        if (response.data.is_course && response.data.course_data) {
+            // AI generated a course - save it and redirect
+            console.log('[ChatView] Course detected, saving...')
+            console.log('[ChatView] Course data:', response.data.course_data)
+
+            try {
+                const saveResult = await courseStore.saveCourse(
+                    response.data.course_data.sections,
+                    response.data.course_data.course_title
+                )
+
+                if (saveResult.success) {
+                    // Add a system message to chat feed
+                    messages.value.push({
+                        role: 'system',
+                        text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`,
+                        timestamp: Date.now()
+                    })
+
+                    scrollToBottom()
+
+                    // Redirect to the course after a brief delay
+                    setTimeout(() => {
+                        router.push(`/course/${saveResult.courseId}`)
+                    }, 1500)
+                } else {
+                    throw new Error(saveResult.error || 'Failed to save course')
+                }
+            } catch (saveErr) {
+                console.error('[ChatView] Error saving course:', saveErr)
+                error.value = 'Course generated but failed to save: ' + saveErr.message
+            }
+        } else {
+            // Normal conversation response
+            messages.value.push({
+                role: 'assistant',
+                text: response.data.reply,
+                timestamp: Date.now()
+            })
         }
+
+        scrollToBottom()
+    } else {
+        throw new Error(response.data.error || 'Failed to get response')
+    }
+} catch (err) {
+    console.error('Error sending message:', err)
+    error.value = err.response?.data?.detail || err.message || 'Failed to send message'
+
+    // Remove user message on error
+    messages.value.pop()
+} finally {
+    isLoading.value = false
+}
+        }
+
+// Load session ID on mount
+onMounted(() => {
+    const savedSessionId = localStorage.getItem('chat_session_id')
+    if (savedSessionId) {
+        sessionId.value = savedSessionId
+    }
+})
+
+return {
+    messages,
+    messageInput,
+    urlInput,
+    selectedFile,
+    fileInput,
+    chatFeed,
+    isLoading,
+    error,
+    showUrlInput,
+    examplePrompts,
+    canSend,
+    formatTime,
+    formatMessage,
+    handleFileSelect,
+    removeFile,
+    toggleUrlInput,
+    handleUrlSubmit,
+    removeUrl,
+    sendExamplePrompt,
+    sendMessage
+}
     }
 }
 </script>
