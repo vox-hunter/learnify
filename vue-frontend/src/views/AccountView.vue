@@ -111,38 +111,32 @@
             Danger Zone
           </h2>
           <div class="danger-zone">
-            <!-- Unlink Google Account (for Google users with password) -->
-            <div v-if="isGoogleUser && hasPassword" class="danger-section">
+            <!-- Google Account Link/Unlink Button -->
+            <div class="danger-section">
               <div class="danger-warning">
-                <h3>🔗 Unlink Google Account</h3>
-                <p>
+                <h3 v-if="isGoogleUser">🔗 Unlink Google Account</h3>
+                <h3 v-else>🔗 Link Google Account</h3>
+                <p v-if="isGoogleUser">
                   Remove the connection to your Google account. You'll still be able to log in
                   with your username and password.
                 </p>
-              </div>
-              <button :disabled="unlinkLoading" class="btn btn-warning" @click="unlinkGoogle">
-                {{ unlinkLoading ? 'Unlinking...' : 'Unlink Google Account' }}
-              </button>
-              <div v-if="unlinkError" class="alert alert-error">
-                {{ unlinkError }}
-              </div>
-              <div v-if="unlinkSuccess" class="alert alert-success">
-                {{ unlinkSuccess }}
-              </div>
-            </div>
-
-            <!-- Link Google Account (for traditional users) -->
-            <div v-if="!isGoogleUser" class="danger-section">
-              <div class="danger-warning">
-                <h3>🔗 Link Google Account</h3>
-                <p>
+                <p v-else>
                   Connect your Google account for quick sign-in. You'll be able to log in
                   with either your username/password or Google.
                 </p>
               </div>
-              <button :disabled="linkLoading" class="btn btn-primary" @click="linkGoogle">
+              <button v-if="isGoogleUser" :disabled="unlinkLoading" class="btn btn-warning" @click="unlinkGoogle">
+                {{ unlinkLoading ? 'Unlinking...' : 'Unlink Google Account' }}
+              </button>
+              <button v-else :disabled="linkLoading" class="btn btn-primary" @click="linkGoogle">
                 {{ linkLoading ? 'Linking...' : 'Link Google Account' }}
               </button>
+              <div v-if="unlinkError && isGoogleUser" class="alert alert-error">
+                {{ unlinkError }}
+              </div>
+              <div v-if="unlinkSuccess && isGoogleUser" class="alert alert-success">
+                {{ unlinkSuccess }}
+              </div>
             </div>
 
             <!-- Delete Account -->
