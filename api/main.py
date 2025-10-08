@@ -399,14 +399,17 @@ async def reset_password(request: ResetPasswordRequest):
 # Google OAuth endpoints
 @app.post("/auth/google/url")
 @app.options("/auth/google/url")
-async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None):
+from fastapi import Request
+async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None, fastapi_request: Request = None):
     """Get Google OAuth authorization URL"""
     # Handle OPTIONS preflight
     if request is None:
+        origin = fastapi_request.headers.get("origin") if fastapi_request else None
+        allowed_origin = origin if origin in _allowed_origins or "*" in _allowed_origins else None
         return JSONResponse(
             content={"message": "OK"},
             headers={
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": allowed_origin or "null",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "*"
             }
@@ -439,14 +442,16 @@ async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None):
 
 @app.post("/auth/google/callback")
 @app.options("/auth/google/callback")
-async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = None):
+async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = None, fastapi_request: Request = None):
     """Handle Google OAuth callback and create/login user"""
     # Handle OPTIONS preflight
     if request is None:
+        origin = fastapi_request.headers.get("origin") if fastapi_request else None
+        allowed_origin = origin if origin in _allowed_origins or "*" in _allowed_origins else None
         return JSONResponse(
             content={"message": "OK"},
             headers={
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": allowed_origin or "null",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "*"
             }
@@ -545,27 +550,31 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
 
 @app.get("/auth/google/status")
 @app.options("/auth/google/status")
-async def google_oauth_status():
+async def google_oauth_status(fastapi_request: Request = None):
     """Check if Google OAuth is configured"""
     try:
         configured = verify_oauth_config()
+        origin = fastapi_request.headers.get("origin") if fastapi_request else None
+        allowed_origin = origin if origin in _allowed_origins or "*" in _allowed_origins else None
         return JSONResponse(
             content={
                 "configured": configured,
                 "message": "Google OAuth is ready" if configured else "Google OAuth not configured"
             },
             headers={
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": allowed_origin or "null",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "*"
             }
         )
     except Exception as e:
+        origin = fastapi_request.headers.get("origin") if fastapi_request else None
+        allowed_origin = origin if origin in _allowed_origins or "*" in _allowed_origins else None
         return JSONResponse(
             content={"configured": False, "message": f"Error checking OAuth config: {str(e)}"},
             status_code=200,
             headers={
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": allowed_origin or "null",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "*"
             }
