@@ -397,9 +397,10 @@ async def reset_password(request: ResetPasswordRequest):
     }
 
 # Google OAuth endpoints
+from fastapi import Request
+
 @app.post("/auth/google/url")
 @app.options("/auth/google/url")
-from fastapi import Request
 async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None, fastapi_request: Request = None):
     """Get Google OAuth authorization URL"""
     # Handle OPTIONS preflight
