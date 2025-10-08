@@ -401,7 +401,7 @@ from fastapi import Request
 
 @app.post("/auth/google/url")
 @app.options("/auth/google/url")
-async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None, fastapi_request: Request = None):
+async def get_oauth_url(fastapi_request: Request, request: Optional[GoogleAuthUrlRequest] = None):
     """Get Google OAuth authorization URL"""
     # Handle OPTIONS preflight
     if request is None:
@@ -443,7 +443,7 @@ async def get_oauth_url(request: Optional[GoogleAuthUrlRequest] = None, fastapi_
 
 @app.post("/auth/google/callback")
 @app.options("/auth/google/callback")
-async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = None, fastapi_request: Request = None):
+async def google_oauth_callback(fastapi_request: Request, request: Optional[GoogleOAuthCallbackRequest] = None):
     """Handle Google OAuth callback and create/login user"""
     # Handle OPTIONS preflight
     if request is None:
@@ -551,7 +551,7 @@ async def google_oauth_callback(request: Optional[GoogleOAuthCallbackRequest] = 
 
 @app.get("/auth/google/status")
 @app.options("/auth/google/status")
-async def google_oauth_status(fastapi_request: Request = None):
+async def google_oauth_status(fastapi_request: Request):
     """Check if Google OAuth is configured"""
     try:
         configured = verify_oauth_config()
@@ -832,20 +832,21 @@ async def generate_course_from_upload(
     # Validate file
     file_size = 0
     file_content = bytearray()
-    
-    # Read file in chunks
     chunk_size = 1024 * 1024  # 1MB chunks
-    while chunk := await file.read(chunk_size):
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
         file_size += len(chunk)
         file_content.extend(chunk)
-    
+
     file_bytes = bytes(file_content)
-    
+
     # Validate file security
     is_safe, error_message = validate_file_security(file.filename, file_size)
     if not is_safe:
         raise HTTPException(status_code=400, detail=error_message)
-    
+
     # Retrieve user's Gemini OAuth credentials if authenticated
     user_credentials = None
     quota_project_id = None
@@ -862,7 +863,7 @@ async def generate_course_from_upload(
             }
             quota_project_id = oauth_data.get('quota_project_id')
             logger.info(f"Retrieved Gemini OAuth credentials for user: {username}")
-    
+
     # Generate course with user credentials
     course_data, error = generate_course(
         file_content=file_bytes,
@@ -871,10 +872,10 @@ async def generate_course_from_upload(
         username=username,
         quota_project_id=quota_project_id
     )
-    
+
     if error:
         raise HTTPException(status_code=500, detail=error)
-    
+
     # Convert course_data to dict if it's a Pydantic model
     if hasattr(course_data, 'model_dump'):
         course_dict = course_data.model_dump()
@@ -882,7 +883,7 @@ async def generate_course_from_upload(
         course_dict = course_data.dict()
     else:
         course_dict = course_data
-    
+
     return {
         "success": True,
         "course_data": course_dict
@@ -896,7 +897,7 @@ async def generate_course_from_url(
     """Generate a course from a URL"""
     if not request.file_url:
         raise HTTPException(status_code=400, detail="file_url is required")
-    
+
     # Retrieve user's Gemini OAuth credentials if authenticated
     user_credentials = None
     quota_project_id = None
@@ -913,7 +914,7 @@ async def generate_course_from_url(
             }
             quota_project_id = oauth_data.get('quota_project_id')
             logger.info(f"Retrieved Gemini OAuth credentials for user: {username}")
-    
+
     # Generate course with user credentials
     course_data, error = generate_course(
         file_url=request.file_url,
@@ -921,10 +922,10 @@ async def generate_course_from_url(
         username=username,
         quota_project_id=quota_project_id
     )
-    
+
     if error:
         raise HTTPException(status_code=500, detail=error)
-    
+
     # Convert course_data to dict if it's a Pydantic model
     if hasattr(course_data, 'model_dump'):
         course_dict = course_data.model_dump()
@@ -932,7 +933,7 @@ async def generate_course_from_url(
         course_dict = course_data.dict()
     else:
         course_dict = course_data
-    
+
     return {
         "success": True,
         "course_data": course_dict
