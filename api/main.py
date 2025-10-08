@@ -63,7 +63,7 @@ else:
         "http://localhost:3001",
         "http://localhost:8080",
         "http://localhost:5173",
-        "https://ailoom-alpha.pages.dev"
+        "https://ailoom-alpha.pages.dev",
         "https://app.ailoom.me",
         "https://alpha-ai-loom-frontend.onrender.com",
         "https://ai-loom-frontend.onrender.com",
