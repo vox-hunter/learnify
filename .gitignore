@@ -8,13 +8,13 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-# build/  # Commented out - too broad, affects React component builds
+build/
 # Python-specific build directories
 build/lib/
 build/bdist.*
 build/temp.*
 develop-eggs/
-# dist/   # Commented out - too broad, affects React component builds
+dist/
 # Python-specific dist directories  
 dist/*.egg
 dist/*.whl
