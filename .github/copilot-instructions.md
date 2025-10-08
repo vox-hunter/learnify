@@ -1,4 +1,4 @@
-# Learnify (AI Loom) - AI Coding Agent Instructions
+﻿# Learnify (AI Loom) - AI Coding Agent Instructions
 
 ## Project Overview
 Learnify is an AI-powered course and quiz generator that converts PDF documents and other files into interactive learning experiences with multiple question types. The system uses Google's Gemini AI for content generation and supports both authenticated users and guest accounts with limitations.

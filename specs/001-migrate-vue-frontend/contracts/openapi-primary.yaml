@@ -1,0 +1,39 @@
+openapi: 3.0.1
+info:
+  title: Learnify Primary API (stub)
+  version: 1.0.0
+paths:
+  /courses/{id}:
+    get:
+      summary: Get course by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Course object
+  /chat:
+    post:
+      summary: Send chat message
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Chat response
+  /upload:
+    post:
+      summary: Upload file
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Upload accepted
