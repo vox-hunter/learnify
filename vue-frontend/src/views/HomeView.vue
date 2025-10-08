@@ -15,135 +15,156 @@
       </section>
 
       <!-- Course Generation Card -->
-      <div class="generation-card card">
-        <h2 class="section-title">
-          Generate a Course
-        </h2>
-        <p class="section-description">
-          Upload a PDF or provide a URL to generate a course with quizzes
-        </p>
+      <Card class="generation-card">
+        <CardHeader>
+          <CardTitle class="section-title">
+            Generate a Course
+          </CardTitle>
+          <CardDescription class="section-description">
+            Upload a PDF or provide a URL to generate a course with quizzes
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent>
+          <!-- Input Method Tabs -->
+          <Tabs v-model="inputMethod" default-value="upload" class="mb-6">
+            <TabsList class="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">
+                📤 Upload File
+              </TabsTrigger>
+              <TabsTrigger value="url">
+                🔗 Provide URL
+              </TabsTrigger>
+            </TabsList>
 
-        <!-- Input Method Tabs -->
-        <div class="tabs">
-          <button :class="['tab', { active: inputMethod === 'upload' }]" @click="inputMethod = 'upload'">
-            📤 Upload File
-          </button>
-          <button :class="['tab', { active: inputMethod === 'url' }]" @click="inputMethod = 'url'">
-            🔗 Provide URL
-          </button>
-        </div>
-
-        <!-- Upload Method -->
-        <div v-if="inputMethod === 'upload'" class="input-section">
-          <div class="file-upload-area">
-            <input id="file-upload" ref="fileInput" type="file"
-              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf" class="file-input"
-              @change="handleFileChange">
-            <label for="file-upload" class="file-upload-label">
-              <div class="upload-icon">📄</div>
-              <div v-if="!selectedFile" class="upload-text">
-                <p class="upload-title">Click to upload or drag and drop</p>
-                <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
+            <!-- Upload Method -->
+            <TabsContent value="upload">
+              <div class="file-upload-area">
+                <input id="file-upload" ref="fileInput" type="file"
+                  accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf" class="file-input"
+                  @change="handleFileChange">
+                <label for="file-upload" class="file-upload-label">
+                  <div class="upload-icon">📄</div>
+                  <div v-if="!selectedFile" class="upload-text">
+                    <p class="upload-title">Click to upload or drag and drop</p>
+                    <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
+                  </div>
+                  <div v-else class="selected-file">
+                    <p class="file-name">{{ selectedFile.name }}</p>
+                    <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
+                  </div>
+                </label>
               </div>
-              <div v-else class="selected-file">
-                <p class="file-name">{{ selectedFile.name }}</p>
-                <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
+            </TabsContent>
+
+            <!-- URL Method -->
+            <TabsContent value="url">
+              <div class="space-y-2">
+                <Label for="pdf-url">PDF URL</Label>
+                <Input 
+                  id="pdf-url"
+                  v-model="pdfUrl" 
+                  type="url" 
+                  placeholder="https://example.com/document.pdf"
+                />
               </div>
-            </label>
-          </div>
-        </div>
+            </TabsContent>
+          </Tabs>
 
-        <!-- URL Method -->
-        <div v-if="inputMethod === 'url'" class="input-section">
-          <div class="form-group">
-            <label class="form-label">PDF URL</label>
-            <input v-model="pdfUrl" type="url" class="form-input" placeholder="https://example.com/document.pdf">
-          </div>
-        </div>
+          <!-- Error Message -->
+          <Alert v-if="error" variant="destructive" class="mb-4">
+            <AlertDescription>
+              {{ error }}
+            </AlertDescription>
+          </Alert>
 
-        <!-- Error Message -->
-        <div v-if="error" class="alert alert-error">
-          {{ error }}
-        </div>
+          <!-- Progress -->
+          <div v-if="generating" class="progress-section mb-4">
+            <div class="progress-header">
+              <span class="progress-title">⚡ Generating Your Course</span>
+              <span class="progress-percentage">{{ progress }}%</span>
+            </div>
 
-        <!-- Progress -->
-        <div v-if="generating" class="progress-section">
-          <div class="progress-header">
-            <span class="progress-title">⚡ Generating Your Course</span>
-            <span class="progress-percentage">{{ progress }}%</span>
-          </div>
+            <Progress :model-value="progress" class="mb-4" />
 
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progress + '%' }" />
-          </div>
-
-          <!-- Status Steps -->
-          <div class="status-steps">
-            <div v-for="(step, index) in generationSteps" :key="index" class="status-step" :class="{
-              'active': currentStep === index,
-              'completed': currentStep > index
-            }">
-              <div class="step-icon">
-                <span v-if="currentStep > index">✓</span>
-                <span v-else-if="currentStep === index" class="spinner-small" />
-                <span v-else>{{ index + 1 }}</span>
-              </div>
-              <div class="step-content">
-                <div class="step-title">
-                  {{ step.title }}
+            <!-- Status Steps -->
+            <div class="status-steps">
+              <div v-for="(step, index) in generationSteps" :key="index" class="status-step" :class="{
+                'active': currentStep === index,
+                'completed': currentStep > index
+              }">
+                <div class="step-icon">
+                  <span v-if="currentStep > index">✓</span>
+                  <span v-else-if="currentStep === index" class="spinner-small" />
+                  <span v-else>{{ index + 1 }}</span>
                 </div>
-                <div v-if="currentStep === index" class="step-description">
-                  {{ step.description }}
+                <div class="step-content">
+                  <div class="step-title">
+                    {{ step.title }}
+                  </div>
+                  <div v-if="currentStep === index" class="step-description">
+                    {{ step.description }}
+                  </div>
                 </div>
               </div>
             </div>
+
+            <p class="progress-text">
+              {{ statusMessage }}
+            </p>
           </div>
 
-          <p class="progress-text">
-            {{ statusMessage }}
-          </p>
-        </div>
-
-        <!-- Generate Button -->
-        <button :disabled="generating || (!selectedFile && !pdfUrl)" class="btn btn-primary btn-generate"
-          @click="generateCourse">
-          {{ generating ? 'Generating...' : '🚀 Generate Course' }}
-        </button>
-      </div>
+          <!-- Generate Button -->
+          <Button 
+            :disabled="generating || (!selectedFile && !pdfUrl)" 
+            class="w-full btn-generate"
+            size="lg"
+            @click="generateCourse"
+          >
+            {{ generating ? 'Generating...' : '🚀 Generate Course' }}
+          </Button>
+        </CardContent>
+      </Card>
 
       <!-- Generated Course Display -->
-      <div v-if="generatedCourse" class="course-preview card">
-        <h2 class="section-title">
-          Course Generated Successfully! 🎉
-        </h2>
-        <h3 class="course-title">
-          {{ generatedCourse.course_title }}
-        </h3>
-        <p class="course-info">
-          {{ generatedCourse.sections?.length || 0 }} sections with
-          {{ totalQuestions }} questions
-        </p>
-
-        <div class="course-actions">
-          <button class="btn btn-primary" @click="startCourse">
+      <Card v-if="generatedCourse" class="course-preview">
+        <CardHeader>
+          <CardTitle class="section-title">
+            Course Generated Successfully! 🎉
+          </CardTitle>
+          <CardDescription>
+            <h3 class="course-title text-lg font-semibold text-foreground mb-2">
+              {{ generatedCourse.course_title }}
+            </h3>
+            <p class="course-info">
+              {{ generatedCourse.sections?.length || 0 }} sections with
+              {{ totalQuestions }} questions
+            </p>
+          </CardDescription>
+        </CardHeader>
+        
+        <CardFooter class="course-actions">
+          <Button size="lg" @click="startCourse">
             ▶️ Start Learning
-          </button>
-        </div>
-      </div>
+          </Button>
+        </CardFooter>
+      </Card>
 
       <!-- Guest User Limit Warning -->
-      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" class="alert alert-warning">
-        <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{
-          courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
-        <p v-if="courseStore.remainingGuestCourses === 0">
-          You've reached the limit of 2 saved courses. Please <router-link to="/login">
-            log in
-          </router-link> to save more.
-        </p>
-        <p v-else>
-          You can generate unlimited courses, but can only save {{ courseStore.remainingGuestCourses }} more as a guest.
-        </p>
-      </div>
+      <Alert v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" variant="warning" class="mt-4">
+        <AlertDescription>
+          <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{
+            courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
+          <p v-if="courseStore.remainingGuestCourses === 0">
+            You've reached the limit of 2 saved courses. Please <router-link to="/login" class="underline">
+              log in
+            </router-link> to save more.
+          </p>
+          <p v-else>
+            You can generate unlimited courses, but can only save {{ courseStore.remainingGuestCourses }} more as a guest.
+          </p>
+        </AlertDescription>
+      </Alert>
     </div>
   </div>
 </template>
@@ -153,9 +174,43 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
+import Button from '../components/ui/Button.vue'
+import Input from '../components/ui/Input.vue'
+import Label from '../components/ui/Label.vue'
+import Card from '../components/ui/Card.vue'
+import CardHeader from '../components/ui/CardHeader.vue'
+import CardTitle from '../components/ui/CardTitle.vue'
+import CardDescription from '../components/ui/CardDescription.vue'
+import CardContent from '../components/ui/CardContent.vue'
+import CardFooter from '../components/ui/CardFooter.vue'
+import Tabs from '../components/ui/Tabs.vue'
+import TabsList from '../components/ui/TabsList.vue'
+import TabsTrigger from '../components/ui/TabsTrigger.vue'
+import TabsContent from '../components/ui/TabsContent.vue'
+import Alert from '../components/ui/Alert.vue'
+import AlertDescription from '../components/ui/AlertDescription.vue'
+import Progress from '../components/ui/Progress.vue'
 
 export default {
   name: 'HomeView',
+  components: {
+    Button,
+    Input,
+    Label,
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    CardFooter,
+    Tabs,
+    TabsList,
+    TabsTrigger,
+    TabsContent,
+    Alert,
+    AlertDescription,
+    Progress
+  },
   setup() {
     const router = useRouter()
     const courseStore = useCourseStore()
