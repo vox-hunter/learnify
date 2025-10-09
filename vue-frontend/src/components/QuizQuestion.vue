@@ -108,6 +108,12 @@
         rows="4"
         @keydown.shift.enter.prevent="submitShortAnswer"
       />
+      <div
+        v-if="!isAnswered && isShortAnswer"
+        class="shortcut-label"
+      >
+        {{ osShortcutLabel }}
+      </div>
       <button
         v-if="!isAnswered"
         :disabled="!userAnswer.trim() || validating"
@@ -194,7 +200,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import api from '../services/api'
@@ -225,6 +231,20 @@ export default {
   },
   emits: ['answer-submitted'],
   setup(props, { emit }) {
+      // OS detection for shortcut label
+      const osType = ref('win');
+      const osShortcutLabel = computed(() => {
+        if (osType.value === 'mac') return '⌘ + Enter to submit';
+        if (osType.value === 'linux') return 'Shift + Enter to submit';
+        return 'Shift + Enter to submit';
+      });
+
+      onMounted(() => {
+        const platform = window.navigator.platform.toLowerCase();
+        if (platform.includes('mac')) osType.value = 'mac';
+        else if (platform.includes('linux')) osType.value = 'linux';
+        else osType.value = 'win';
+      });
     // Initialize from saved data if available
     const savedData = props.savedAnswerData
 
@@ -450,6 +470,7 @@ export default {
       isTrueFalse,
       isFillInBlank,
       isShortAnswer,
+    osShortcutLabel,
       isMatching,
       matchingKeys,
       matchingValues,
@@ -590,6 +611,20 @@ export default {
   flex-direction: column;
   gap: 1rem;
   margin-bottom: 1rem;
+  position: relative;
+}
+
+.shortcut-label {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: rgba(0,0,0,0.04);
+  padding: 2px 8px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .answer-input-container .btn {

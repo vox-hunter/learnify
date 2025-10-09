@@ -1182,23 +1182,40 @@ export default {
         // Scroll to newly revealed step and refocus
         // Use nextTick to ensure DOM has updated before scrolling
         nextTick(() => {
-          // If the upcoming step is an explanation, allow more time for transitions/layout to settle
           const upcoming = courseSteps.value[currentStepIndex.value];
-          const delay = upcoming && upcoming.type === 'explanation' ? 350 : 150;
-
-          setTimeout(() => {
-            scrollToStep(currentStepIndex.value);
-            if (stepFlowContainer.value) {
-              stepFlowContainer.value.focus();
-            }
-
-            // Auto-show hint for explanation steps
-            if (currentStep.value?.type === "explanation") {
-              setTimeout(() => {
-                showContinueHint.value = true;
-              }, 1000);
-            }
-          }, delay);
+          console.log('[CourseView][nextStep] Triggered for step', currentStepIndex.value, 'type:', upcoming?.type);
+          if (upcoming && upcoming.type === 'explanation') {
+            let attempts = 0;
+            const maxAttempts = 8;
+            const scrollExplanationStep = () => {
+              attempts++;
+              console.log(`[CourseView][nextStep] Explanation scroll attempt ${attempts} for step ${currentStepIndex.value}`);
+              scrollToStep(currentStepIndex.value);
+              if (attempts < maxAttempts) {
+                setTimeout(scrollExplanationStep, 120);
+              } else {
+                // Final focus and show hint
+                if (stepFlowContainer.value) {
+                  stepFlowContainer.value.focus();
+                  console.log('[CourseView][nextStep] Focused stepFlowContainer after explanation scroll');
+                }
+                setTimeout(() => {
+                  showContinueHint.value = true;
+                  console.log('[CourseView][nextStep] Showed continue hint for explanation step');
+                }, 1000);
+              }
+            };
+            setTimeout(scrollExplanationStep, 400);
+          } else {
+            setTimeout(() => {
+              console.log('[CourseView][nextStep] Non-explanation scroll for step', currentStepIndex.value);
+              scrollToStep(currentStepIndex.value);
+              if (stepFlowContainer.value) {
+                stepFlowContainer.value.focus();
+                console.log('[CourseView][nextStep] Focused stepFlowContainer after non-explanation scroll');
+              }
+            }, 150);
+          }
         });
       }
     };
@@ -1251,101 +1268,115 @@ export default {
 
     const scrollToStep = (index) => {
       const el = document.getElementById(`step-${index}`);
-      if (el) {
-        // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
-        // Check the step type directly from courseSteps instead of querying DOM (which might not be rendered yet)
-        const step = courseSteps.value[index];
-        const isExplanation = step && step.type === "explanation";
-        const headerEl = document.querySelector(".progress-bar-top");
-        const headerHeight = headerEl ? headerEl.offsetHeight : 0;
-
-        if (isExplanation) {
-          // Wait for layout to settle (use rAF) then compute exact top to position
-          const maxFrames = 12
-          let lastTop = null
-          let frames = 0
-          const tryScroll = () => {
-            frames++
-            const rect = el.getBoundingClientRect()
-            const currentTop = rect.top
-            // consider layout settled when the change in top is small or we've tried enough frames
-            if (lastTop !== null && Math.abs(currentTop - lastTop) < 2) {
-              // Compute exact document Y to place the element just below the sticky header
-              const target = window.scrollY + currentTop - headerHeight - 12
-              window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
-              return
-            }
-            lastTop = currentTop
-            if (frames < maxFrames) {
-              requestAnimationFrame(tryScroll)
-            } else {
-              // Timeout fallback: scrollIntoView then nudge
-              el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              setTimeout(() => {
-                try {
-                  window.scrollBy({ top: -Math.max(0, headerHeight + 12), behavior: 'smooth' })
-                } catch {
-                  window.scrollTo({ top: Math.max(0, window.scrollY - (headerHeight + 12)) })
-                }
-              }, 120)
-            }
-          }
-          // Kick off the waiting loop
-          requestAnimationFrame(tryScroll)
-        } else {
-          // For questions, center in viewport
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-
-        // Focus the step element without causing additional scroll (preventScroll)
-        if (typeof el.focus === "function") {
-          try {
-            el.focus({ preventScroll: true });
-          } catch {
-            // fallback for older browsers
-            el.focus();
-          }
-        }
-
-        // If this is a question step with a text input (fill-in or short answer), auto-focus it
-        // Delay slightly so the smooth scroll can complete before the input receives focus
-        nextTick(() => {
-          try {
-            const step = courseSteps.value[index];
-            if (step && step.type === "question" && step.question) {
-              const qType = String(step.question.type || "")
-                .toLowerCase()
-                .replace(/[_\s]/g, "");
-              if (qType === "fillintheblank" || qType === "shortanswer") {
-                // Prefer textarea for shortanswer, input for fill-in
-                const inputSelector =
-                  "textarea.form-textarea, input.form-input";
-                const focusInput = () => {
-                  const inputEl = el.querySelector(inputSelector);
-                  if (inputEl && !inputEl.disabled) {
-                    try {
-                      inputEl.focus();
-                    } catch {
-                      // ignore
-                    }
-                    // place cursor at end for text inputs
-                    const len = inputEl.value?.length || 0;
-                    if (typeof inputEl.setSelectionRange === "function") {
-                      inputEl.setSelectionRange(len, len);
-                    }
-                  }
-                };
-
-                // Wait ~350ms to let smooth scroll finish, then focus input
-                setTimeout(focusInput, 350);
-              }
-            }
-          } catch {
-            // fail silently
-          }
-        });
+      if (!el) {
+        console.warn(`[CourseView][scrollToStep] Element step-${index} not found.`);
+        return;
       }
-    };
+      // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
+      const step = courseSteps.value[index];
+      const isExplanation = step && step.type === "explanation";
+      const headerEl = document.querySelector(".progress-bar-top");
+      const headerHeight = headerEl ? headerEl.offsetHeight : 0;
+      console.log(`[CourseView][scrollToStep] Scrolling to step-${index}, type: ${step?.type}, headerHeight: ${headerHeight}`);
+
+      if (isExplanation) {
+        // Wait for layout to settle (use rAF) then compute exact top to position
+        const maxFrames = 12;
+        let lastTop = null;
+        let frames = 0;
+        const tryScroll = () => {
+          frames++;
+          const rect = el.getBoundingClientRect();
+          const currentTop = rect.top;
+          // consider layout settled when the change in top is small or we've tried enough frames
+          if (lastTop !== null && Math.abs(currentTop - lastTop) < 2) {
+            // Compute exact document Y to place the element just below the sticky header
+            const target = window.scrollY + currentTop - headerHeight - 12;
+            window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+            setTimeout(() => {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              setTimeout(() => {
+                const parent = el.parentElement;
+                if (parent && parent.scrollTop !== undefined) {
+                  parent.scrollTop = el.offsetTop - headerHeight - 12;
+                }
+              }, 300);
+            }, 300);
+            return;
+          }
+          lastTop = currentTop;
+          if (frames < maxFrames) {
+            requestAnimationFrame(tryScroll);
+          } else {
+            // Timeout fallback: scrollIntoView then nudge
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+              try {
+                window.scrollBy({ top: -Math.max(0, headerHeight + 12), behavior: 'smooth' });
+              } catch {
+                window.scrollTo({ top: Math.max(0, window.scrollY - (headerHeight + 12)) });
+              }
+            }, 120);
+          }
+        };
+        // Kick off the waiting loop
+        requestAnimationFrame(tryScroll);
+      } else {
+        // For questions, center in viewport
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        console.log(`[CourseView][scrollToStep] Centered question step-${index}`);
+      }
+
+      // Focus the step element without causing additional scroll (preventScroll)
+      if (typeof el.focus === "function") {
+        try {
+          el.focus({ preventScroll: true });
+          console.log(`[CourseView][scrollToStep] Focused step-${index} with preventScroll`);
+        } catch {
+          el.focus();
+          console.log(`[CourseView][scrollToStep] Focused step-${index} without preventScroll`);
+        }
+      }
+
+      // If this is a question step with a text input (fill-in or short answer), auto-focus it
+      // Delay slightly so the smooth scroll can complete before the input receives focus
+      nextTick(() => {
+        try {
+          const step = courseSteps.value[index];
+          if (step && step.type === "question" && step.question) {
+            const qType = String(step.question.type || "")
+              .toLowerCase()
+              .replace(/[_\s]/g, "");
+            if (qType === "fillintheblank" || qType === "shortanswer") {
+              // Prefer textarea for shortanswer, input for fill-in
+              const inputSelector =
+                "textarea.form-textarea, input.form-input";
+              const focusInput = () => {
+                const inputEl = el.querySelector(inputSelector);
+                if (inputEl && !inputEl.disabled) {
+                  try {
+                    inputEl.focus();
+                    console.log(`[CourseView][scrollToStep] Focused input in step-${index}`);
+                  } catch {
+                    // ignore
+                  }
+                  // place cursor at end for text inputs
+                  const len = inputEl.value?.length || 0;
+                  if (typeof inputEl.setSelectionRange === "function") {
+                    inputEl.setSelectionRange(len, len);
+                  }
+                }
+              };
+
+              // Wait ~350ms to let smooth scroll finish, then focus input
+              setTimeout(focusInput, 350);
+            }
+          }
+        } catch {
+          // fail silently
+        }
+      });
+  }
 
     const canProceedForStep = (idx) => {
       const step = courseSteps.value[idx];
