@@ -217,8 +217,8 @@
             <button
               class="btn btn-outline btn-sm"
               :disabled="hasUserRated(course.course_id)"
-              @click="showRatingModal(course)"
               :title="hasUserRated(course.course_id) ? 'You have already rated this course' : 'Rate this course'"
+              @click="showRatingModal(course)"
             >
               {{ hasUserRated(course.course_id) ? 'Rated' : 'Rate' }}
             </button>

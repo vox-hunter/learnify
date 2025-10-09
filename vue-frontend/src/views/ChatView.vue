@@ -14,7 +14,7 @@
             ✨
           </div>
           <h2>Learning starts when you start talking.</h2>
-          <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
+          <p>Ask Stitch anything, upload notes, or paste a URL to get started.</p>
           <div class="example-prompts">
             <button
               v-for="(example, i) in examplePrompts"
@@ -28,18 +28,25 @@
         </div>
 
         <!-- Message List -->
-                <div
-                    v-for="(msg, index) in messages"
-                    :key="index"
-                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message', 'wrap']"
-                >
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message', 'wrap']"
+        >
           <div class="message-avatar">
             <span v-if="msg.role === 'user'">👤</span>
-            <span v-else>🤖</span>
+            <span v-else>
+              <img
+                src="/STITCH.png"
+                alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
+              >
+            </span>
           </div>
           <div class="message-content">
             <div class="message-header">
-              <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
+              <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'Stitch' }}</span>
               <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
             </div>
             <div
@@ -62,7 +69,14 @@
           class="message ai-message loading"
         >
           <div class="message-avatar">
-            <span>🤖</span>
+            <span>
+              <img
+                src="/STITCH.png"
+                alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
+              >
+            </span>
           </div>
           <div class="message-content">
             <div class="typing-indicator">
@@ -188,7 +202,7 @@
             v-model="messageInput"
             type="text"
             class="message-input"
-            placeholder="Ask AI Loom or upload notes..."
+            placeholder="Ask Stitch or upload notes..."
             :disabled="isLoading"
             @keydown.enter="sendMessage"
           >
@@ -669,13 +683,13 @@ export default {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7733ff, #00d4ff);
+    background: none;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.25rem;
     flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(119, 51, 255, 0.18);
+    box-shadow: none;
 }
 
 .user-message .message-avatar {

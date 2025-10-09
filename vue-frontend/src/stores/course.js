@@ -295,32 +295,23 @@ export const useCourseStore = defineStore('course', () => {
 
   async function deleteCourse(courseId) {
     const authStore = useAuthStore()
+    // If guest user, remove from localStorage
+    if (!authStore.isAuthenticated) {
+      const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
+      const remaining = stored.filter(c => c.course_id !== courseId)
+      localStorage.setItem('guestCourses', JSON.stringify(remaining))
+      // update in-memory list if loaded
+      courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId);
+      return { success: true, isLocal: true }
+    }
+    // Authenticated user - call API
     try {
-      // If guest user, remove from localStorage
-      if (!authStore.isAuthenticated) {
-        const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
-        const remaining = stored.filter(c => c.course_id !== courseId)
-        localStorage.setItem('guestCourses', JSON.stringify(remaining))
-        // decrement guestCourseCount safely
-        try {
-          guestCourseCount.value = Math.max(0, guestCourseCount.value - 1)
-          localStorage.setItem('guestCourseCount', guestCourseCount.value.toString())
-        } catch (e) {
-          console.warn('Failed to update guestCourseCount on delete', e)
-        }
-        // update in-memory list if loaded
-        courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
-        return { success: true, isLocal: true }
-      }
-
-      // Authenticated user - call API
       await api.delete(`/course/${courseId}`)
       // Remove from in-memory list
       courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
       return { success: true }
-    } catch (err) {
-      console.error('[Course Store] deleteCourse error:', err)
-      return { success: false, error: err.response?.data?.detail || 'Failed to delete course' }
+    } catch (e) {
+      return { success: false, error: e }
     }
   }
 
@@ -338,8 +329,7 @@ export const useCourseStore = defineStore('course', () => {
     loadCourses,
     loadCourse,
     updateProgress,
-    loadProgress
-    ,
+    loadProgress,
     deleteCourse
-  }
-})
+  };
+});

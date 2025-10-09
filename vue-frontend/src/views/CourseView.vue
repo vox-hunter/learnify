@@ -773,12 +773,20 @@ import MarkdownIt from 'markdown-it';
 // Removed markdownItKatex and mathlive imports - using MathJax now
 import DOMPurify from 'dompurify';
 
+// MathJax global loader (assumes MathJax is loaded in public/mathjax/tex-chtml.js)
+function typesetMathJax(el) {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise([el]);
+  }
+}
+
 export default {
   name: "CourseView",
   components: {
     QuizQuestion,
   },
   setup() {
+    // --- Declare stores and refs first ---
     const route = useRoute();
     const router = useRouter();
     const courseStore = useCourseStore();
@@ -806,7 +814,37 @@ export default {
     const stepFlowContainer = ref(null); // Ref for step flow container
     const reviewQuestionOrder = ref([]); // Store shuffled question order for review mode
 
+    // --- Computed property for course ---
     const course = computed(() => courseStore.currentCourse);
+
+    // --- Markdown and MathJax logic ---
+    const md = new MarkdownIt({
+      html: true,
+      linkify: true,
+      typographer: true,
+      breaks: true,
+    });
+
+    function renderMarkdown(raw) {
+      let html = md.render(raw || "");
+      html = DOMPurify.sanitize(html);
+      return html;
+    }
+
+    function mathjaxTypesetNextTick() {
+      nextTick(() => {
+        const containers = document.querySelectorAll('.explanation-text, .section-explanation, .subsection-explanation');
+        containers.forEach(el => typesetMathJax(el));
+      });
+    }
+
+    watch([course, currentStepIndex], () => {
+      mathjaxTypesetNextTick();
+    });
+
+    onMounted(() => {
+      mathjaxTypesetNextTick();
+    });
 
     const currentSection = computed(() => {
       if (!course.value?.sections) return null;
@@ -1121,6 +1159,8 @@ export default {
             showContinueHint.value = true;
           }, 1000);
         }
+        // Trigger MathJax typesetting for first explanation
+        mathjaxTypesetNextTick();
       });
     };
 
@@ -1244,7 +1284,7 @@ export default {
               setTimeout(() => {
                 try {
                   window.scrollBy({ top: -Math.max(0, headerHeight + 12), behavior: 'smooth' })
-                } catch (e) {
+                } catch {
                   window.scrollTo({ top: Math.max(0, window.scrollY - (headerHeight + 12)) })
                 }
               }, 120)
@@ -1261,7 +1301,7 @@ export default {
         if (typeof el.focus === "function") {
           try {
             el.focus({ preventScroll: true });
-          } catch (e) {
+          } catch {
             // fallback for older browsers
             el.focus();
           }
@@ -1285,7 +1325,7 @@ export default {
                   if (inputEl && !inputEl.disabled) {
                     try {
                       inputEl.focus();
-                    } catch (e) {
+                    } catch {
                       // ignore
                     }
                     // place cursor at end for text inputs
@@ -1300,7 +1340,7 @@ export default {
                 setTimeout(focusInput, 350);
               }
             }
-          } catch (err) {
+          } catch {
             // fail silently
           }
         });
@@ -1704,18 +1744,14 @@ export default {
 
       // Attach keydown listener to step flow container (if present) so Enter works reliably
       nextTick(() => {
-        if (stepFlowContainer.value && typeof stepFlowContainer.value.addEventListener === 'function') {
-          stepFlowContainer.value.addEventListener('keydown', handleStepContainerKeyDown);
-        }
+        // Removed undefined handleStepContainerKeyDown event listener
       });
     });
 
     onUnmounted(() => {
       try {
-        if (stepFlowContainer.value && typeof stepFlowContainer.value.removeEventListener === 'function') {
-          stepFlowContainer.value.removeEventListener('keydown', handleStepContainerKeyDown);
-        }
-      } catch (e) {
+        // Removed undefined handleStepContainerKeyDown event listener
+      } catch {
         // ignore
       }
     });
@@ -2010,13 +2046,8 @@ export default {
     };
 
     // Markdown renderer (MathJax handles LaTeX automatically)
-    const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-    const renderMarkdown = (text) => {
-      if (!text) return '';
-      const rendered = md.render(String(text));
-      return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
-    };
-
+  // (Removed duplicate MarkdownIt instance)
+    // (Removed duplicate renderMarkdown function)
     return {
       loading,
       error,
