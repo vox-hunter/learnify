@@ -211,6 +211,7 @@ export default {
         const startNewChat = () => {
             // Clear chat session and navigate to home
             localStorage.removeItem('chat_session_id')
+      localStorage.removeItem('chat_messages')
             router.push('/')
             // Force page reload to clear chat
             if (router.currentRoute.value.path === '/') {
@@ -545,6 +546,13 @@ export default {
     box-shadow: 0 8px 24px var(--shadow-color);
     overflow: hidden;
     z-index: 100;
+}
+
+/* Ensure solid dropdown in dark mode (no translucency) */
+:root[data-theme="dark"] .user-dropdown {
+  background-color: #111827; /* solid slate-900 */
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
 }
 
 .dropdown-item {

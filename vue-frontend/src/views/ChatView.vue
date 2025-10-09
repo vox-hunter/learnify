@@ -28,11 +28,11 @@
         </div>
 
         <!-- Message List -->
-        <div
-          v-for="(msg, index) in messages"
-          :key="index"
-          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
-        >
+                <div
+                    v-for="(msg, index) in messages"
+                    :key="index"
+                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message', 'wrap']"
+                >
           <div class="message-avatar">
             <span v-if="msg.role === 'user'">👤</span>
             <span v-else>🤖</span>
@@ -565,8 +565,9 @@ export default {
 
 .chat-feed {
     flex: 1;
-    /* only show scrollbar when content overflows */
+    /* only show vertical scrollbar when content overflows; never show horizontal */
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 1.25rem 0.75rem;
     display: flex;
     flex-direction: column;
@@ -682,21 +683,21 @@ export default {
 }
 
 .message-content {
-    /* Shrink-to-fit container for the message bubble. It won't grow unnecessarily, but will cap at a percentage of the row. */
-    display: inline-block;
-    flex: 0 0 auto;
-    /* do not grow; size to content */
-    vertical-align: top;
+    /* Make this a flex item that can shrink to avoid overflow in a flex row */
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0; /* critical: allow text to wrap instead of forcing overflow */
 }
 
+/* AI messages occupy remaining width of the row */
 .ai-message .message-content {
-    /* Allow AI messages to use full width for proper LaTeX rendering */
-    max-width: 100%;
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .user-message .message-content {
-    /* Keep user messages constrained to 70% width */
+    /* Keep user messages constrained, but shrink-to-fit content */
+    flex: 0 1 auto; /* don't grow to fill the row */
     max-width: 70%;
 }
 
@@ -736,15 +737,20 @@ export default {
     line-height: 1.6;
     font-size: 0.95rem;
     color: var(--text-primary);
+    white-space: normal; /* ensure standard wrapping */
+    /* Ensure long words/URLs wrap instead of causing horizontal scroll */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
+/* AI: no bubble, just aligned text */
 .ai-message .message-text {
-    /* Remove bubble styling for AI messages to allow full-width LaTeX */
     padding: 0;
     background: transparent;
     border: none;
     box-shadow: none;
-    max-width: 100%;
 }
 
 .user-message .message-text {
@@ -756,6 +762,8 @@ export default {
     border-radius: 1.25rem;
     border-top-right-radius: 0.25rem;
     box-shadow: 0 2px 8px var(--shadow-color);
+    display: inline-block; /* shrink bubble to content */
+    max-width: 100%;
 }
 
 .message-attachment {
@@ -975,7 +983,21 @@ export default {
     padding: 1rem;
     border-radius: 0.5rem;
     overflow-x: auto;
+    max-width: 100%;
     margin: 0.75rem 0;
+}
+
+/* Ensure rich content doesn't overflow the viewport */
+:deep(.message-text) img {
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+}
+
+:deep(.message-text) table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 :deep(.message-text) ul,
@@ -1037,7 +1059,7 @@ export default {
     }
 
     .message-content {
-        max-width: 85%;
+        max-width: 95%;
     }
 
     .input-btn {

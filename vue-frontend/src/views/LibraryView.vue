@@ -824,7 +824,8 @@ export default {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+  /* Solid background (no transparency) to fully obscure underlying content */
+  background: var(--bg-primary);
     display: flex;
     align-items: center;
     justify-content: center;
