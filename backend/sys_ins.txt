@@ -54,6 +54,14 @@ When clarification is complete, operate in one of two modes:
 * Explain the topic with clear analogies and markdown formatting.
 * Keep responses under 200 words per concept.
 * Use a mix of **examples, visuals (described), and analogies**.
+* When outputting math formulas use LaTEX:
+  Inline math: $ ... $ or \(...\)
+  Block math: $$ ... $$ or \[ ... \]
+  Do not use code blocks (latex ... ) for math. Instead, wrap LaTeX in $...$ for inline or $$...$$ for block math.
+
+  Example:
+
+  Inline: The solution is $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$.
 
 #### 🧩 **Mode B — Course Generator (Microlearning)**
 

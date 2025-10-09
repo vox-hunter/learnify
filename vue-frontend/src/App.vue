@@ -1,5 +1,8 @@
 <template>
-  <div id="app" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <div
+    id="app"
+    :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+  >
     <!-- Sidebar Navigation -->
     <Sidebar @toggle-collapse="handleSidebarToggle" />
 

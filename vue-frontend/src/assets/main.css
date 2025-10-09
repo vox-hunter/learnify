@@ -281,3 +281,152 @@ body {
     width: 100%;
   }
 }
+
+/* MathLive Global Styling */
+.math-display {
+  text-align: center !important;
+  margin: 1rem 0 !important;
+  overflow-x: auto;
+  display: block !important;
+}
+/* MathLive CSS for math rendering */
+math-field {
+  max-width: 320px;
+  width: 100%;
+  padding: 5px;
+  margin: 10px 0 10px 0;
+  border-radius: 5px;
+  border: 1px solid var(--editable-border, #ddd);
+  background: var(--editable, #fff);
+  color: var(--on-editable, #222);
+  font-size: clamp(1rem, 1.5vw, 2rem);
+}
+math-field:not(:defined) {
+  visibility: hidden;
+}
+.math-display {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1em 0;
+}
+.math-error {
+  color: #c00;
+  background: #fee;
+  border: 1px solid #c00;
+  padding: 0.5em;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.math-error {
+  color: #dc3545 !important;
+  background: rgba(220, 53, 69, 0.1) !important;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  margin: 0.5rem 0;
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  font-family: monospace;
+  white-space: pre-wrap;
+  display: block;
+}
+
+/* MathLive HTML Output Styling */
+.ML__latex {
+  font-size: 1.2em;
+  line-height: 1.5;
+}
+
+.ML__strut,
+.ML__strut--bottom {
+  display: inline-block;
+}
+
+.ML__base {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.ML__mathit {
+  font-style: italic;
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.ML__cmr {
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.ML__mfrac {
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.ML__frac-line {
+  border-bottom: 1px solid currentColor;
+  margin: 0.1em 0;
+}
+
+.ML__vlist {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ML__vlist-t {
+  display: inline-table;
+  border-collapse: collapse;
+}
+
+.ML__vlist-r {
+  display: table-row;
+}
+
+.ML__vlist-t2 {
+  vertical-align: middle;
+}
+
+.ML__pstrut {
+  display: inline-block;
+  width: 0;
+}
+
+.ML__center {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.ML__msubsup {
+  display: inline-block;
+  position: relative;
+}
+
+.ML__sqrt-sign {
+  display: inline-block;
+  position: relative;
+}
+
+.ML__sqrt-line {
+  border-top: 1px solid currentColor;
+  width: 100%;
+}
+
+.ML__small-delim {
+  font-size: 1.5em;
+  vertical-align: text-top;
+}
+
+.ML__nulldelimiter {
+  display: inline-block;
+}
+
+.ML__open,
+.ML__close {
+  display: inline-block;
+}
+
+.ML__vlist-s {
+  font-size: 0;
+}

@@ -17,7 +17,8 @@
 
           <section class="section">
             <h2>2. Use of Service</h2>
-            <p>Learnify provides an AI-powered platform for generating educational courses and quizzes from documents.
+            <p>
+              Learnify provides an AI-powered platform for generating educational courses and quizzes from documents.
             </p>
             <ul>
               <li>You must be at least 13 years old to use this service</li>

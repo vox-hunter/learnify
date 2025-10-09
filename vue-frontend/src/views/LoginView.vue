@@ -3,7 +3,7 @@
     <div class="container-sm">
       <div class="login-card card">
         <h1 class="page-title">
-          Welcome Back
+          {{ activeTab === 'login' ? 'Welcome Back' : activeTab === 'register' ? 'Welcome' : 'Reset Password' }}
         </h1>
         
         <!-- Tabs -->

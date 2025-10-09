@@ -6,100 +6,188 @@
     </div>
 
     <div class="question-text">
-      {{ question.question }}
+      <div v-html="renderMarkdown(question.question)" />
     </div>
 
     <!-- Multiple Choice -->
-    <div v-if="isMultipleChoice" class="options-container">
-      <div v-for="(option, index) in question.options" :key="index" :class="['option', {
-        selected: selectedAnswer === option,
-        correct: isAnswered && option === question.answer,
-        incorrect: isAnswered && selectedAnswer === option && option !== question.answer
-      }]" @click="!isAnswered && selectAnswer(option)">
+    <div
+      v-if="isMultipleChoice"
+      class="options-container"
+    >
+      <div
+        v-for="(option, index) in question.options"
+        :key="index"
+        :class="['option', {
+          selected: selectedAnswer === option,
+          correct: isAnswered && option === question.answer,
+          incorrect: isAnswered && selectedAnswer === option && option !== question.answer
+        }]"
+        @click="!isAnswered && selectAnswer(option)"
+      >
         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
         <span class="option-text">{{ option }}</span>
-        <span v-if="isAnswered && option === question.answer" class="option-icon">✓</span>
-        <span v-if="isAnswered && selectedAnswer === option && option !== question.answer" class="option-icon">✗</span>
+        <span
+          v-if="isAnswered && option === question.answer"
+          class="option-icon"
+        >✓</span>
+        <span
+          v-if="isAnswered && selectedAnswer === option && option !== question.answer"
+          class="option-icon"
+        >✗</span>
       </div>
     </div>
 
     <!-- True/False -->
-    <div v-else-if="isTrueFalse" class="options-container">
-      <div :class="['option', {
-        selected: selectedAnswer === true,
-        correct: isAnswered && question.answer === true,
-        incorrect: isAnswered && selectedAnswer === true && question.answer !== true
-      }]" @click="!isAnswered && selectAnswer(true)">
+    <div
+      v-else-if="isTrueFalse"
+      class="options-container"
+    >
+      <div
+        :class="['option', {
+          selected: selectedAnswer === true,
+          correct: isAnswered && question.answer === true,
+          incorrect: isAnswered && selectedAnswer === true && question.answer !== true
+        }]"
+        @click="!isAnswered && selectAnswer(true)"
+      >
         <span class="option-text">✓ True</span>
-        <span v-if="isAnswered && question.answer === true" class="option-icon">✓</span>
+        <span
+          v-if="isAnswered && question.answer === true"
+          class="option-icon"
+        >✓</span>
       </div>
-      <div :class="['option', {
-        selected: selectedAnswer === false,
-        correct: isAnswered && question.answer === false,
-        incorrect: isAnswered && selectedAnswer === false && question.answer !== false
-      }]" @click="!isAnswered && selectAnswer(false)">
+      <div
+        :class="['option', {
+          selected: selectedAnswer === false,
+          correct: isAnswered && question.answer === false,
+          incorrect: isAnswered && selectedAnswer === false && question.answer !== false
+        }]"
+        @click="!isAnswered && selectAnswer(false)"
+      >
         <span class="option-text">✗ False</span>
-        <span v-if="isAnswered && question.answer === false" class="option-icon">✓</span>
+        <span
+          v-if="isAnswered && question.answer === false"
+          class="option-icon"
+        >✓</span>
       </div>
     </div>
 
     <!-- Fill in the Blank -->
-    <div v-else-if="isFillInBlank" class="answer-input-container">
-      <input v-model="userAnswer" type="text" class="form-input" :disabled="isAnswered"
-        placeholder="Type your answer here..." @keyup.enter="submitFillInBlank">
-      <button v-if="!isAnswered" :disabled="!userAnswer.trim()" class="btn btn-primary" @click="submitFillInBlank">
+    <div
+      v-else-if="isFillInBlank"
+      class="answer-input-container"
+    >
+      <input
+        v-model="userAnswer"
+        type="text"
+        class="form-input"
+        :disabled="isAnswered"
+        placeholder="Type your answer here..."
+        @keyup.enter="submitFillInBlank"
+      >
+      <button
+        v-if="!isAnswered"
+        :disabled="!userAnswer.trim()"
+        class="btn btn-primary"
+        @click="submitFillInBlank"
+      >
         Submit
       </button>
     </div>
 
     <!-- Short Answer -->
-    <div v-else-if="isShortAnswer" class="answer-input-container">
-      <textarea v-model="userAnswer" class="form-textarea" :disabled="isAnswered || validating"
-        placeholder="Type your detailed answer here..." rows="4" />
-      <button v-if="!isAnswered" :disabled="!userAnswer.trim() || validating" class="btn btn-primary"
-        @click="submitShortAnswer">
+    <div
+      v-else-if="isShortAnswer"
+      class="answer-input-container"
+    >
+      <textarea
+        v-model="userAnswer"
+        class="form-textarea"
+        :disabled="isAnswered || validating"
+        placeholder="Type your detailed answer here..."
+        rows="4"
+        @keydown.shift.enter.prevent="submitShortAnswer"
+      />
+      <button
+        v-if="!isAnswered"
+        :disabled="!userAnswer.trim() || validating"
+        class="btn btn-primary"
+        @click="submitShortAnswer"
+      >
         {{ validating ? 'Validating...' : 'Submit' }}
       </button>
     </div>
 
     <!-- Matching -->
-    <div v-else-if="isMatching" class="matching-container">
+    <div
+      v-else-if="isMatching"
+      class="matching-container"
+    >
       <div class="matching-instructions">
         Match each item on the left with the correct answer on the right
       </div>
       <div class="matching-pairs">
-        <div v-for="(key, index) in matchingKeys" :key="index" class="matching-row">
+        <div
+          v-for="(key, index) in matchingKeys"
+          :key="index"
+          class="matching-row"
+        >
           <div class="matching-key">
             {{ key }}
           </div>
-          <select v-model="matchingAnswers[key]" :disabled="isAnswered" class="form-select matching-select">
+          <select
+            v-model="matchingAnswers[key]"
+            :disabled="isAnswered"
+            class="form-select matching-select"
+          >
             <option value="">
               Select...
             </option>
-            <option v-for="(value, vIndex) in matchingValues" :key="vIndex" :value="value">
+            <option
+              v-for="(value, vIndex) in matchingValues"
+              :key="vIndex"
+              :value="value"
+            >
               {{ value }}
             </option>
           </select>
-          <span v-if="isAnswered" class="matching-result">
+          <span
+            v-if="isAnswered"
+            class="matching-result"
+          >
             {{ matchingAnswers[key] === question.answer[key] ? '✓' : '✗' }}
           </span>
         </div>
       </div>
-      <button v-if="!isAnswered" :disabled="!isMatchingComplete" class="btn btn-primary" @click="submitMatching">
+      <button
+        v-if="!isAnswered"
+        :disabled="!isMatchingComplete"
+        class="btn btn-primary"
+        @click="submitMatching"
+      >
         Submit
       </button>
     </div>
 
     <!-- Feedback -->
-    <div v-if="isAnswered" :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']">
+    <div
+      v-if="isAnswered"
+      :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']"
+    >
       <div class="feedback-header">
         {{ isCorrect ? '✅ Correct!' : '❌ Incorrect' }}
       </div>
-      <div v-if="explanation" class="feedback-text">
-        {{ explanation }}
+      <div
+        v-if="explanation"
+        class="feedback-text"
+      >
+        <div v-html="renderMarkdown(explanation)" />
       </div>
-      <div v-if="!isCorrect && expectedAnswer" class="correct-answer">
-        <strong>Correct answer:</strong> {{ formatAnswer(expectedAnswer) }}
+      <div
+        v-if="!isCorrect && expectedAnswer"
+        class="correct-answer"
+      >
+        <strong>Correct answer:</strong> <span v-html="renderMarkdown(formatAnswer(expectedAnswer))" />
       </div>
     </div>
   </div>
@@ -107,6 +195,8 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
 import api from '../services/api'
 
 export default {
@@ -339,6 +429,14 @@ export default {
       }
     }, { immediate: true })
 
+    // Markdown renderer (MathJax handles LaTeX automatically)
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+    const renderMarkdown = (text) => {
+      if (!text) return '';
+      const rendered = md.render(String(text));
+      return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
+    };
+
     return {
       selectedAnswer,
       userAnswer,
@@ -361,7 +459,8 @@ export default {
       selectAnswer,
       submitFillInBlank,
       submitShortAnswer,
-      submitMatching
+      submitMatching,
+      renderMarkdown,
     }
   }
 }

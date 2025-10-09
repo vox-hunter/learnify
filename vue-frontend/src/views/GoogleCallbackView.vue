@@ -101,9 +101,8 @@ export default {
           if (response.data.needs_username) {
             // Store OAuth data for username selection
             sessionStorage.setItem('google_oauth_pending', JSON.stringify({
-              code: code,
-              redirect_uri: redirectUri,
-              state: state,
+              // Use signup_token flow to avoid reusing one-time code
+              signup_token: response.data.signup_token || null,
               user_info: response.data.user_info
             }))
             

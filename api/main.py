@@ -11,6 +11,8 @@ from typing import Optional, List, Dict, Any
 import sys
 import os
 import logging
+import time
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -84,6 +86,20 @@ app.add_middleware(
 auth_manager = None
 course_manager = None
 # Note: chat_manager is NOT initialized globally - created per-request with user credentials
+
+# In-memory store for pending Google signups (short-lived)
+# signup_token -> { 'token_response': {...}, 'user_info': {...}, 'ts': epoch_seconds }
+_PENDING_GOOGLE_SIGNUPS = {}
+
+def _cleanup_pending_signups(max_age_seconds: int = 600):
+    """Remove expired pending signups to avoid memory leaks."""
+    try:
+        now = time.time()
+        to_delete = [k for k, v in _PENDING_GOOGLE_SIGNUPS.items() if now - v.get('ts', 0) > max_age_seconds]
+        for k in to_delete:
+            _PENDING_GOOGLE_SIGNUPS.pop(k, None)
+    except Exception:
+        pass
 
 @app.on_event("startup")
 async def startup_event():
@@ -483,7 +499,7 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
         # Validate and extract user data
         validated_user = validate_google_oauth_user(user_info)
         
-        # Check if user exists by email
+    # Check if user exists by email
         existing_user = auth_manager.find_user_by_email(validated_user["email"])
         
         if existing_user:
@@ -530,10 +546,28 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
                 "hasPassword": has_password
             }
         else:
-            # New user - return user info for username selection
+            # New user - stash token_response temporarily and return token + user info for username selection
+            try:
+                signup_token = str(uuid.uuid4())
+                _cleanup_pending_signups()
+                _PENDING_GOOGLE_SIGNUPS[signup_token] = {
+                    'token_response': token_response,
+                    'user_info': {
+                        'email': validated_user["email"],
+                        'name': validated_user["name"],
+                        'google_id': validated_user.get("google_id"),
+                        'picture': validated_user.get("picture")
+                    },
+                    'ts': time.time()
+                }
+            except Exception as e:
+                print(f"Warning: Failed to store pending signup: {e}")
+                raise HTTPException(status_code=500, detail="Failed to initialize signup session")
+
             return {
                 "success": True,
                 "needs_username": True,
+                "signup_token": signup_token,
                 "user_info": {
                     "email": validated_user["email"],
                     "name": validated_user["name"],
@@ -596,9 +630,12 @@ async def check_username(username: str):
 
 
 class GoogleCompleteRequest(BaseModel):
-    code: str
-    redirect_uri: str
-    state: str
+    # New flow: use signup_token from /auth/google/callback
+    signup_token: Optional[str] = None
+    # Legacy fallback: accept code/redirect_uri/state
+    code: Optional[str] = None
+    redirect_uri: Optional[str] = None
+    state: Optional[str] = None
     username: str
 
 class RateCourseRequest(BaseModel):
@@ -617,25 +654,35 @@ async def complete_google_signup(request: GoogleCompleteRequest):
         raise HTTPException(status_code=503, detail="Google OAuth not configured")
     
     try:
-        # Exchange code for token
-        token_response = exchange_code_for_token(
-            code=request.code,
-            redirect_uri=request.redirect_uri
-        )
+        # Prefer new flow using signup_token to avoid reusing auth code
+        validated_user = None
+        if request.signup_token:
+            _cleanup_pending_signups()
+            pending = _PENDING_GOOGLE_SIGNUPS.pop(request.signup_token, None)
+            if not pending:
+                raise HTTPException(status_code=400, detail="Signup session expired or invalid")
+            token_response = pending.get('token_response')
+            user_info = pending.get('user_info')
+            if not token_response or not user_info:
+                raise HTTPException(status_code=400, detail="Invalid signup session data")
+            # validated_user already structured in callback
+            validated_user = user_info
+        else:
+            # Legacy fallback: Exchange code for token (may fail if code already used)
+            if not request.code or not request.redirect_uri:
+                raise HTTPException(status_code=400, detail="Missing authorization data")
+            token_response = exchange_code_for_token(
+                code=request.code,
+                redirect_uri=request.redirect_uri
+            )
+            if not token_response or "access_token" not in token_response:
+                raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+            user_info = get_user_info(token_response["access_token"])
+            if not user_info:
+                raise HTTPException(status_code=400, detail="Failed to get user information from Google")
+            validated_user = validate_google_oauth_user(user_info)
         
-        if not token_response or "access_token" not in token_response:
-            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
-        
-        # Get user info from Google
-        user_info = get_user_info(token_response["access_token"])
-        
-        if not user_info:
-            raise HTTPException(status_code=400, detail="Failed to get user information from Google")
-        
-        # Validate and extract user data
-        validated_user = validate_google_oauth_user(user_info)
-        
-        # Check if username is available
+    # Check if username is available
         existing_user = auth_manager.find_user_by_username(request.username)
         if existing_user:
             raise HTTPException(status_code=400, detail="Username is already taken")

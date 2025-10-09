@@ -1,108 +1,210 @@
 <template>
-    <div class="chat-view">
-        <div class="container">
-            <div ref="chatFeed" class="chat-feed">
-                <!-- Welcome Message -->
-                <div v-if="messages.length === 0" class="welcome-message">
-                    <div class="welcome-icon">✨</div>
-                    <h2>Learning starts when you start talking.</h2>
-                    <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
-                    <div class="example-prompts">
-                        <button v-for="(example, i) in examplePrompts" :key="i" class="example-prompt"
-                            @click="sendExamplePrompt(example)">
-                            {{ example }}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Message List -->
-                <div v-for="(msg, index) in messages" :key="index"
-                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']">
-                    <div class="message-avatar">
-                        <span v-if="msg.role === 'user'">👤</span>
-                        <span v-else>🤖</span>
-                    </div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
-                            <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-                        </div>
-                        <div class="message-text" v-html="formatMessage(msg.text, msg.role)"></div>
-                        <div v-if="msg.attachment" class="message-attachment">
-                            <span class="attachment-icon">📎</span>
-                            <span class="attachment-name">{{ msg.attachment.name }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading Indicator -->
-                <div v-if="isLoading" class="message ai-message loading">
-                    <div class="message-avatar"> <span>🤖</span> </div>
-                    <div class="message-content">
-                        <div class="typing-indicator">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="chat-input-container">
-                <div v-if="selectedFile || urlInput" class="attachment-preview">
-                    <div v-if="selectedFile" class="preview-item">
-                        <span class="preview-icon">📄</span>
-                        <span class="preview-name">{{ selectedFile.name }}</span>
-                        <button class="preview-remove" @click="removeFile">×</button>
-                    </div>
-                    <div v-if="urlInput" class="preview-item">
-                        <span class="preview-icon">🔗</span>
-                        <span class="preview-name">{{ urlInput }}</span>
-                        <button class="preview-remove" @click="removeUrl">×</button>
-                    </div>
-                </div>
-
-                <div v-if="error" class="chat-error">{{ error }}</div>
-
-                <div v-if="reachedNgLimit" class="ng-limit-block">
-                    <div class="danger-warning" style="margin-bottom:0.75rem">
-                        <strong>You've reached the free chat limit.</strong>
-                        <p style="margin:0.25rem 0 0; color:var(--text-muted)">Link your Google account to continue
-                            chatting with your personal quota, or visit the Danger Zone in your account.</p>
-                    </div>
-                    <div class="input-group">
-                        <button class="btn btn-primary" @click.prevent="goToDangerZone">Go to Danger Zone</button>
-                        <button class="btn" style="margin-left:0.5rem" @click.prevent="linkGoogleAccount">Link Google
-                            Account</button>
-                    </div>
-                </div>
-                <div v-else class="input-group">
-                    <label class="input-btn file-btn" title="Upload file">
-                        <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-                            hidden @change="handleFileSelect" />
-                        📎
-                    </label>
-
-                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
-                        @click="toggleUrlInput">
-                        🔗
-                    </button>
-
-                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
-                        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
-                        @keydown.esc="showUrlInput = false" />
-
-                    <input v-else v-model="messageInput" type="text" class="message-input"
-                        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage"
-                        :disabled="isLoading" />
-
-                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">{{
-                        isLoading ? '⏳' : '🚀' }}</button>
-                </div>
-            </div>
+  <div class="chat-view">
+    <div class="container">
+      <div
+        ref="chatFeed"
+        class="chat-feed"
+      >
+        <!-- Welcome Message -->
+        <div
+          v-if="messages.length === 0"
+          class="welcome-message"
+        >
+          <div class="welcome-icon">
+            ✨
+          </div>
+          <h2>Learning starts when you start talking.</h2>
+          <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
+          <div class="example-prompts">
+            <button
+              v-for="(example, i) in examplePrompts"
+              :key="i"
+              class="example-prompt"
+              @click="sendExamplePrompt(example)"
+            >
+              {{ example }}
+            </button>
+          </div>
         </div>
+
+        <!-- Message List -->
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
+        >
+          <div class="message-avatar">
+            <span v-if="msg.role === 'user'">👤</span>
+            <span v-else>🤖</span>
+          </div>
+          <div class="message-content">
+            <div class="message-header">
+              <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
+              <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+            </div>
+            <div
+              class="message-text"
+              v-html="formatMessage(msg.text, msg.role)"
+            />
+            <div
+              v-if="msg.attachment"
+              class="message-attachment"
+            >
+              <span class="attachment-icon">📎</span>
+              <span class="attachment-name">{{ msg.attachment.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div
+          v-if="isLoading"
+          class="message ai-message loading"
+        >
+          <div class="message-avatar">
+            <span>🤖</span>
+          </div>
+          <div class="message-content">
+            <div class="typing-indicator">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-container">
+        <div
+          v-if="selectedFile || urlInput"
+          class="attachment-preview"
+        >
+          <div
+            v-if="selectedFile"
+            class="preview-item"
+          >
+            <span class="preview-icon">📄</span>
+            <span class="preview-name">{{ selectedFile.name }}</span>
+            <button
+              class="preview-remove"
+              @click="removeFile"
+            >
+              ×
+            </button>
+          </div>
+          <div
+            v-if="urlInput"
+            class="preview-item"
+          >
+            <span class="preview-icon">🔗</span>
+            <span class="preview-name">{{ urlInput }}</span>
+            <button
+              class="preview-remove"
+              @click="removeUrl"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="error"
+          class="chat-error"
+        >
+          {{ error }}
+        </div>
+
+        <div
+          v-if="reachedNgLimit"
+          class="ng-limit-block"
+        >
+          <div
+            class="danger-warning"
+            style="margin-bottom:0.75rem"
+          >
+            <strong>You've reached the free chat limit.</strong>
+            <p style="margin:0.25rem 0 0; color:var(--text-muted)">
+              Link your Google account to continue
+              chatting with your personal quota, or visit the Danger Zone in your account.
+            </p>
+          </div>
+          <div class="input-group">
+            <button
+              class="btn btn-primary"
+              @click.prevent="goToDangerZone"
+            >
+              Go to Danger Zone
+            </button>
+            <button
+              class="btn"
+              style="margin-left:0.5rem"
+              @click.prevent="linkGoogleAccount"
+            >
+              Link Google
+              Account
+            </button>
+          </div>
+        </div>
+        <div
+          v-else
+          class="input-group"
+        >
+          <label
+            class="input-btn file-btn"
+            title="Upload file"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+              hidden
+              @change="handleFileSelect"
+            >
+            📎
+          </label>
+
+          <button
+            class="input-btn url-btn"
+            :class="{ active: showUrlInput }"
+            title="Add URL"
+            @click="toggleUrlInput"
+          >
+            🔗
+          </button>
+
+          <input
+            v-if="showUrlInput"
+            v-model="urlInput"
+            type="url"
+            class="url-input"
+            placeholder="Paste URL here..."
+            @keydown.enter="handleUrlSubmit"
+            @keydown.esc="showUrlInput = false"
+          >
+
+          <input
+            v-else
+            v-model="messageInput"
+            type="text"
+            class="message-input"
+            placeholder="Ask AI Loom or upload notes..."
+            :disabled="isLoading"
+            @keydown.enter="sendMessage"
+          >
+
+          <button
+            class="input-btn send-btn"
+            :disabled="!canSend || isLoading"
+            @click="sendMessage"
+          >
+            {{
+              isLoading ? '⏳' : '🚀' }}
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
 </template>
 
 <script>
@@ -181,6 +283,11 @@ export default {
             }
         }, { deep: true })
 
+        // Watch messages and typeset math when they change
+        watch(messages, () => {
+            typesetMath()
+        }, { deep: true })
+
         const showGoogleLinkButton = computed(() => {
             if (!messages.value.length) return false
             const last = messages.value[messages.value.length - 1]
@@ -215,20 +322,32 @@ export default {
             return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
 
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
         const formatMessage = (text, role = 'assistant') => {
             if (!text) return ''
             // Replace reference-style citation links to safe links
-            const withCitations = String(text).replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
+            let withCitations = String(text).replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
 
             if (role === 'assistant') {
+                // Render markdown
                 const rendered = md.render(withCitations)
                 return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
             }
 
             // simple user message formatting
             return withCitations.replace(/\n/g, '<br>')
+        }
+
+        // Typeset math after messages update
+        const typesetMath = () => {
+            nextTick(() => {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().catch((err) => {
+                        console.error('MathJax typesetting failed:', err)
+                    })
+                }
+            })
         }
 
         const handleFileSelect = (e) => {
@@ -349,9 +468,49 @@ export default {
             }
         }
 
+        // Save and load chat messages from localStorage
+        const saveChatMessages = () => {
+            try {
+                const chatData = {
+                    messages: messages.value,
+                    sessionId: sessionId.value,
+                    timestamp: Date.now()
+                }
+                localStorage.setItem('chat_messages', JSON.stringify(chatData))
+            } catch (e) {
+                console.error('Failed to save chat messages:', e)
+            }
+        }
+
+        const loadChatMessages = () => {
+            try {
+                const savedData = localStorage.getItem('chat_messages')
+                if (savedData) {
+                    const chatData = JSON.parse(savedData)
+                    // Load messages if they're less than 24 hours old
+                    const age = Date.now() - (chatData.timestamp || 0)
+                    if (age < 24 * 60 * 60 * 1000) {
+                        messages.value = chatData.messages || []
+                        sessionId.value = chatData.sessionId || sessionId.value
+                        // Scroll to bottom after loading
+                        nextTick(() => scrollToBottom())
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load chat messages:', e)
+            }
+        }
+
+        // Watch messages and save to localStorage whenever they change
+        watch(messages, () => {
+            saveChatMessages()
+        }, { deep: true })
+
         onMounted(() => {
             const saved = localStorage.getItem('chat_session_id')
             if (saved) sessionId.value = saved
+            // Load saved chat messages
+            loadChatMessages()
         })
 
         return {
@@ -527,20 +686,29 @@ export default {
     display: inline-block;
     flex: 0 0 auto;
     /* do not grow; size to content */
-    max-width: 70%;
     vertical-align: top;
+}
+
+.ai-message .message-content {
+    /* Allow AI messages to use full width for proper LaTeX rendering */
+    max-width: 100%;
+    width: 100%;
+}
+
+.user-message .message-content {
+    /* Keep user messages constrained to 70% width */
+    max-width: 70%;
 }
 
 .user-message .message-text {
     /* Balanced padding and left-aligned text inside the right-side bubble */
-    padding: 0.6rem 0.9rem;
     text-align: left;
 }
 
 .ai-message .message-text {
-    /* ensure AI bubbles use similar balanced padding */
-    padding: 0.9rem 1rem;
+    /* AI messages use full width with no extra padding for LaTeX */
     text-align: left;
+    padding: 0.5rem 0;
 }
 
 .message-header {
@@ -565,25 +733,29 @@ export default {
 }
 
 .message-text {
-    padding: 1rem;
-    background: var(--card-bg);
-    border-radius: 1.25rem;
-    color: var(--text-primary);
     line-height: 1.6;
     font-size: 0.95rem;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 2px 8px var(--shadow-color);
+    color: var(--text-primary);
 }
 
 .ai-message .message-text {
-    border-top-left-radius: 0.25rem;
+    /* Remove bubble styling for AI messages to allow full-width LaTeX */
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    max-width: 100%;
 }
 
 .user-message .message-text {
+    /* Keep bubble styling for user messages */
+    padding: 1rem;
     background: linear-gradient(135deg, #7733ff, #00d4ff);
     color: white;
     border: none;
+    border-radius: 1.25rem;
     border-top-right-radius: 0.25rem;
+    box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .message-attachment {
@@ -819,6 +991,23 @@ export default {
 :deep(.message-text) a {
     color: var(--accent-primary);
     text-decoration: underline;
+}
+
+/* MathLive display math styling */
+:deep(.math-display) {
+    text-align: center !important;
+    margin: 1rem 0 !important;
+    display: block !important;
+    overflow-x: auto;
+}
+
+:deep(.math-error) {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin: 0.5rem 0;
+    display: block;
 }
 
 .user-message :deep(.message-text) code,

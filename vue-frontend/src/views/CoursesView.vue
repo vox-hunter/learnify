@@ -6,37 +6,60 @@
       </h1>
 
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
         <div class="spinner" />
         <p>Loading courses...</p>
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="courses.length === 0" class="empty-state card">
+      <div
+        v-else-if="courses.length === 0"
+        class="empty-state card"
+      >
         <div class="empty-icon">
           📚
         </div>
         <h2>No courses yet</h2>
         <p>Generate your first course to get started!</p>
-        <router-link to="/" class="btn btn-primary">
+        <router-link
+          to="/"
+          class="btn btn-primary"
+        >
           Generate Course
         </router-link>
       </div>
 
       <!-- Courses Grid -->
-      <div v-else class="courses-grid">
-        <div v-for="course in courses" :key="course.course_id || course._id" class="course-card card"
-          @click="openCourse(course.course_id || course._id)">
+      <div
+        v-else
+        class="courses-grid"
+      >
+        <div
+          v-for="course in courses"
+          :key="course.course_id || course._id"
+          class="course-card card"
+          @click="openCourse(course.course_id || course._id)"
+        >
           <div class="course-card-header">
             <h3 class="course-card-title">
               {{ course.course_title || 'Untitled Course' }}
             </h3>
-            <button class="delete-btn" title="Delete course" :disabled="deleting[course.course_id || course._id]"
-              @click.stop="confirmDelete(course.course_id || course._id)">
+            <button
+              class="delete-btn"
+              title="Delete course"
+              :disabled="deleting[course.course_id || course._id]"
+              @click.stop="confirmDelete(course.course_id || course._id)"
+            >
               <!-- Show spinner while deleting -->
               <span v-if="deleting[course.course_id || course._id]">⌛</span>
               <!-- If awaiting confirmation, show inline Delete? prompt in red -->
-              <span v-else-if="pendingDelete[course.course_id || course._id]" class="delete-confirm">Delete?</span>
+              <span
+                v-else-if="pendingDelete[course.course_id || course._id]"
+                class="delete-confirm"
+              >Delete?</span>
               <!-- Default: show X -->
               <span v-else>✖</span>
             </button>

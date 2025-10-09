@@ -2,12 +2,18 @@
   <div class="username-selection">
     <div class="container">
       <div class="username-card">
-        <div v-if="loading" class="loading-state">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
           <div class="spinner" />
           <h2>Setting up your account...</h2>
         </div>
 
-        <div v-else-if="error" class="error-state">
+        <div
+          v-else-if="error"
+          class="error-state"
+        >
           <div class="error-icon">
             ⚠️
           </div>
@@ -15,14 +21,25 @@
           <p class="error-message">
             {{ error }}
           </p>
-          <button class="btn btn-primary" @click="$router.push('/login')">
+          <button
+            class="btn btn-primary"
+            @click="$router.push('/login')"
+          >
             Back to Login
           </button>
         </div>
 
-        <div v-else class="form-state">
+        <div
+          v-else
+          class="form-state"
+        >
           <div class="header">
-            <img v-if="userInfo.picture" :src="userInfo.picture" alt="Profile" class="profile-pic">
+            <img
+              v-if="userInfo.picture"
+              :src="userInfo.picture"
+              alt="Profile"
+              class="profile-pic"
+            >
             <h2>Choose Your Username</h2>
             <p class="welcome-text">
               Welcome, {{ userInfo.name }}!
@@ -32,28 +49,52 @@
             </p>
           </div>
 
-          <form class="username-form" @submit.prevent="completeSignup">
+          <form
+            class="username-form"
+            @submit.prevent="completeSignup"
+          >
             <div class="form-group">
               <label class="form-label">Username</label>
-              <input v-model="username" type="text" class="form-input" required placeholder="Choose a unique username"
-                @input="checkUsername">
-              <p v-if="usernameChecking" class="form-hint checking">
+              <input
+                v-model="username"
+                type="text"
+                class="form-input"
+                required
+                placeholder="Choose a unique username"
+                @input="checkUsername"
+              >
+              <p
+                v-if="usernameChecking"
+                class="form-hint checking"
+              >
                 Checking availability...
               </p>
-              <p v-else-if="usernameAvailable === false" class="form-hint error">
+              <p
+                v-else-if="usernameAvailable === false"
+                class="form-hint error"
+              >
                 Username is already taken
               </p>
-              <p v-else-if="usernameAvailable === true" class="form-hint success">
+              <p
+                v-else-if="usernameAvailable === true"
+                class="form-hint success"
+              >
                 Username is available!
               </p>
             </div>
 
-            <div v-if="submitError" class="alert alert-error">
+            <div
+              v-if="submitError"
+              class="alert alert-error"
+            >
               {{ submitError }}
             </div>
 
-            <button type="submit" :disabled="submitting || !usernameAvailable || usernameChecking"
-              class="btn btn-primary btn-block">
+            <button
+              type="submit"
+              :disabled="submitting || !usernameAvailable || usernameChecking"
+              class="btn btn-primary btn-block"
+            >
               {{ submitting ? 'Creating Account...' : 'Complete Sign Up' }}
             </button>
           </form>
@@ -146,12 +187,18 @@ export default {
 
       try {
         // Complete the OAuth signup with chosen username
-        const response = await api.post('/auth/google/complete', {
-          code: oauthData.value.code,
-          redirect_uri: oauthData.value.redirect_uri,
-          state: oauthData.value.state,
+        const payload = {
           username: username.value
-        })
+        }
+        if (oauthData.value.signup_token) {
+          payload.signup_token = oauthData.value.signup_token
+        } else {
+          // Legacy fallback if user arrived with old storage
+          payload.code = oauthData.value.code
+          payload.redirect_uri = oauthData.value.redirect_uri
+          payload.state = oauthData.value.state
+        }
+        const response = await api.post('/auth/google/complete', payload)
 
         if (response.data.success) {
           // Clear pending data

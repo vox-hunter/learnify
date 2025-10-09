@@ -1,160 +1,291 @@
 <template>
-    <div class="library-view">
-        <div class="container">
-            <!-- In-app notification (shows success / error messages) -->
-            <div v-if="showNotification" :class="['app-notification', notificationType]">
-                {{ notificationMessage }}
-            </div>
-            <div class="library-header">
-                <h1 class="page-title">Course Library</h1>
-                <p class="page-subtitle">Explore and learn from courses created by the community</p>
+  <div class="library-view">
+    <div class="container">
+      <!-- In-app notification (shows success / error messages) -->
+      <div
+        v-if="showNotification"
+        :class="['app-notification', notificationType]"
+      >
+        {{ notificationMessage }}
+      </div>
+      <div class="library-header">
+        <h1 class="page-title">
+          Course Library
+        </h1>
+        <p class="page-subtitle">
+          Explore and learn from courses created by the community
+        </p>
 
-                <!-- Search Bar -->
-                <div class="search-section">
-                    <div class="search-bar">
-                        <input v-model="searchQuery" @keyup.enter="searchCourses" type="text"
-                            placeholder="Search courses by title, topic, or keyword..." class="search-input">
-                        <button @click="searchCourses" class="search-btn" :disabled="loading">
-                            🔍
-                        </button>
-                    </div>
+        <!-- Search Bar -->
+        <div class="search-section">
+          <div class="search-bar">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search courses by title, topic, or keyword..."
+              class="search-input"
+              @keyup.enter="searchCourses"
+            >
+            <button
+              class="search-btn"
+              :disabled="loading"
+              @click="searchCourses"
+            >
+              🔍
+            </button>
+          </div>
 
-                    <!-- Subject Filter -->
-                    <div class="filter-section">
-                        <select v-model="selectedSubject" @change="filterBySubject" class="subject-filter">
-                            <option value="">All Subjects</option>
-                            <option value="mathematics">Mathematics</option>
-                            <option value="science">Science</option>
-                            <option value="history">History</option>
-                            <option value="literature">Literature</option>
-                            <option value="computer_science">Computer Science</option>
-                            <option value="business">Business</option>
-                            <option value="language">Languages</option>
-                            <option value="art">Art & Design</option>
-                            <option value="medicine">Medicine</option>
-                            <option value="engineering">Engineering</option>
-                        </select>
+          <!-- Subject Filter -->
+          <div class="filter-section">
+            <select
+              v-model="selectedSubject"
+              class="subject-filter"
+              @change="filterBySubject"
+            >
+              <option value="">
+                All Subjects
+              </option>
+              <option value="mathematics">
+                Mathematics
+              </option>
+              <option value="science">
+                Science
+              </option>
+              <option value="history">
+                History
+              </option>
+              <option value="literature">
+                Literature
+              </option>
+              <option value="computer_science">
+                Computer Science
+              </option>
+              <option value="business">
+                Business
+              </option>
+              <option value="language">
+                Languages
+              </option>
+              <option value="art">
+                Art & Design
+              </option>
+              <option value="medicine">
+                Medicine
+              </option>
+              <option value="engineering">
+                Engineering
+              </option>
+            </select>
 
-                        <select v-model="sortBy" @change="loadCourses" class="sort-filter">
-                            <option value="created_at">Newest First</option>
-                            <option value="rating">Highest Rated</option>
-                            <option value="popularity_score">Most Popular</option>
-                            <option value="title">Alphabetical</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading State -->
-            <div v-if="loading" class="loading-state">
-                <div class="spinner" />
-                <p>Loading courses...</p>
-            </div>
-
-            <!-- Empty State -->
-            <div v-else-if="courses.length === 0" class="empty-state card">
-                <div class="empty-icon">📚</div>
-                <h2>No courses found</h2>
-                <p v-if="searchQuery">Try searching with different keywords or browse all courses.</p>
-                <p v-else>No public courses available yet. Be the first to create one!</p>
-                <button @click="clearFilters" v-if="searchQuery || selectedSubject" class="btn btn-secondary">
-                    Clear Filters
-                </button>
-            </div>
-
-            <!-- Courses Grid -->
-            <div v-else class="courses-grid">
-                <div v-for="course in courses" :key="course.course_id" class="course-card card">
-                    <div class="course-card-header">
-                        <h3 class="course-card-title">
-                            {{ course.course_title || 'Untitled Course' }}
-                        </h3>
-                        <div class="course-rating" v-if="course.rating > 0">
-                            <span class="stars">
-                                {{ getStarRating(course.rating) }}
-                            </span>
-                            <span class="rating-text">{{ course.rating.toFixed(1) }}</span>
-                            <span class="rating-count">({{ course.total_ratings || 0 }})</span>
-                        </div>
-                    </div>
-
-                    <div class="course-description" v-if="course.description">
-                        <p>{{ course.description }}</p>
-                    </div>
-
-                    <div class="course-card-meta">
-                        <span class="meta-badge">
-                            📚 {{ course.total_sections || 0 }} Sections
-                        </span>
-                        <span class="meta-badge">
-                            ❓ {{ course.total_questions || 0 }} Questions
-                        </span>
-                        <span class="meta-badge" v-if="course.subject">
-                            🏷️ {{ course.subject }}
-                        </span>
-                        <span class="meta-badge">
-                            👤 {{ course.creator || 'Anonymous' }}
-                        </span>
-                        <span class="meta-badge">
-                            📅 {{ formatDate(course.created_at) }}
-                        </span>
-                    </div>
-
-                    <div class="course-tags" v-if="course.tags && course.tags.length > 0">
-                        <span v-for="tag in course.tags.slice(0, 3)" :key="tag" class="tag">
-                            {{ tag }}
-                        </span>
-                    </div>
-
-                    <div class="course-card-footer">
-                        <button @click="viewCourse(course.course_id)" class="btn btn-secondary btn-sm">
-                            View Course
-                        </button>
-                        <button @click="cloneCourse(course.course_id)" class="btn btn-primary btn-sm"
-                            :disabled="cloning[course.course_id]">
-                            <span v-if="!cloning[course.course_id]">Clone & Edit</span>
-                            <span v-else>Cloning...</span>
-                        </button>
-                        <button @click="showRatingModal(course)" class="btn btn-outline btn-sm">
-                            Rate
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Load More Button -->
-            <div v-if="courses.length > 0 && hasMore" class="load-more-section">
-                <button @click="loadMore" class="btn btn-secondary" :disabled="loading">
-                    <span v-if="!loading">Load More</span>
-                    <span v-else>Loading...</span>
-                </button>
-            </div>
+            <select
+              v-model="sortBy"
+              class="sort-filter"
+              @change="loadCourses"
+            >
+              <option value="created_at">
+                Newest First
+              </option>
+              <option value="rating">
+                Highest Rated
+              </option>
+              <option value="popularity_score">
+                Most Popular
+              </option>
+              <option value="title">
+                Alphabetical
+              </option>
+            </select>
+          </div>
         </div>
+      </div>
 
-        <!-- Rating Modal -->
-        <div v-if="showRating" class="modal-overlay" @click="closeRatingModal">
-            <div class="modal-content" @click.stop>
-                <h3>Rate Course</h3>
-                <p>{{ ratingCourse?.course_title }}</p>
+      <!-- Loading State -->
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
+        <div class="spinner" />
+        <p>Loading courses...</p>
+      </div>
 
-                <div class="rating-stars">
-                    <button v-for="star in 5" :key="star" @click="selectRating(star)" class="star-btn"
-                        :class="{ active: star <= selectedRating }">
-                        ⭐
-                    </button>
-                </div>
-
-                <div class="modal-actions">
-                    <button @click="closeRatingModal" class="btn btn-secondary">Cancel</button>
-                    <button @click="submitRating" class="btn btn-primary"
-                        :disabled="selectedRating === 0 || submittingRating">
-                        <span v-if="!submittingRating">Submit Rating</span>
-                        <span v-else>Submitting...</span>
-                    </button>
-                </div>
-            </div>
+      <!-- Empty State -->
+      <div
+        v-else-if="courses.length === 0"
+        class="empty-state card"
+      >
+        <div class="empty-icon">
+          📚
         </div>
+        <h2>No courses found</h2>
+        <p v-if="searchQuery">
+          Try searching with different keywords or browse all courses.
+        </p>
+        <p v-else>
+          No public courses available yet. Be the first to create one!
+        </p>
+        <button
+          v-if="searchQuery || selectedSubject"
+          class="btn btn-secondary"
+          @click="clearFilters"
+        >
+          Clear Filters
+        </button>
+      </div>
+
+      <!-- Courses Grid -->
+      <div
+        v-else
+        class="courses-grid"
+      >
+        <div
+          v-for="course in courses"
+          :key="course.course_id"
+          class="course-card card"
+        >
+          <div class="course-card-header">
+            <h3 class="course-card-title">
+              {{ course.course_title || 'Untitled Course' }}
+            </h3>
+            <div
+              v-if="course.rating > 0"
+              class="course-rating"
+            >
+              <span class="stars">
+                {{ getStarRating(course.rating) }}
+              </span>
+              <span class="rating-text">{{ course.rating.toFixed(1) }}</span>
+              <span class="rating-count">({{ course.total_ratings || 0 }})</span>
+            </div>
+          </div>
+
+          <div
+            v-if="course.description"
+            class="course-description"
+          >
+            <p>{{ course.description }}</p>
+          </div>
+
+          <div class="course-card-meta">
+            <span class="meta-badge">
+              📚 {{ course.total_sections || 0 }} Sections
+            </span>
+            <span class="meta-badge">
+              ❓ {{ course.total_questions || 0 }} Questions
+            </span>
+            <span
+              v-if="course.subject"
+              class="meta-badge"
+            >
+              🏷️ {{ course.subject }}
+            </span>
+            <span class="meta-badge">
+              👤 {{ course.creator || 'Anonymous' }}
+            </span>
+            <span class="meta-badge">
+              📅 {{ formatDate(course.created_at) }}
+            </span>
+          </div>
+
+          <div
+            v-if="course.tags && course.tags.length > 0"
+            class="course-tags"
+          >
+            <span
+              v-for="tag in course.tags.slice(0, 3)"
+              :key="tag"
+              class="tag"
+            >
+              {{ tag }}
+            </span>
+          </div>
+
+          <div class="course-card-footer">
+            <button
+              class="btn btn-secondary btn-sm"
+              @click="viewCourse(course.course_id)"
+            >
+              View Course
+            </button>
+            <button
+              class="btn btn-primary btn-sm"
+              :disabled="cloning[course.course_id]"
+              @click="cloneCourse(course.course_id)"
+            >
+              <span v-if="!cloning[course.course_id]">Clone & Edit</span>
+              <span v-else>Cloning...</span>
+            </button>
+            <button
+              class="btn btn-outline btn-sm"
+              :disabled="hasUserRated(course.course_id)"
+              @click="showRatingModal(course)"
+              :title="hasUserRated(course.course_id) ? 'You have already rated this course' : 'Rate this course'"
+            >
+              {{ hasUserRated(course.course_id) ? 'Rated' : 'Rate' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Load More Button -->
+      <div
+        v-if="courses.length > 0 && hasMore"
+        class="load-more-section"
+      >
+        <button
+          class="btn btn-secondary"
+          :disabled="loading"
+          @click="loadMore"
+        >
+          <span v-if="!loading">Load More</span>
+          <span v-else>Loading...</span>
+        </button>
+      </div>
     </div>
+
+    <!-- Rating Modal -->
+    <div
+      v-if="showRating"
+      class="modal-overlay"
+      @click="closeRatingModal"
+    >
+      <div
+        class="modal-content"
+        @click.stop
+      >
+        <h3>Rate Course</h3>
+        <p>{{ ratingCourse?.course_title }}</p>
+
+        <div class="rating-stars">
+          <button
+            v-for="star in 5"
+            :key="star"
+            class="star-btn"
+            :class="{ active: star <= selectedRating }"
+            @click="selectRating(star)"
+          >
+            ⭐
+          </button>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn btn-secondary"
+            @click="closeRatingModal"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="selectedRating === 0 || submittingRating"
+            @click="submitRating"
+          >
+            <span v-if="!submittingRating">Submit Rating</span>
+            <span v-else>Submitting...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -187,6 +318,41 @@ export default {
         const submittingRating = ref(false)
 
         const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+        // Track user ratings in localStorage
+        const getUserRatingsKey = () => {
+            const username = authStore.user?.username || 'guest'
+            return `user_ratings_${username}`
+        }
+
+        const hasUserRated = (courseId) => {
+            const ratingsKey = getUserRatingsKey()
+            const ratingsData = localStorage.getItem(ratingsKey)
+            if (!ratingsData) return false
+            try {
+                const ratings = JSON.parse(ratingsData)
+                return ratings.includes(courseId)
+            } catch (e) {
+                return false
+            }
+        }
+
+        const markCourseAsRated = (courseId) => {
+            const ratingsKey = getUserRatingsKey()
+            const ratingsData = localStorage.getItem(ratingsKey)
+            let ratings = []
+            if (ratingsData) {
+                try {
+                    ratings = JSON.parse(ratingsData)
+                } catch (e) {
+                    ratings = []
+                }
+            }
+            if (!ratings.includes(courseId)) {
+                ratings.push(courseId)
+                localStorage.setItem(ratingsKey, JSON.stringify(ratings))
+            }
+        }
 
         // In-app notification state
         const showNotification = ref(false)
@@ -281,6 +447,11 @@ export default {
         }
 
         const showRatingModal = (course) => {
+            // Check if user is authenticated
+            if (!isAuthenticated.value) {
+                showNotificationMessage('Please log in to rate courses', 'error', 3000)
+                return
+            }
             ratingCourse.value = course
             selectedRating.value = 0
             showRating.value = true
@@ -302,8 +473,18 @@ export default {
             const courseToRate = ratingCourse.value
             const ratingValue = selectedRating.value
 
+            // Check if user already rated this course
+            if (hasUserRated(courseToRate.course_id)) {
+                closeRatingModal()
+                showNotificationMessage('You have already rated this course', 'error', 3000)
+                return
+            }
+
             // Close modal immediately for instant feedback
             closeRatingModal()
+
+            // Mark course as rated locally
+            markCourseAsRated(courseToRate.course_id)
 
             // Optimistic UI update: adjust course rating locally
             const originalCourse = courses.value.find(c => c.course_id === courseToRate.course_id)
@@ -387,6 +568,7 @@ export default {
             submitRating,
             getStarRating,
             formatDate,
+            hasUserRated,
             // notification state for template
             showNotification,
             notificationMessage,
