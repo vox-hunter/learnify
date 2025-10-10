@@ -39,209 +39,189 @@
               <img
                 src="/STITCH.png"
                 alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
               >
             </span>
           </div>
-          <div
-            v-if="reachedNgLimit"
-            class="ng-limit-block"
-          >
+          <div class="message-content">
+            <div class="message-header">
+              <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'Stitch' }}</span>
+              <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+            </div>
             <div
-              class="danger-warning"
-              style="margin-bottom:0.75rem"
+              class="message-text"
+              v-html="formatMessage(msg.text, msg.role)"
+            />
+            <div
+              v-if="msg.attachment"
+              class="message-attachment"
             >
-              <strong>You've reached the free chat limit.</strong>
-              <p style="margin:0.25rem 0 0; color:var(--text-muted)">
-                Link your Google account to continue chatting with your personal quota.
-              </p>
+              <span class="attachment-icon">📎</span>
+              <span class="attachment-name">{{ msg.attachment.name }}</span>
             </div>
-            <div class="input-group">
-              <button
-                class="btn btn-primary"
-                @click.prevent="linkGoogleAccount"
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div
+          v-if="isLoading"
+          class="message ai-message loading"
+        >
+          <div class="message-avatar">
+            <span>
+              <img
+                src="/STITCH.png"
+                alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
               >
-                Link Google Account
-              </button>
+            </span>
+          </div>
+          <div class="message-content">
+            <div class="typing-indicator">
+              <span />
+              <span />
+              <span />
             </div>
           </div>
         </div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'Stitch' }}</span>
-            <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-          </div>
-          <div
-            class="message-text"
-            v-html="formatMessage(msg.text, msg.role)"
-          />
-          <div
-            v-if="msg.attachment"
-            class="message-attachment"
-          >
-            <span class="attachment-icon">📎</span>
-            <span class="attachment-name">{{ msg.attachment.name }}</span>
-          </div>
-        </div>
       </div>
 
-      <!-- Loading Indicator -->
-      <div
-        v-if="isLoading"
-        class="message ai-message loading"
-      >
-        <div class="message-avatar">
-          <span>
-            <img
-              src="/STITCH.png"
-              alt="Stitch Logo"
-              class="stitch-logo"
-              style="width:2em;height:2em;vertical-align:middle;"
+      <!-- Input Area -->
+      <div class="chat-input-container">
+        <div
+          v-if="selectedFile || urlInput"
+          class="attachment-preview"
+        >
+          <div
+            v-if="selectedFile"
+            class="preview-item"
+          >
+            <span class="preview-icon">📄</span>
+            <span class="preview-name">{{ selectedFile.name }}</span>
+            <button
+              class="preview-remove"
+              @click="removeFile"
             >
-          </span>
-        </div>
-        <div class="message-content">
-          <div class="typing-indicator">
-            <span />
-            <span />
-            <span />
+              ×
+            </button>
+          </div>
+          <div
+            v-if="urlInput"
+            class="preview-item"
+          >
+            <span class="preview-icon">🔗</span>
+            <span class="preview-name">{{ urlInput }}</span>
+            <button
+              class="preview-remove"
+              @click="removeUrl"
+            >
+              ×
+            </button>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Input Area -->
-    <div class="chat-input-container">
-      <div
-        v-if="selectedFile || urlInput"
-        class="attachment-preview"
-      >
         <div
-          v-if="selectedFile"
-          class="preview-item"
+          v-if="error"
+          class="chat-error"
         >
-          <span class="preview-icon">📄</span>
-          <span class="preview-name">{{ selectedFile.name }}</span>
-          <button
-            class="preview-remove"
-            @click="removeFile"
+          {{ error }}
+        </div>
+
+        <div
+          v-if="reachedNgLimit"
+          class="ng-limit-block"
+        >
+          <div
+            class="danger-warning"
+            style="margin-bottom:0.75rem"
           >
-            ×
-          </button>
+            <strong>You've reached the free chat limit.</strong>
+            <p style="margin:0.25rem 0 0; color:var(--text-muted)">
+              Link your Google account to continue
+              chatting with your personal quota, or visit the Danger Zone in your account.
+            </p>
+          </div>
+          <div class="input-group">
+            <button
+              class="btn btn-primary"
+              @click.prevent="goToDangerZone"
+            >
+              Go to Danger Zone
+            </button>
+            <button
+              class="btn"
+              style="margin-left:0.5rem"
+              @click.prevent="linkGoogleAccount"
+            >
+              Link Google
+              Account
+            </button>
+          </div>
         </div>
         <div
-          v-if="urlInput"
-          class="preview-item"
-        >
-          <span class="preview-icon">🔗</span>
-          <span class="preview-name">{{ urlInput }}</span>
-          <button
-            class="preview-remove"
-            @click="removeUrl"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
-      <div
-        v-if="error"
-        class="chat-error"
-      >
-        {{ error }}
-      </div>
-
-      <div
-        v-if="reachedNgLimit"
-        class="ng-limit-block"
-      >
-        <div
-          class="danger-warning"
-          style="margin-bottom:0.75rem"
-        >
-          <strong>You've reached the free chat limit.</strong>
-          <p style="margin:0.25rem 0 0; color:var(--text-muted)">
-            Link your Google account to continue chatting with your personal quota.
-          </p>
-        </div>
-        <div class="input-group">
-          <button
-            class="btn btn-primary"
-            @click.prevent="linkGoogleAccount"
-          >
-            Link Google Account
-          </button>
-        </div>
-      </div>
-      <div
-        v-else
-        class="input-group"
-      >
-        <label
-          class="input-btn file-btn"
-          title="Upload file"
-        >
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-            hidden
-            @change="handleFileSelect"
-          >
-          📎
-        </label>
-
-        <button
-          class="input-btn url-btn"
-          :class="{ active: showUrlInput }"
-          title="Add URL"
-          @click="toggleUrlInput"
-        >
-          🔗
-        </button>
-
-        <input
-          v-if="showUrlInput"
-          v-model="urlInput"
-          type="url"
-          class="url-input"
-          placeholder="Paste URL here..."
-          @keydown.enter="handleUrlSubmit"
-          @keydown.esc="showUrlInput = false"
-        >
-
-        <input
           v-else
-          v-model="messageInput"
-          type="text"
-          class="message-input"
-          placeholder="Ask Stitch or upload notes..."
-          :disabled="isLoading"
-          @keydown.enter="sendMessage"
+          class="input-group"
         >
+          <label
+            class="input-btn file-btn"
+            title="Upload file"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+              hidden
+              @change="handleFileSelect"
+            >
+            📎
+          </label>
 
-        <button
-          class="input-btn send-btn"
-          :disabled="!canSend || isLoading"
-          @click="sendMessage"
-        >
-          {{
-            isLoading ? '⏳' : '🚀' }}
-        </button>
+          <button
+            class="input-btn url-btn"
+            :class="{ active: showUrlInput }"
+            title="Add URL"
+            @click="toggleUrlInput"
+          >
+            🔗
+          </button>
+
+          <input
+            v-if="showUrlInput"
+            v-model="urlInput"
+            type="url"
+            class="url-input"
+            placeholder="Paste URL here..."
+            @keydown.enter="handleUrlSubmit"
+            @keydown.esc="showUrlInput = false"
+          >
+
+          <input
+            v-else
+            v-model="messageInput"
+            type="text"
+            class="message-input"
+            placeholder="Ask Stitch or upload notes..."
+            :disabled="isLoading"
+            @keydown.enter="sendMessage"
+          >
+
+          <button
+            class="input-btn send-btn"
+            :disabled="!canSend || isLoading"
+            @click="sendMessage"
+          >
+            {{
+              isLoading ? '⏳' : '🚀' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-// Utility for CSRF state
-function generateRandomState(length = 16) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let result = ''
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return result
-}
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
@@ -333,29 +313,16 @@ export default {
         })
 
         const linkGoogleAccount = async () => {
-                        try {
-                                // Generate state for CSRF protection
-                                const state = generateRandomState()
-                                localStorage.setItem('oauth_state', state)
-                                localStorage.setItem('oauth_link_mode', 'true')
-
-                                // Determine redirect URI based on current host
-                                const redirectUri = `${window.location.origin}/auth/google/callback`
-
-                                // Get Google OAuth URL from backend (POST)
-                                const response = await api.post('/auth/google/url', {
-                                    redirect_uri: redirectUri,
-                                    state: state
-                                })
-
-                                if (response.data.success && response.data.auth_url) {
-                                    window.location.href = response.data.auth_url
-                                } else {
-                                    error.value = 'Failed to get Google login URL.'
-                                }
-                        } catch (e) {
-                                error.value = 'Failed to get Google login URL.'
-                        }
+            try {
+                const resp = await api.get('/auth/google/url')
+                if (resp.data?.url) {
+                    window.location.href = resp.data.url
+                } else {
+                    error.value = 'Failed to get Google login URL.'
+                }
+            } catch (e) {
+                error.value = 'Failed to get Google login URL.'
+            }
         }
 
         const scrollToBottom = () => {
