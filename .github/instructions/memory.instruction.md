@@ -32,7 +32,60 @@ applyTo: '**'
 - Implemented robust Markdown + LaTeX rendering in chat
 - Previous attempt rendered math incorrectly; now uses markdown-it-katex
 - All steps completed and tested
+- **Current Task**: Transform chat into persistent, course-linked, context-aware system with chat history, resuming, and dynamic interaction
 
-## Notes
-- If further Markdown/LaTeX issues arise, check delimiters and KaTeX CSS
-- For new features, follow Context7 and official docs first
+## Current Implementation Task
+**Status**: ✅ COMPLETED
+
+**Goal**: Persistent chat system with course linking, history, and resume capability
+
+### Completed Features:
+1. ✅ Backend MongoDB chat persistence
+   - Created `mongo_chat_manager.py` with full CRUD operations
+   - Chat schema supports user ownership, course linking, messages array
+   - Indexes created for efficient querying
+   
+2. ✅ Backend API endpoints
+   - POST `/chats/create` - Create new chat
+   - GET `/chats/user/{username}` - Get all user chats
+   - GET `/chats/{chat_id}` - Get specific chat
+   - GET `/chats/course/{username}/{course_id}` - Get/create course chat
+   - PUT `/chats/{chat_id}/title` - Update chat title
+   - DELETE `/chats/{chat_id}` - Soft delete chat
+   - Updated POST `/chat/message` to persist messages to MongoDB
+   
+3. ✅ Frontend chat store (`stores/chat.js`)
+   - State management for chats list and current chat
+   - Actions for all CRUD operations
+   - Integration with API endpoints
+   
+4. ✅ Updated Sidebar.vue
+   - Changed "Chat" to "Chats" with dropdown
+   - Lists past chat sessions sorted by updated_at
+   - Click to resume chat
+   - Shows chat title and relative timestamp
+   
+5. ✅ Updated ChatView.vue
+   - Loads chat from URL query parameter `?chat_id=`
+   - Persists messages to MongoDB automatically
+   - Resume functionality with history context injection (one-time, silent)
+   - Tracks `resumedWithHistory` flag to inject history only once
+   - Updates chat store on message send
+   
+6. ✅ Added Edit buttons to CoursesView.vue
+   - Pencil + sparkles icon (✏️✨)
+   - Opens course-linked chat
+   - Auto-creates chat if doesn't exist
+   - Navigates to chat view with course context
+
+### Resume Behavior:
+- When resuming a chat, the first message injects full history as context
+- History wrapped with `[Previous conversation context...]` prefix
+- Gemini receives context but user doesn't see the injection
+- Flag `resumedWithHistory` prevents re-injection on subsequent messages
+
+### Course Chat Linking:
+- Each course can have dedicated chat thread
+- Chat stored with `course_id` field in MongoDB
+- Edit button creates/opens course chat
+- Course context maintained across sessions

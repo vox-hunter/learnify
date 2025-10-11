@@ -32,6 +32,7 @@ sys.path.insert(0, str(backend_dir))
 from local_backend import generate_course, validate_short_answer_with_ai
 from mongo_auth import MongoAuthManager
 from mongo_course_manager import MongoCourseManager, get_session_id
+from mongo_chat_manager import MongoChatManager
 from file_security import validate_file_security
 from chat_manager import ChatSessionManager
 from google_oauth_fastapi import (
@@ -85,6 +86,7 @@ app.add_middleware(
 # Initialize managers
 auth_manager = None
 course_manager = None
+chat_db_manager = None  # MongoDB chat manager
 # Note: chat_manager is NOT initialized globally - created per-request with user credentials
 
 # In-memory store for pending Google signups (short-lived)
@@ -104,10 +106,11 @@ def _cleanup_pending_signups(max_age_seconds: int = 600):
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global auth_manager, course_manager
+    global auth_manager, course_manager, chat_db_manager
     try:
         auth_manager = MongoAuthManager()
         course_manager = MongoCourseManager()
+        chat_db_manager = MongoChatManager()
         # chat_manager is created per-request with user OAuth credentials
     except Exception as e:
         print(f"Warning: Could not initialize managers: {e}")
@@ -1275,26 +1278,32 @@ async def delete_course(course_id: str, username: Optional[str] = None):
 async def chat_message(
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
+    chat_id: Optional[str] = Form(None),  # MongoDB chat ID
     file: Optional[UploadFile] = File(None),
     url: Optional[str] = Form(None),
-    username: Optional[str] = Form(None)
+    username: Optional[str] = Form(None),
+    course_id: Optional[str] = Form(None)  # For course-linked chats
 ):
     """
     Send a message to the AI chat with optional file or URL context.
     Uses Gemini SDK's multi-turn chat API for conversation management.
+    Also persists messages to MongoDB for history.
     
     Args:
         message: User's text message
-        session_id: Optional existing session ID to continue conversation
+        session_id: Optional existing Gemini session ID to continue conversation
+        chat_id: Optional MongoDB chat ID for persistence
         file: Optional file upload for context
         url: Optional URL for AI to fetch and analyze
         username: Optional username for OAuth credentials
+        course_id: Optional course ID to link chat to
         
     Returns:
         {
             "success": bool,
             "reply": str,
             "session_id": str,
+            "chat_id": str,
             "error": Optional[str]
         }
     """
@@ -1316,8 +1325,42 @@ async def chat_message(
                 "success": True,
                 "reply": GUEST_FAKE_REPLY,
                 "session_id": "",
+                "chat_id": "",
                 "is_course": False
             }
+
+        # Get or create persistent chat in MongoDB
+        persistent_chat = None
+        if chat_db_manager and username:
+            try:
+                if chat_id:
+                    # Get existing chat
+                    persistent_chat = chat_db_manager.get_chat(chat_id)
+                    # Load session_id from persistent chat if available
+                    if persistent_chat and not session_id:
+                        session_id = persistent_chat.get('session_id')
+                elif course_id:
+                    # Get or create course-linked chat
+                    persistent_chat = chat_db_manager.get_course_chat(username, course_id)
+                    if not persistent_chat:
+                        persistent_chat = chat_db_manager.create_chat(
+                            user_id=username,
+                            course_id=course_id,
+                            title="Course Chat"
+                        )
+                    # Load session_id if available
+                    if persistent_chat and not session_id:
+                        session_id = persistent_chat.get('session_id')
+                else:
+                    # Create new general chat
+                    persistent_chat = chat_db_manager.create_chat(
+                        user_id=username,
+                        title=None  # Auto-generated
+                    )
+                
+                chat_id = persistent_chat.get('chat_id') if persistent_chat else None
+            except Exception as e:
+                logger.warning(f"Failed to handle persistent chat: {e}")
 
         # Retrieve user's Gemini OAuth credentials if authenticated
         user_credentials = None
@@ -1345,6 +1388,7 @@ async def chat_message(
                         "success": True,
                         "reply": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
                         "session_id": "",
+                        "chat_id": chat_id or "",
                         "is_course": False
                     }
                 # Increment usage and allow request to proceed
@@ -1353,6 +1397,22 @@ async def chat_message(
                 usage[username] = current + 1
                 globals()['_NON_OAUTH_CHAT_USAGE'] = usage
                 logger.info(f"Non-OAuth chat usage for {username}: {usage[username]}")
+        
+        # Save user message to MongoDB
+        if chat_db_manager and chat_id:
+            attachment_meta = None
+            if file:
+                attachment_meta = {
+                    "name": file.filename,
+                    "type": file.content_type or "application/octet-stream"
+                }
+            
+            chat_db_manager.add_message(
+                chat_id=chat_id,
+                role='user',
+                text=message,
+                attachment=attachment_meta
+            )
         
         # Create chat manager with user credentials
         chat_manager = ChatSessionManager(
@@ -1400,11 +1460,24 @@ async def chat_message(
         if not result['success']:
             raise HTTPException(status_code=500, detail=result.get('error', 'Chat processing failed'))
         
+        # Save assistant response to MongoDB
+        if chat_db_manager and chat_id:
+            chat_db_manager.add_message(
+                chat_id=chat_id,
+                role='assistant',
+                text=result['reply']
+            )
+            
+            # Update session_id in MongoDB
+            if result['session_id']:
+                chat_db_manager.update_session_id(chat_id, result['session_id'])
+        
         # Return enhanced response with course detection
         return {
             "success": True,
             "reply": result['reply'],
             "session_id": result['session_id'],
+            "chat_id": chat_id or "",
             "is_course": result.get('is_course', False),
             "course_data": result.get('course_data')
         }
@@ -1471,6 +1544,200 @@ async def delete_chat_session(
         "success": True,
         "message": "Session deleted successfully"
     }
+
+# Persistent Chat Management Endpoints
+@app.post("/chats/create")
+async def create_persistent_chat(
+    username: str = Form(...),
+    title: Optional[str] = Form(None),
+    course_id: Optional[str] = Form(None)
+):
+    """
+    Create a new persistent chat
+    
+    Args:
+        username: User identifier
+        title: Optional chat title
+        course_id: Optional course ID to link chat to
+        
+    Returns:
+        Created chat document
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        # Check if course-linked chat already exists
+        if course_id:
+            existing = chat_db_manager.get_course_chat(username, course_id)
+            if existing:
+                return existing
+        
+        chat = chat_db_manager.create_chat(
+            user_id=username,
+            title=title,
+            course_id=course_id
+        )
+        
+        return chat
+        
+    except Exception as e:
+        logger.error(f"Error creating chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chats/user/{username}")
+async def get_user_persistent_chats(
+    username: str,
+    include_inactive: bool = False
+):
+    """
+    Get all chats for a user
+    
+    Args:
+        username: User identifier
+        include_inactive: Include deleted/inactive chats
+        
+    Returns:
+        List of chat documents
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        chats = chat_db_manager.get_user_chats(
+            user_id=username,
+            include_inactive=include_inactive
+        )
+        
+        return {"chats": chats}
+        
+    except Exception as e:
+        logger.error(f"Error getting user chats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chats/course/{username}/{course_id}")
+async def get_course_persistent_chat(username: str, course_id: str):
+    """
+    Get the chat linked to a specific course
+    
+    Args:
+        username: User identifier
+        course_id: Course identifier
+        
+    Returns:
+        Chat document or creates new one if doesn't exist
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        chat = chat_db_manager.get_course_chat(username, course_id)
+        
+        # Auto-create course chat if it doesn't exist
+        if not chat:
+            chat = chat_db_manager.create_chat(
+                user_id=username,
+                course_id=course_id,
+                title=f"Course Chat"
+            )
+        
+        return chat
+        
+    except Exception as e:
+        logger.error(f"Error getting/creating course chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chats/{chat_id}")
+async def get_persistent_chat(chat_id: str):
+    """
+    Get a specific chat by ID
+    
+    Args:
+        chat_id: Chat identifier
+        
+    Returns:
+        Chat document
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        chat = chat_db_manager.get_chat(chat_id)
+        
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        return chat
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/chats/{chat_id}/title")
+async def update_chat_title(
+    chat_id: str,
+    title: str = Form(...)
+):
+    """
+    Update chat title
+    
+    Args:
+        chat_id: Chat identifier
+        title: New title
+        
+    Returns:
+        Success status
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        success = chat_db_manager.update_title(chat_id, title)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        return {"success": True}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating chat title: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/chats/{chat_id}")
+async def delete_persistent_chat(
+    chat_id: str,
+    username: str = Form(...)
+):
+    """
+    Delete a persistent chat
+    
+    Args:
+        chat_id: Chat identifier
+        username: User identifier (for verification)
+        
+    Returns:
+        Success status
+    """
+    if not chat_db_manager:
+        raise HTTPException(status_code=503, detail="Chat manager unavailable")
+    
+    try:
+        success = chat_db_manager.delete_chat(chat_id, username)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Chat not found or unauthorized")
+        
+        return {"success": True}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Analytics endpoints
 @app.get("/analytics/courses")
