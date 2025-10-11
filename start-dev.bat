@@ -69,7 +69,7 @@ echo.
 
 REM Start backend in new window
 echo [INFO] Starting FastAPI backend...
-start "Learnify Backend" cmd /k "cd api && uvicorn main:app --reload"
+start "Learnify Backend" cmd /k "cd api && ..\venv\Scripts\activate.bat && python main.py"
 
 REM Wait a bit for backend to start
 timeout /t 3 /nobreak >nul

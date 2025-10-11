@@ -41,54 +41,41 @@
           v-for="course in courses"
           :key="course.course_id || course._id"
           class="course-card card"
+          @click="openCourse(course.course_id || course._id)"
         >
-          <div
-            class="course-card-content"
-            @click="openCourse(course.course_id || course._id)"
-          >
-            <div class="course-card-header">
-              <h3 class="course-card-title">
-                {{ course.course_title || 'Untitled Course' }}
-              </h3>
-              <div class="course-actions">
-                <button
-                  class="edit-btn"
-                  title="Edit with AI"
-                  @click.stop="() => openCourseChat(course.course_id || course._id)"
-                >
-                  ✏️✨
-                </button>
-                <button
-                  class="delete-btn"
-                  title="Delete course"
-                  :disabled="deleting[course.course_id || course._id]"
-                  @click.stop="confirmDelete(course.course_id || course._id)"
-                >
-                  <!-- Show spinner while deleting -->
-                  <span v-if="deleting[course.course_id || course._id]">⌛</span>
-                  <!-- If awaiting confirmation, show inline Delete? prompt in red -->
-                  <span
-                    v-else-if="pendingDelete[course.course_id || course._id]"
-                    class="delete-confirm"
-                  >Delete?</span>
-                  <!-- Default: show X -->
-                  <span v-else>✖</span>
-                </button>
-              </div>
-            </div>
-            <div class="course-card-meta">
-              <span class="meta-badge">
-                📚 {{ course.sections?.length || 0 }} Sections
-              </span>
-              <span class="meta-badge">
-                {{ formatDate(course.created_at) }}
-              </span>
-            </div>
-            <div class="course-card-footer">
-              <button class="btn btn-primary btn-sm">
-                Open Course →
-              </button>
-            </div>
+          <div class="course-card-header">
+            <h3 class="course-card-title">
+              {{ course.course_title || 'Untitled Course' }}
+            </h3>
+            <button
+              class="delete-btn"
+              title="Delete course"
+              :disabled="deleting[course.course_id || course._id]"
+              @click.stop="confirmDelete(course.course_id || course._id)"
+            >
+              <!-- Show spinner while deleting -->
+              <span v-if="deleting[course.course_id || course._id]">⌛</span>
+              <!-- If awaiting confirmation, show inline Delete? prompt in red -->
+              <span
+                v-else-if="pendingDelete[course.course_id || course._id]"
+                class="delete-confirm"
+              >Delete?</span>
+              <!-- Default: show X -->
+              <span v-else>✖</span>
+            </button>
+          </div>
+          <div class="course-card-meta">
+            <span class="meta-badge">
+              📚 {{ course.sections?.length || 0 }} Sections
+            </span>
+            <span class="meta-badge">
+              {{ formatDate(course.created_at) }}
+            </span>
+          </div>
+          <div class="course-card-footer">
+            <button class="btn btn-primary btn-sm">
+              Open Course →
+            </button>
           </div>
         </div>
       </div>
@@ -100,16 +87,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
-import { useChatStore } from '../stores/chat'
-import { useAuthStore } from '../stores/auth'
 
 export default {
   name: 'CoursesView',
   setup() {
     const router = useRouter()
     const courseStore = useCourseStore()
-    const chatStore = useChatStore()
-    const authStore = useAuthStore()
 
     const loading = ref(true)
     const courses = ref([])
@@ -153,25 +136,6 @@ export default {
 
     const openCourse = (courseId) => {
       router.push(`/course/${courseId}`)
-    }
-
-    const openCourseChat = async (courseId) => {
-      if (!authStore.user?.username) {
-        showNotification('Please login to use course chat', 'error')
-        return
-      }
-
-      try {
-        // Get or create course chat
-        const chat = await chatStore.getCourseChat(authStore.user.username, courseId)
-        if (chat) {
-          // Navigate to chat with course context
-          router.push(`/?chat_id=${chat.chat_id}`)
-        }
-      } catch (err) {
-        console.error('Failed to open course chat:', err)
-        showNotification('Failed to open course chat', 'error')
-      }
     }
 
     const formatDate = (dateString) => {
@@ -233,7 +197,6 @@ export default {
       pendingDelete,
       confirmDelete,
       openCourse,
-      openCourseChat,
       formatDate
     }
   }
@@ -288,18 +251,12 @@ export default {
 }
 
 .course-card {
+  cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   height: 100%;
   position: relative;
-}
-
-.course-card-content {
-  cursor: pointer;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .course-card:hover {
@@ -315,9 +272,6 @@ export default {
 .course-card-header {
   flex: 1;
   margin-bottom: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
 }
 
 .course-card-title {
@@ -326,37 +280,19 @@ export default {
   color: var(--accent-primary);
   margin-bottom: 0.5rem;
   line-height: 1.3;
-  flex: 1;
-  padding-right: 0.5rem;
 }
 
-.course-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.edit-btn,
 .delete-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.9rem;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.edit-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--accent-primary);
-  transform: scale(1.1);
-}
-
-.delete-btn:hover:not(:disabled) {
-  background: rgba(255, 77, 77, 0.1);
-  color: #ff4d4d;
 }
 
 .delete-btn:disabled {

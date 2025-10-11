@@ -223,10 +223,9 @@
 
 <script>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
-import { useChatStore } from '../stores/chat'
 import api from '../services/api'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
@@ -234,23 +233,9 @@ import DOMPurify from 'dompurify'
 export default {
     name: 'ChatView',
     setup() {
-        // ...existing code...
-        // Watch for clearing current chat (New Chat) after stores are initialized
-        nextTick(() => {
-            watch(() => chatStore.currentChat, (newVal) => {
-                if (newVal === null) {
-                    chatId.value = null
-                    sessionId.value = null
-                    messages.value = []
-                    resumedWithHistory.value = false
-                }
-            })
-        })
         const router = useRouter()
-        const route = useRoute()
         const courseStore = useCourseStore()
         const authStore = useAuthStore()
-        const chatStore = useChatStore()
 
         // State
         const messages = ref([])
@@ -263,8 +248,6 @@ export default {
         const error = ref(null)
         const showUrlInput = ref(false)
         const sessionId = ref(null)
-        const chatId = ref(null)
-        const resumedWithHistory = ref(false)  // Track if we've injected history for resume
 
         const examplePrompts = [
             'Create a course about Python basics',
@@ -319,47 +302,6 @@ export default {
             typesetMath()
         }, { deep: true })
 
-        // Load chat by ID helper (must be defined before watcher)
-        const loadChatById = async (id) => {
-            if (!id) return
-
-            try {
-                const chat = await chatStore.loadChat(id)
-                if (chat) {
-                    chatId.value = chat.chat_id
-                    sessionId.value = chat.session_id || null
-                    // Convert MongoDB messages to UI format
-                    messages.value = (chat.messages || []).map(msg => ({
-                        role: msg.role,
-                        text: msg.text,
-                        timestamp: new Date(msg.timestamp).getTime(),
-                        attachment: msg.attachment || null
-                    }))
-                    resumedWithHistory.value = false  // Reset on load
-                    scrollToBottom()
-                }
-            } catch (err) {
-                console.error('Failed to load chat:', err)
-            }
-        }
-
-        // Watch for chat_id changes in route query
-        const chatIdWatcher = async (newChatId) => {
-            if (newChatId && newChatId !== chatId.value) {
-                // Only load if chat_id is non-empty and not null
-                if (typeof newChatId === 'string' && newChatId.trim() !== '') {
-                    await loadChatById(newChatId)
-                } else {
-                    // Reset state if chat_id is missing or empty
-                    chatId.value = null
-                    sessionId.value = null
-                    messages.value = []
-                    resumedWithHistory.value = false
-                }
-            }
-        }
-        watch(() => route.query.chat_id, chatIdWatcher, { immediate: true })
-
         const showGoogleLinkButton = computed(() => {
             if (!messages.value.length) return false
             const last = messages.value[messages.value.length - 1]
@@ -394,7 +336,7 @@ export default {
             return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
 
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
         const formatMessage = (text, role = 'assistant') => {
             if (!text) return ''
@@ -421,8 +363,6 @@ export default {
                 }
             })
         }
-
-        // ...existing code...
 
         const handleFileSelect = (e) => {
             const f = e.target.files?.[0]
@@ -463,18 +403,6 @@ export default {
             const userMessage = messageInput.value.trim()
             const url = urlInput.value.trim()
             const file = selectedFile.value
-
-            // Check if this is a resumed chat and we need to inject history
-            let messageToSend = userMessage || 'Please analyze this content'
-            if (chatId.value && !resumedWithHistory.value && messages.value.length > 0) {
-                // Inject history context only once when resuming
-                const historyContext = messages.value.slice(0, -1).map(msg => 
-                    `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.text}`
-                ).join('\n')
-                
-                messageToSend = `[Previous conversation context for continuity - do not acknowledge this directly]:\n${historyContext}\n\n[Current message]: ${userMessage || 'Please analyze this content'}`
-                resumedWithHistory.value = true
-            }
 
             const userMsg = {
                 role: 'user',
@@ -518,9 +446,8 @@ export default {
                 }
 
                 const formData = new FormData()
-                formData.append('message', messageToSend)
+                formData.append('message', userMessage || 'Please analyze this content')
                 if (sessionId.value) formData.append('session_id', sessionId.value)
-                if (chatId.value) formData.append('chat_id', chatId.value)
                 if (file) formData.append('file', file)
                 if (url) formData.append('url', url)
                 if (authStore.user?.username) formData.append('username', authStore.user.username)
@@ -530,45 +457,19 @@ export default {
                 if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
 
                 sessionId.value = response.data.session_id
-                chatId.value = response.data.chat_id || chatId.value
+                localStorage.setItem('chat_session_id', sessionId.value)
 
-                // Update chat store with new chat ID if created
-                if (response.data.chat_id && authStore.user?.username) {
-                    await chatStore.loadUserChats(authStore.user.username)
-                }
-
-                // Detect course generation (raw JSON)
                 if (response.data.is_course && response.data.course_data) {
-                    const courseTitle = response.data.course_data.course_title
-                    const saveResult = await courseStore.saveCourse(response.data.course_data.sections, courseTitle)
+                    const saveResult = await courseStore.saveCourse(response.data.course_data.sections, response.data.course_data.course_title)
                     if (saveResult.success) {
-                        // Show clickable link instead of raw JSON
-                        messages.value.push({
-                            role: 'system',
-                            text: `<a href='/course/${saveResult.courseId}' class='course-link' style='color:var(--accent-primary);text-decoration:underline;'>(${courseTitle}) generated</a>`,
-                            timestamp: Date.now()
-                        })
+                        messages.value.push({ role: 'system', text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`, timestamp: Date.now() })
                         scrollToBottom()
                         setTimeout(() => router.push(`/course/${saveResult.courseId}`), 1200)
                     } else {
                         throw new Error(saveResult.error || 'Failed to save course')
                     }
                 } else {
-                    // AI reply
                     messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
-
-                    // If this is the first AI reply, auto-generate chat name
-                    if (messages.value.length === 2 && chatId.value) {
-                        // Use first 8 words of reply as chat name
-                        const firstReply = response.data.reply
-                        const chatName = firstReply.split(' ').slice(0, 8).join(' ') + (firstReply.length > 60 ? '...' : '')
-                        await chatStore.updateChatTitle(chatId.value, chatName)
-                    }
-                }
-
-                // Update chat store messages
-                if (chatId.value) {
-                    chatStore.updateChatMessages(chatId.value, messages.value)
                 }
 
                 scrollToBottom()
@@ -581,17 +482,49 @@ export default {
             }
         }
 
-        onMounted(() => {
-            // Check for chat_id in URL query
-            if (route.query.chat_id && typeof route.query.chat_id === 'string' && route.query.chat_id.trim() !== '') {
-                loadChatById(route.query.chat_id)
-            } else {
-                // Reset state if chat_id is missing or empty
-                chatId.value = null
-                sessionId.value = null
-                messages.value = []
-                resumedWithHistory.value = false
+        // Save and load chat messages from localStorage
+        const saveChatMessages = () => {
+            try {
+                const chatData = {
+                    messages: messages.value,
+                    sessionId: sessionId.value,
+                    timestamp: Date.now()
+                }
+                localStorage.setItem('chat_messages', JSON.stringify(chatData))
+            } catch (e) {
+                console.error('Failed to save chat messages:', e)
             }
+        }
+
+        const loadChatMessages = () => {
+            try {
+                const savedData = localStorage.getItem('chat_messages')
+                if (savedData) {
+                    const chatData = JSON.parse(savedData)
+                    // Load messages if they're less than 24 hours old
+                    const age = Date.now() - (chatData.timestamp || 0)
+                    if (age < 24 * 60 * 60 * 1000) {
+                        messages.value = chatData.messages || []
+                        sessionId.value = chatData.sessionId || sessionId.value
+                        // Scroll to bottom after loading
+                        nextTick(() => scrollToBottom())
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load chat messages:', e)
+            }
+        }
+
+        // Watch messages and save to localStorage whenever they change
+        watch(messages, () => {
+            saveChatMessages()
+        }, { deep: true })
+
+        onMounted(() => {
+            const saved = localStorage.getItem('chat_session_id')
+            if (saved) sessionId.value = saved
+            // Load saved chat messages
+            loadChatMessages()
         })
 
         return {

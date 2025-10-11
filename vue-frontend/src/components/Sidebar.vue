@@ -42,62 +42,17 @@
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
-      <!-- Chats Dropdown -->
-      <div class="nav-section">
-        <div
-          class="nav-item nav-header"
-          :class="{ active: showChatsDropdown || $route.path === '/' }"
-          :title="isCollapsed ? 'Chats' : ''"
-          @click="toggleChatsDropdown"
-        >
-          <span class="nav-icon">💬</span>
-          <span
-            v-if="!isCollapsed"
-            class="nav-label"
-          >Chats</span>
-          <span
-            v-if="!isCollapsed"
-            class="dropdown-arrow"
-            :class="{ open: showChatsDropdown }"
-          >▼</span>
-        </div>
-
-        <!-- Chats List Dropdown -->
-        <transition name="dropdown-list">
-          <div
-            v-if="showChatsDropdown && !isCollapsed"
-            class="chats-dropdown"
-          >
-            <div
-              v-if="chatStore.loading"
-              class="dropdown-loading"
-            >
-              Loading...
-            </div>
-            <div
-              v-else-if="chatStore.chats.length === 0"
-              class="dropdown-empty"
-            >
-              No chats yet
-            </div>
-            <div
-              v-else
-              class="chats-list"
-            >
-              <div
-                v-for="chat in chatStore.sortedChats.slice(0, 10)"
-                :key="chat.chat_id"
-                class="chat-item"
-                :class="{ active: chatStore.activeChatId === chat.chat_id }"
-                @click="selectChat(chat)"
-              >
-                <span class="chat-title">{{ chat.title || 'Untitled Chat' }}</span>
-                <!-- Removed timestamp for cleaner dropdown -->
-              </div>
-            </div>
-          </div>
-        </transition>
-      </div>
+      <router-link
+        to="/"
+        class="nav-item"
+        :title="isCollapsed ? 'Chat' : ''"
+      >
+        <span class="nav-icon">💬</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >Chat</span>
+      </router-link>
 
       <router-link
         to="/courses"
@@ -206,11 +161,10 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
-import { useChatStore } from '../stores/chat'
 
 export default {
     name: 'Sidebar',
@@ -219,11 +173,9 @@ export default {
         const router = useRouter()
         const authStore = useAuthStore()
         const themeStore = useThemeStore()
-        const chatStore = useChatStore()
 
         const isCollapsed = ref(true) // Start collapsed
         const showDropdown = ref(false)
-        const showChatsDropdown = ref(false)
 
         const isAuthenticated = computed(() => authStore.isAuthenticated)
         const username = computed(() => authStore.user?.username || 'Guest')
@@ -235,19 +187,6 @@ export default {
             return name.slice(0, 2).toUpperCase()
         })
 
-        // Load chats when user is authenticated
-        watch(() => authStore.user, (newUser) => {
-            if (newUser?.username) {
-                chatStore.loadUserChats(newUser.username)
-            }
-        }, { immediate: true })
-
-        onMounted(() => {
-            if (authStore.user?.username) {
-                chatStore.loadUserChats(authStore.user.username)
-            }
-        })
-
         const handleMouseEnter = () => {
             isCollapsed.value = false
             emit('toggle-collapse', false)
@@ -256,7 +195,6 @@ export default {
         const handleMouseLeave = () => {
             isCollapsed.value = true
             showDropdown.value = false // Close dropdown when leaving sidebar
-            showChatsDropdown.value = false
             emit('toggle-collapse', true)
         }
 
@@ -266,51 +204,19 @@ export default {
             }
         }
 
-        const toggleChatsDropdown = () => {
-            if (!isCollapsed.value) {
-                showChatsDropdown.value = !showChatsDropdown.value
-            } else {
-                // If collapsed, go to home/chat
-                router.push('/')
-            }
-        }
-
         const closeDropdown = () => {
             showDropdown.value = false
         }
 
-        const selectChat = (chat) => {
-            chatStore.setCurrentChat(chat)
-            router.push(`/?chat_id=${chat.chat_id}`)
-            showChatsDropdown.value = false
-        }
-
-        const formatChatDate = (dateString) => {
-            if (!dateString) return ''
-            const date = new Date(dateString)
-            const now = new Date()
-            const diffMs = now - date
-            const diffMins = Math.floor(diffMs / 60000)
-            const diffHours = Math.floor(diffMs / 3600000)
-            const diffDays = Math.floor(diffMs / 86400000)
-
-            if (diffMins < 60) return `${diffMins}m ago`
-            if (diffHours < 24) return `${diffHours}h ago`
-            if (diffDays < 7) return `${diffDays}d ago`
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        }
-
         const startNewChat = () => {
-            // Clear chat session and navigate to base chat URL (no chat_id)
-            chatStore.clearCurrentChat()
+            // Clear chat session and navigate to home
             localStorage.removeItem('chat_session_id')
-            localStorage.removeItem('chat_messages')
-            router.push({ path: '/', query: {} }).then(() => {
-              // If any chat_id param remains, reload to ensure clean state
-              if (router.currentRoute.value.query.chat_id) {
-                window.location.href = '/';
-              }
-            })
+      localStorage.removeItem('chat_messages')
+            router.push('/')
+            // Force page reload to clear chat
+            if (router.currentRoute.value.path === '/') {
+                window.location.reload()
+            }
         }
 
         const toggleTheme = () => {
@@ -326,19 +232,14 @@ export default {
         return {
             isCollapsed,
             showDropdown,
-            showChatsDropdown,
             isAuthenticated,
             username,
             userInitials,
             theme,
-            chatStore,
             handleMouseEnter,
             handleMouseLeave,
             toggleDropdown,
-            toggleChatsDropdown,
             closeDropdown,
-            selectChat,
-            formatChatDate,
             startNewChat,
             toggleTheme,
             logout
@@ -489,11 +390,6 @@ export default {
     padding: 0.5rem 0;
 }
 
-.nav-section {
-    display: flex;
-    flex-direction: column;
-}
-
 .nav-item {
     display: flex;
     align-items: center;
@@ -505,16 +401,6 @@ export default {
     transition: all 0.2s;
     position: relative;
     white-space: nowrap;
-    cursor: pointer;
-}
-
-.nav-item.nav-header {
-    font-weight: 600;
-    justify-content: space-between;
-}
-
-.nav-item.nav-header.active {
-    color: var(--accent-primary);
 }
 
 .sidebar.collapsed .nav-item {
@@ -530,82 +416,6 @@ export default {
     background: linear-gradient(135deg, rgba(119, 51, 255, 0.15), rgba(0, 212, 255, 0.15));
     color: var(--accent-primary);
     font-weight: 600;
-}
-
-.dropdown-arrow {
-    font-size: 0.7rem;
-    transition: transform 0.2s;
-}
-
-.dropdown-arrow.open {
-    transform: rotate(180deg);
-}
-
-.chats-dropdown {
-    margin: 0.5rem 0 0.5rem 1rem;
-    padding: 0.5rem;
-    background: var(--bg-tertiary);
-    border-radius: 0.5rem;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.dropdown-loading,
-.dropdown-empty {
-    padding: 0.75rem;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.875rem;
-}
-
-.chats-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.chat-item {
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.chat-item:hover {
-    background: var(--card-bg);
-}
-
-.chat-item.active {
-    background: var(--card-bg);
-    border-left: 3px solid var(--accent-primary);
-}
-
-.chat-title {
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.chat-date {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-}
-
-.dropdown-list-enter-active,
-.dropdown-list-leave-active {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dropdown-list-enter-from,
-.dropdown-list-leave-to {
-    opacity: 0;
-    max-height: 0;
-    overflow: hidden;
 }
 
 .nav-icon {
