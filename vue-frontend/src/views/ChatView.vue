@@ -247,19 +247,37 @@ export default {
         }
         const nonGoogleCount = ref(0)
         const reachedNgLimit = computed(() => {
-            // Unlock chat if user is Google user or authenticated
-            if (authStore.user?.isGoogleUser || authStore.isAuthenticated) return false
-            return !!authStore.user && nonGoogleCount.value >= 6
+            // Unlock chat if user is Google user
+            if (authStore.user?.isGoogleUser) return false
+            // Check limit for non-Google authenticated users
+            const isLimited = !!authStore.user && !authStore.user?.isGoogleUser && nonGoogleCount.value >= 6
+            console.log('[ChatView] Limit check:', { 
+                isGoogleUser: authStore.user?.isGoogleUser, 
+                nonGoogleCount: nonGoogleCount.value, 
+                isLimited 
+            })
+            return isLimited
         })
         watch(() => authStore.user, (newUser) => {
+            console.log('[ChatView] User changed:', { 
+                username: newUser?.username, 
+                isGoogleUser: newUser?.isGoogleUser 
+            })
             if (newUser?.isGoogleUser && newUser.username) {
                 localStorage.removeItem(ngStorageKey(newUser.username))
                 nonGoogleCount.value = 0
                 // Reset error state when user becomes Google user
                 error.value = null
-            }
-            if (newUser?.username) {
-                nonGoogleCount.value = getNgCount(newUser.username)
+                console.log('[ChatView] Reset count for Google user')
+            } else if (newUser?.username && !newUser?.isGoogleUser) {
+                // Only get count for non-Google users
+                const count = getNgCount(newUser.username)
+                nonGoogleCount.value = count
+                console.log('[ChatView] Loaded count for non-Google user:', count)
+            } else if (!newUser) {
+                // User logged out
+                nonGoogleCount.value = 0
+                console.log('[ChatView] User logged out, reset count')
             }
         }, { deep: true })
 
@@ -521,6 +539,14 @@ export default {
             if (saved) sessionId.value = saved
             // Load saved chat messages
             loadChatMessages()
+            // Initialize nonGoogleCount for current user
+            if (authStore.user?.username && !authStore.user?.isGoogleUser) {
+                const count = getNgCount(authStore.user.username)
+                nonGoogleCount.value = count
+                console.log('[ChatView] Initialized count on mount:', count, 'for user:', authStore.user.username)
+            } else if (authStore.user?.isGoogleUser) {
+                console.log('[ChatView] Google user on mount, count stays 0')
+            }
         })
 
         return {

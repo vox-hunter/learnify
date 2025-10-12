@@ -121,8 +121,8 @@ export default {
             email: response.data.email,
             picture: response.data.picture,
             isAdmin: response.data.isAdmin,
-            isGoogleUser: response.data.is_google_user || false,
-            hasPassword: response.data.has_password || false
+            isGoogleUser: response.data.isGoogleUser || false,
+            hasPassword: response.data.hasPassword || false
           }
           
           // Store username for API requests
