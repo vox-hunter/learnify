@@ -117,13 +117,14 @@ export default {
           console.log('[GoogleCallback] Full response data:', response.data)
           
           // Existing user or linked account - complete login
+          // Since OAuth callback succeeded, user has linked Google account
           authStore.user = {
             username: response.data.username,
             name: response.data.name,
             email: response.data.email,
             picture: response.data.picture,
             isAdmin: response.data.isAdmin,
-            isGoogleUser: response.data.isGoogleUser || false,
+            isGoogleUser: true,  // OAuth callback success = Google account linked
             hasPassword: response.data.hasPassword || false
           }
           
