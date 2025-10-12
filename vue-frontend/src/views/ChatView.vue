@@ -143,22 +143,14 @@
               chatting with your personal quota, or visit the Danger Zone in your account.
             </p>
           </div>
-          <div class="input-group">
-            <button
-              class="btn btn-primary"
-              @click.prevent="goToDangerZone"
-            >
-              Go to Danger Zone
-            </button>
-            <button
-              class="btn"
-              style="margin-left:0.5rem"
-              @click.prevent="linkGoogleAccount"
-            >
-              Link Google
-              Account
-            </button>
-          </div>
+                    <div class="input-group">
+                        <button
+                            class="btn btn-primary"
+                            @click.prevent="linkGoogleAccount"
+                        >
+                            Login with Google
+                        </button>
+                    </div>
         </div>
         <div
           v-else
@@ -269,12 +261,9 @@ export default {
             const c = getNgCount(username) + 1
             setNgCount(username, c)
             return c
-        }
-
-        const nonGoogleCount = ref(authStore.user?.username ? getNgCount(authStore.user.username) : 0)
         const reachedNgLimit = computed(() => {
-            // Skip limit if user is Google-linked
-            if (authStore.user?.isGoogleUser) return false
+            // Unlock chat if user is Google user or authenticated
+            if (authStore.user?.isGoogleUser || authStore.isAuthenticated) return false
             return !!authStore.user && nonGoogleCount.value >= 6
         })
 
@@ -306,15 +295,33 @@ export default {
 
         const linkGoogleAccount = async () => {
             try {
-                const resp = await api.get('/auth/google/url')
-                if (resp.data?.url) {
-                    window.location.href = resp.data.url
+                // Generate state for CSRF protection
+                const state = generateRandomState()
+                localStorage.setItem('oauth_state', state)
+
+                // Determine redirect URI based on current host
+                const redirectUri = `${window.location.origin}/auth/google/callback`
+
+                // Get Google OAuth URL from backend
+                const response = await api.post('/auth/google/url', {
+                    redirect_uri: redirectUri,
+                    state: state
+                })
+
+                if (response.data.success && response.data.auth_url) {
+                    window.location.href = response.data.auth_url
                 } else {
                     error.value = 'Failed to get Google login URL.'
                 }
             } catch (e) {
                 error.value = 'Failed to get Google login URL.'
             }
+        }
+
+        function generateRandomState() {
+            const array = new Uint8Array(32)
+            window.crypto.getRandomValues(array)
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
         }
 
         const scrollToBottom = () => {
@@ -385,9 +392,6 @@ export default {
             sendMessage()
         }
 
-        const goToDangerZone = () => {
-            router.push({ path: '/account', query: { tab: 'danger' } })
-        }
 
         const sendMessage = async () => {
             if (!canSend.value) return
@@ -539,12 +543,12 @@ export default {
             handleUrlSubmit,
             removeUrl,
             sendExamplePrompt,
-            sendMessage,
-            showGoogleLinkButton,
-            linkGoogleAccount,
-            reachedNgLimit,
-            goToDangerZone
+                sendMessage,
+                showGoogleLinkButton,
+                linkGoogleAccount,
+                reachedNgLimit
         }
+    }
     }
 }
 </script>
