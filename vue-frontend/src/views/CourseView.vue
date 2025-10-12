@@ -235,18 +235,42 @@
             tabindex="0"
             @keydown.enter="handleStepEnterKey"
           >
-            <!-- Progress Bar at Top -->
-            <div class="progress-bar-top">
-              <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :style="{ width: stepFlowProgressPercentage + '%' }"
-                />
+            <!-- Vertical Progress Bar on Right -->
+            <div class="vertical-progress-bar">
+              <div class="progress-stats-vertical">
+                <div class="stat-item">
+                  <span class="stat-number">{{ answeredQuestions.size }}</span>
+                  <span class="stat-divider">/</span>
+                  <span class="stat-total">{{ totalQuestions }}</span>
+                </div>
+                <div class="stat-label-small">
+                  Questions
+                </div>
               </div>
-              <div class="progress-text">
-                <span>{{ answeredQuestions.size }} / {{ totalQuestions }} questions
-                  answered</span>
-                <span class="score-text">Score: {{ score }}</span>
+              <div class="progress-bar-container-vertical">
+                <div class="progress-track">
+                  <!-- Correct answers (green) -->
+                  <div
+                    class="progress-fluid correct"
+                    :style="{ height: (score / totalQuestions * 100) + '%' }"
+                  >
+                    <div class="fluid-animation" />
+                  </div>
+                  <!-- Incorrect answers (red) -->
+                  <div
+                    class="progress-fluid incorrect"
+                    :style="{ 
+                      height: ((answeredQuestions.size - score) / totalQuestions * 100) + '%',
+                      bottom: (score / totalQuestions * 100) + '%'
+                    }"
+                  >
+                    <div class="fluid-animation" />
+                  </div>
+                </div>
+              </div>
+              <div class="progress-score-vertical">
+                <span class="score-label">Score</span>
+                <span class="score-value">{{ score }}</span>
               </div>
             </div>
 
@@ -3245,15 +3269,178 @@ export default {
   outline: 2px solid transparent;
 }
 
-/* Progress Bar at Top */
-.progress-bar-top {
-  position: sticky;
-  top: 0;
+/* Vertical Progress Bar on Right */
+.vertical-progress-bar {
+  position: fixed;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 100;
-  background: var(--bg-primary);
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: var(--card-bg);
+  padding: 1.5rem 1rem;
+  border-radius: 2rem;
+  border: 2px solid var(--border-color);
+  box-shadow: 0 8px 32px var(--shadow-color);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.vertical-progress-bar:hover {
+  box-shadow: 0 12px 48px var(--shadow-color);
+  transform: translateY(-50%) scale(1.02);
+}
+
+.progress-stats-vertical {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem;
+  font-weight: 700;
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  color: var(--accent-primary);
+}
+
+.stat-divider {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.stat-total {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.stat-label-small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+.progress-bar-container-vertical {
+  width: 60px;
+  height: 300px;
+  position: relative;
+}
+
+.progress-track {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2rem;
+  overflow: hidden;
+  position: relative;
+  border: 2px solid var(--border-color);
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.progress-fluid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.progress-fluid.correct {
+  background: linear-gradient(180deg, 
+    rgba(74, 222, 128, 0.9) 0%, 
+    rgba(34, 197, 94, 1) 100%);
+  z-index: 2;
+}
+
+.progress-fluid.incorrect {
+  background: linear-gradient(180deg, 
+    rgba(248, 113, 113, 0.9) 0%, 
+    rgba(239, 68, 68, 1) 100%);
+  z-index: 1;
+  position: absolute;
+}
+
+/* Fluid Animation Effect */
+.fluid-animation {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: -50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    transparent 60%
+  );
+  animation: fluidWave 3s ease-in-out infinite;
+}
+
+@keyframes fluidWave {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(10%, -10%) scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Ripple effect on hover */
+.progress-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+  pointer-events: none;
+}
+
+.progress-score-vertical {
+  text-align: center;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.score-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.score-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, 
+    var(--accent-primary) 0%, 
+    var(--accent-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Admin Controls in Step Flow */
@@ -3478,6 +3665,30 @@ export default {
 
   .step-content {
     min-height: 300px;
+  }
+
+  /* Mobile adjustments for vertical progress bar */
+  .vertical-progress-bar {
+    right: 0.5rem;
+    padding: 1rem 0.75rem;
+    border-radius: 1.5rem;
+  }
+
+  .progress-bar-container-vertical {
+    width: 40px;
+    height: 200px;
+  }
+
+  .stat-number {
+    font-size: 1.25rem;
+  }
+
+  .stat-total {
+    font-size: 1rem;
+  }
+
+  .score-value {
+    font-size: 1.5rem;
   }
 }
 

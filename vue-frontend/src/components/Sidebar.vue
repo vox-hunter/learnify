@@ -176,7 +176,7 @@
               <router-link
                 to="/account"
                 class="dropdown-item"
-                @click="closeDropdown"
+                @click="handleSettingsClick"
               >
                 <span class="dropdown-icon">⚙️</span>
                 <span class="dropdown-label">Settings</span>
@@ -270,6 +270,15 @@ export default {
             router.push('/login')
         }
 
+    const handleSettingsClick = () => {
+      // Close dropdown and sidebar (useful on mobile/tablet)
+      closeDropdown()
+      closeMobile()
+      isCollapsed.value = true
+      emit('toggle-collapse', true)
+      // navigation performed by router-link
+    }
+
     const toggleMobile = () => {
       mobileOpen.value = !mobileOpen.value
       // When opening mobile drawer, ensure sidebar shows expanded content
@@ -284,7 +293,7 @@ export default {
       isCollapsed.value = true
     }
 
-    return {
+        return {
             isCollapsed,
             showDropdown,
             isAuthenticated,
@@ -298,7 +307,7 @@ export default {
             startNewChat,
             toggleTheme,
             logout
-      , mobileOpen, toggleMobile, closeMobile
+      , handleSettingsClick, mobileOpen, toggleMobile, closeMobile
         }
     }
 }
@@ -319,6 +328,12 @@ export default {
     z-index: 1000;
     padding: 1rem;
     overflow: hidden;
+}
+
+/* Ensure solid background in dark mode for the sidebar */
+:root[data-theme="dark"] .sidebar {
+  background-color: #0b1220; /* solid dark surface */
+  border-right-color: rgba(255,255,255,0.06);
 }
 
 .sidebar:not(.collapsed) {
