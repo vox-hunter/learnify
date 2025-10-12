@@ -272,14 +272,45 @@ body {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .card {
     padding: 1.5rem;
   }
   
   .btn {
     width: 100%;
+    padding: 0.95rem 1rem;
+    font-size: 1rem;
+    min-height: 44px; /* tap target for tablets */
   }
+  
+  /* Improve container padding for small screens and tablets */
+  .container {
+    padding: 0 1rem;
+  }
+  
+  /* Increase base font size slightly for readability on tablets */
+  body {
+    font-size: 15px;
+  }
+  
+/* Force touch-optimized (tablet) styles when device has touch input even on larger viewports */
+.device-touch .card,
+.device-touch .btn,
+.device-touch .container,
+.device-touch .option,
+.device-touch .mobile-hamburger {
+  /* Apply the same adjustments as the tablet media query */
+  padding: 1.5rem !important;
+}
+
+.device-touch .btn {
+  min-height: 44px !important;
+}
+
+.device-touch .option {
+  padding: 1rem 1rem !important;
+}
 }
 
 /* MathLive Global Styling */

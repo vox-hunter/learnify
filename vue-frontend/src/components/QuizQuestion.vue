@@ -813,4 +813,21 @@ export default {
     align-self: center;
   }
 }
+
+@media (max-width: 1024px) {
+  .option {
+    padding: 1rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .option-letter {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+
+  .question-text {
+    font-size: 1.05rem;
+  }
+}
 </style>

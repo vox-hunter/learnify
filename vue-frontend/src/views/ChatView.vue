@@ -932,6 +932,11 @@ export default {
     gap: 0.6rem;
     align-items: center;
     max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    /* prevent send button from being cut off on devices with notches */
+    padding-right: max(env(safe-area-inset-right), 0.75rem);
+    flex-wrap: nowrap; /* force single row */
 }
 
 .input-btn {
@@ -947,7 +952,7 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    flex: 0 0 auto;
 }
 
 .input-btn:hover:not(:disabled) {
@@ -977,6 +982,7 @@ export default {
     color: var(--text-primary);
     font-size: 0.95rem;
     transition: all 0.18s;
+    min-width: 0; /* allow input to shrink properly inside flex */
 }
 
 .message-input:focus,
@@ -992,6 +998,8 @@ export default {
     color: white;
     border: none;
     box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
+    flex: 0 0 auto;
+    min-width: 44px;
 }
 
 .send-btn:hover:not(:disabled) {

@@ -66,13 +66,16 @@ export default {
   margin-left: 80px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .main-content {
-    margin-left: 80px;
+    margin-left: 0 !important; /* ensure content never shifts on small screens */
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    width: 100%;
   }
 
   #app:not(.sidebar-collapsed) .main-content {
-    margin-left: 260px;
+    margin-left: 0 !important;
   }
 }
 </style>

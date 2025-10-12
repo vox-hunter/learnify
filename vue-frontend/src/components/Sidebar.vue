@@ -1,163 +1,199 @@
 <template>
-  <aside
-    :class="['sidebar', { collapsed: isCollapsed }]"
-    @mouseenter="handleMouseEnter"
-    @mouseleave="handleMouseLeave"
-  >
-    <!-- Top Section -->
-    <div class="sidebar-top">
-      <!-- Brand (Decorative Only) -->
-      <div class="sidebar-brand">
-        <img
-          v-if="!isCollapsed"
-          src="/logo.png"
-          alt="AI Loom"
-          class="brand-logo"
-        >
-        <img
-          v-else
-          src="/logo.png"
-          alt="AI Loom"
-          class="brand-logo-small"
-        >
-        <span
-          v-if="!isCollapsed"
-          class="brand-text"
-        >AI Loom</span>
-      </div>
+  <div class="sidebar-wrapper">
+    <!-- Floating hamburger visible on mobile/tablet to open the drawer -->
+    <button
+      v-if="!mobileOpen"
+      class="mobile-hamburger"
+      :aria-expanded="mobileOpen ? 'true' : 'false'"
+      :aria-label="mobileOpen ? 'Close navigation' : 'Open navigation'"
+      @click="toggleMobile"
+    >
+      <span class="hamburger-icon">☰</span>
+    </button>
 
-      <!-- New Chat Button - Primary CTA with Glow -->
-      <button
-        class="new-chat-btn"
-        :title="isCollapsed ? 'New Chat' : ''"
-        @click="startNewChat"
-      >
-        <span class="icon">+</span>
-        <span
-          v-if="!isCollapsed"
-          class="text"
-        >New Chat</span>
-      </button>
-    </div>
+    <!-- Overlay shown when mobile drawer is open -->
+    <div
+      v-if="mobileOpen"
+      class="sidebar-overlay"
+      aria-hidden="true"
+      @click="closeMobile"
+    />
 
-    <!-- Navigation -->
-    <nav class="sidebar-nav">
-      <router-link
-        to="/"
-        class="nav-item"
-        :title="isCollapsed ? 'Chat' : ''"
-      >
-        <span class="nav-icon">💬</span>
-        <span
-          v-if="!isCollapsed"
-          class="nav-label"
-        >Chat</span>
-      </router-link>
-
-      <router-link
-        to="/courses"
-        class="nav-item"
-        :title="isCollapsed ? 'Courses' : ''"
-      >
-        <span class="nav-icon">📚</span>
-        <span
-          v-if="!isCollapsed"
-          class="nav-label"
-        >Courses</span>
-      </router-link>
-
-      <router-link
-        to="/library"
-        class="nav-item"
-        :title="isCollapsed ? 'Library' : ''"
-      >
-        <span class="nav-icon">🏛️</span>
-        <span
-          v-if="!isCollapsed"
-          class="nav-label"
-        >Library</span>
-      </router-link>
-
-      <router-link
-        v-if="!isAuthenticated"
-        to="/login"
-        class="nav-item"
-        :title="isCollapsed ? 'Login' : ''"
-      >
-        <span class="nav-icon">🔐</span>
-        <span
-          v-if="!isCollapsed"
-          class="nav-label"
-        >Login</span>
-      </router-link>
-    </nav>
-
-    <!-- Bottom Section -->
-    <div class="sidebar-bottom">
-      <!-- Theme Toggle -->
-      <button
-        class="theme-toggle-btn"
-        :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-        @click="toggleTheme"
-      >
-        <span class="nav-icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-        <span
-          v-if="!isCollapsed"
-          class="nav-label"
-        >
-          {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
-        </span>
-      </button>
-
-      <!-- User Profile with Dropdown -->
-      <div
-        v-if="isAuthenticated"
-        class="user-profile"
-      >
-        <div
-          class="user-trigger"
-          :title="isCollapsed ? username : ''"
-          @click="toggleDropdown"
-        >
-          <div class="user-avatar">
-            {{ userInitials }}
-          </div>
-          <div
-            v-if="!isCollapsed"
-            class="user-info"
+    <aside
+      :class="['sidebar', { collapsed: isCollapsed, 'mobile-open': mobileOpen }]"
+      @mouseenter="handleMouseEnter"
+      @mouseleave="handleMouseLeave"
+    >
+      <!-- Top Section -->
+      <div class="sidebar-top">
+        <!-- Brand (Decorative Only) -->
+        <div class="sidebar-brand">
+          <!-- Show a back icon next to brand when mobile drawer is open -->
+          <button
+            v-if="mobileOpen"
+            type="button"
+            class="mobile-back"
+            aria-label="Close navigation"
+            @click="closeMobile"
           >
-            <div class="user-name">
-              {{ username }}
-            </div>
-          </div>
+            <span class="back-icon">‹</span>
+          </button>
+
+          <img
+            v-if="!isCollapsed"
+            src="/logo.png"
+            alt="AI Loom"
+            class="brand-logo"
+          >
+          <img
+            v-else
+            src="/logo.png"
+            alt="AI Loom"
+            class="brand-logo-small"
+          >
+          <span
+            v-if="!isCollapsed"
+            class="brand-text"
+          >AI Loom</span>
         </div>
 
-        <!-- Dropdown Menu (Top-aligned) -->
-        <transition name="dropdown">
-          <div
-            v-if="showDropdown && !isCollapsed"
-            class="user-dropdown"
-          >
-            <router-link
-              to="/account"
-              class="dropdown-item"
-              @click="closeDropdown"
-            >
-              <span class="dropdown-icon">⚙️</span>
-              <span class="dropdown-label">Settings</span>
-            </router-link>
-            <button
-              class="dropdown-item logout"
-              @click="logout"
-            >
-              <span class="dropdown-icon">🚪</span>
-              <span class="dropdown-label">Logout</span>
-            </button>
-          </div>
-        </transition>
+        <!-- New Chat Button - Primary CTA with Glow -->
+        <button
+          class="new-chat-btn"
+          :title="isCollapsed ? 'New Chat' : ''"
+          @click="startNewChat"
+        >
+          <span class="icon">+</span>
+          <span
+            v-if="!isCollapsed"
+            class="text"
+          >New Chat</span>
+        </button>
       </div>
-    </div>
-  </aside>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <router-link
+          to="/"
+          class="nav-item"
+          :title="isCollapsed ? 'Chat' : ''"
+          @click="closeMobile"
+        >
+          <span class="nav-icon">💬</span>
+          <span
+            v-if="!isCollapsed"
+            class="nav-label"
+          >Chat</span>
+        </router-link>
+
+        <router-link
+          to="/courses"
+          class="nav-item"
+          :title="isCollapsed ? 'Courses' : ''"
+          @click="closeMobile"
+        >
+          <span class="nav-icon">📚</span>
+          <span
+            v-if="!isCollapsed"
+            class="nav-label"
+          >Courses</span>
+        </router-link>
+
+        <router-link
+          to="/library"
+          class="nav-item"
+          :title="isCollapsed ? 'Library' : ''"
+          @click="closeMobile"
+        >
+          <span class="nav-icon">🏛️</span>
+          <span
+            v-if="!isCollapsed"
+            class="nav-label"
+          >Library</span>
+        </router-link>
+
+        <router-link
+          v-if="!isAuthenticated"
+          to="/login"
+          class="nav-item"
+          :title="isCollapsed ? 'Login' : ''"
+          @click="closeMobile"
+        >
+          <span class="nav-icon">🔐</span>
+          <span
+            v-if="!isCollapsed"
+            class="nav-label"
+          >Login</span>
+        </router-link>
+      </nav>
+
+      <!-- Bottom Section -->
+      <div class="sidebar-bottom">
+        <!-- Theme Toggle -->
+        <button
+          class="theme-toggle-btn"
+          :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="(toggleTheme(), closeMobile())"
+        >
+          <span class="nav-icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+          <span
+            v-if="!isCollapsed"
+            class="nav-label"
+          >
+            {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
+          </span>
+        </button>
+
+        <!-- User Profile with Dropdown -->
+        <div
+          v-if="isAuthenticated"
+          class="user-profile"
+        >
+          <div
+            class="user-trigger"
+            :title="isCollapsed ? username : ''"
+            @click="toggleDropdown"
+          >
+            <div class="user-avatar">
+              {{ userInitials }}
+            </div>
+            <div
+              v-if="!isCollapsed"
+              class="user-info"
+            >
+              <div class="user-name">
+                {{ username }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Dropdown Menu (Top-aligned) -->
+          <transition name="dropdown">
+            <div
+              v-if="showDropdown && !isCollapsed"
+              class="user-dropdown"
+            >
+              <router-link
+                to="/account"
+                class="dropdown-item"
+                @click="closeDropdown"
+              >
+                <span class="dropdown-icon">⚙️</span>
+                <span class="dropdown-label">Settings</span>
+              </router-link>
+              <button
+                class="dropdown-item logout"
+                @click="logout"
+              >
+                <span class="dropdown-icon">🚪</span>
+                <span class="dropdown-label">Logout</span>
+              </button>
+            </div>
+          </transition>
+        </div>
+      </div>
+    </aside>
+  </div>
 </template>
 
 <script>
@@ -169,13 +205,14 @@ import { useThemeStore } from '../stores/theme'
 export default {
     name: 'Sidebar',
     emits: ['toggle-collapse'],
-    setup(props, { emit }) {
+  setup(props, { emit }) {
         const router = useRouter()
         const authStore = useAuthStore()
         const themeStore = useThemeStore()
 
-        const isCollapsed = ref(true) // Start collapsed
-        const showDropdown = ref(false)
+    const isCollapsed = ref(true) // Start collapsed
+    const showDropdown = ref(false)
+    const mobileOpen = ref(false)
 
         const isAuthenticated = computed(() => authStore.isAuthenticated)
         const username = computed(() => authStore.user?.username || 'Guest')
@@ -188,14 +225,18 @@ export default {
         })
 
         const handleMouseEnter = () => {
-            isCollapsed.value = false
-            emit('toggle-collapse', false)
+      // Avoid hover expand on touch / small screens
+      if (window.innerWidth <= 1024) return
+      isCollapsed.value = false
+      emit('toggle-collapse', false)
         }
 
         const handleMouseLeave = () => {
-            isCollapsed.value = true
-            showDropdown.value = false // Close dropdown when leaving sidebar
-            emit('toggle-collapse', true)
+      // Avoid hover collapse on touch / small screens
+      if (window.innerWidth <= 1024) return
+      isCollapsed.value = true
+      showDropdown.value = false // Close dropdown when leaving sidebar
+      emit('toggle-collapse', true)
         }
 
         const toggleDropdown = () => {
@@ -229,7 +270,21 @@ export default {
             router.push('/login')
         }
 
-        return {
+    const toggleMobile = () => {
+      mobileOpen.value = !mobileOpen.value
+      // When opening mobile drawer, ensure sidebar shows expanded content
+      if (mobileOpen.value) {
+        isCollapsed.value = false
+      }
+    }
+
+    const closeMobile = () => {
+      mobileOpen.value = false
+      // on close, respect collapsed state on mobile
+      isCollapsed.value = true
+    }
+
+    return {
             isCollapsed,
             showDropdown,
             isAuthenticated,
@@ -243,6 +298,7 @@ export default {
             startNewChat,
             toggleTheme,
             logout
+      , mobileOpen, toggleMobile, closeMobile
         }
     }
 }
@@ -298,6 +354,25 @@ export default {
     height: 32px;
     margin: 0 auto;
 }
+
+  .mobile-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    margin-right: 0.5rem;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0.1rem 0.35rem;
+    pointer-events: auto; /* override parent decorative pointer-events:none */
+  }
+
+  .back-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
 
 .brand-text {
     font-size: 1.25rem;
@@ -622,14 +697,70 @@ export default {
     background: var(--text-muted);
 }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-    .sidebar {
-        width: 80px;
+/* Mobile + Tablet Responsive */
+@media (max-width: 1024px) {
+  /* Sidebar becomes an off-canvas drawer on small screens */
+  .sidebar-wrapper {
+    position: relative;
+    z-index: 1200;
+  }
+
+    .mobile-hamburger {
+      display: block;
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 1230;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 0.6rem 0.75rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 6px 18px var(--shadow-color);
+      cursor: pointer;
+      /* slightly larger target on tablets */
+      min-width: 44px;
+      min-height: 44px;
     }
 
-    .sidebar:hover {
-        width: 260px;
-    }
+  .mobile-hamburger .hamburger-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+    .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 280ms ease-in-out;
+    padding: 1rem;
+    z-index: 1215; /* base z-index above overlay */
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 12px 40px rgba(2,6,23,0.4);
+    z-index: 1225; /* ensure drawer is above overlay */
+  }
+
+  /* semi-transparent overlay behind drawer */
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1205;
+  }
+
+  /* Increase touch target sizes */
+  .nav-item {
+    padding: 1rem 1.25rem;
+  }
+
+  .new-chat-btn {
+    padding: 0.9rem;
+    font-size: 1.1rem;
+  }
 }
 </style>
