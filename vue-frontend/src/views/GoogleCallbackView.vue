@@ -114,6 +114,8 @@ export default {
             return
           }
           
+          console.log('[GoogleCallback] Full response data:', response.data)
+          
           // Existing user or linked account - complete login
           authStore.user = {
             username: response.data.username,
@@ -125,11 +127,15 @@ export default {
             hasPassword: response.data.hasPassword || false
           }
           
+          console.log('[GoogleCallback] Created user object:', authStore.user)
+          console.log('[GoogleCallback] Created user object:', authStore.user)
+          
           // Store username for API requests
           localStorage.setItem('username', response.data.username)
           
           // Store complete user data in both localStorage and sessionStorage
           const userData = JSON.stringify(authStore.user)
+          console.log('[GoogleCallback] Saving to storage:', userData)
           localStorage.setItem('userData', userData)
           sessionStorage.setItem('userData', userData)
           

@@ -504,6 +504,9 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
             google_id = existing_user.get("google_id")
             has_password = bool(existing_user.get("password"))
             
+            print(f"[OAuth Callback] Existing user: {existing_user.get('username')}, google_id before: {google_id}")
+            print(f"[OAuth Callback] Validated user google_id: {validated_user.get('google_id')}")
+            
             # Link Google account if not already linked
             if not google_id:
                 try:
@@ -515,6 +518,7 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
                         }}
                     )
                     google_id = validated_user.get("google_id")
+                    print(f"[OAuth Callback] Linked Google account, google_id after: {google_id}")
                 except Exception as e:
                     print(f"Warning: Failed to link Google account: {e}")
             
@@ -530,6 +534,8 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
             
             # Check if user is admin
             is_admin = existing_user.get("email") == "vidyutsanthosh4@gmail.com"
+            
+            print(f"[OAuth Callback] Returning isGoogleUser: {bool(google_id)} (google_id={google_id})")
             
             return {
                 "success": True,
