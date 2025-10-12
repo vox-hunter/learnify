@@ -178,14 +178,6 @@
             📎
           </label>
 
-          <button
-            class="input-btn url-btn"
-            :class="{ active: showUrlInput }"
-            title="Add URL"
-            @click="toggleUrlInput"
-          >
-            🔗
-          </button>
 
           <input
             v-if="showUrlInput"

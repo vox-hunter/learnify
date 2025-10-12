@@ -28,18 +28,13 @@
         </p>
 
         <!-- Input Method Tabs -->
+        <!-- Only show upload tab -->
         <div class="tabs">
           <button
-            :class="['tab', { active: inputMethod === 'upload' }]"
-            @click="inputMethod = 'upload'"
+            class="tab active"
+            disabled
           >
-            📤 Upload File
-          </button>
-          <button
-            :class="['tab', { active: inputMethod === 'url' }]"
-            @click="inputMethod = 'url'"
-          >
-            🔗 Provide URL
+            � Upload File
           </button>
         </div>
 
@@ -80,21 +75,7 @@
           </div>
         </div>
 
-        <!-- URL Method -->
-        <div
-          v-if="inputMethod === 'url'"
-          class="input-section"
-        >
-          <div class="form-group">
-            <label class="form-label">PDF URL</label>
-            <input
-              v-model="pdfUrl"
-              type="url"
-              class="form-input"
-              placeholder="https://example.com/document.pdf"
-            >
-          </div>
-        </div>
+        <!-- URL input removed -->
 
         <!-- Error Message -->
         <div

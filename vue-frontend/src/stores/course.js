@@ -68,7 +68,6 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function generateCourse(file) {
-    
     // Don't check limit here - check when saving instead
     // This allows guests to generate courses but limits saving
 
@@ -77,49 +76,37 @@ export const useCourseStore = defineStore('course', () => {
     
     try {
       const formData = new FormData()
+      formData.append('message', 'Please generate a course from this file.')
       formData.append('file', file)
       
-      const response = await api.post('/course/generate/upload', formData, {
+      const response = await api.post('/chat/message', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       })
       
-      currentCourse.value = response.data.course_data
-      
-      // Don't increment count here - it will be incremented when course is saved
-      
-      return { success: true, course: response.data.course_data }
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Course generation failed')
+      }
+
+      // Check if AI detected and generated a course
+      if (response.data.is_course && response.data.course_data) {
+        currentCourse.value = response.data.course_data
+        return { success: true, course: response.data.course_data }
+      } else {
+        // AI didn't generate a course - maybe not suitable content
+        error.value = 'The uploaded file does not contain suitable content for course generation. Please try a different file with educational material.'
+        return { success: false, error: error.value }
+      }
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Course generation failed'
+      error.value = err.response?.data?.detail || err.message || 'Course generation failed'
       return { success: false, error: error.value }
     } finally {
       loading.value = false
     }
   }
 
-  async function generateCourseFromUrl(url) {
-    
-    // Don't check limit here - check when saving instead
-    // This allows guests to generate courses but limits saving
-
-    loading.value = true
-    error.value = null
-    
-    try {
-      const response = await api.post('/course/generate/url', { file_url: url })
-      currentCourse.value = response.data.course_data
-      
-      // Don't increment count here - it will be incremented when course is saved
-      
-      return { success: true, course: response.data.course_data }
-    } catch (err) {
-      error.value = err.response?.data?.detail || 'Course generation failed'
-      return { success: false, error: error.value }
-    } finally {
-      loading.value = false
-    }
-  }
+  // URL-based course generation removed
 
   async function saveCourse(courseData, courseTitle, isPublic = true) {
     const authStore = useAuthStore()
@@ -323,8 +310,7 @@ export const useCourseStore = defineStore('course', () => {
     guestCourseCount,
     canGenerateCourse,
     remainingGuestCourses,
-    generateCourse,
-    generateCourseFromUrl,
+  generateCourse,
     saveCourse,
     loadCourses,
     loadCourse,

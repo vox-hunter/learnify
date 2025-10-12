@@ -32,7 +32,9 @@ applyTo: '**'
 - Implemented robust Markdown + LaTeX rendering in chat
 - Previous attempt rendered math incorrectly; now uses markdown-it-katex
 - All steps completed and tested
+- Refactoring file upload flow: Removing /course/generate/upload endpoint, routing all uploads through chat/message for AI-driven course generation decisions
 
 ## Notes
 - If further Markdown/LaTeX issues arise, check delimiters and KaTeX CSS
 - For new features, follow Context7 and official docs first
+- File uploads now go through chat interface; AI determines whether to generate course based on content
