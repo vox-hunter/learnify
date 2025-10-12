@@ -2,25 +2,42 @@
   <div class="course-view">
     <div class="container">
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
         <div class="spinner" />
         <p>Loading course...</p>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="alert alert-error">
+      <div
+        v-else-if="error"
+        class="alert alert-error"
+      >
         {{ error }}
-        <button class="btn btn-secondary mt-2" @click="$router.push('/courses')">
+        <button
+          class="btn btn-secondary mt-2"
+          @click="$router.push('/courses')"
+        >
           Back to Courses
         </button>
       </div>
 
       <!-- Course Content -->
-      <div v-else-if="course" class="course-content">
+      <div
+        v-else-if="course"
+        class="course-content"
+      >
         <!-- Course Overview Screen -->
-        <div v-if="showOverview && useStepFlow && !reviewMode" class="overview-screen">
+        <div
+          v-if="showOverview && useStepFlow && !reviewMode"
+          class="overview-screen"
+        >
           <div class="overview-card card">
-            <div class="overview-icon">📚</div>
+            <div class="overview-icon">
+              📚
+            </div>
             <h1 class="overview-title">
               {{ course.course_title }}
             </h1>
@@ -30,26 +47,38 @@
                 <div class="stat-value">
                   {{ course.sections?.length || 0 }}
                 </div>
-                <div class="stat-label">Sections</div>
+                <div class="stat-label">
+                  Sections
+                </div>
               </div>
               <div class="stat-box">
                 <div class="stat-value">
                   {{ totalQuestions }}
                 </div>
-                <div class="stat-label">Questions</div>
+                <div class="stat-label">
+                  Questions
+                </div>
               </div>
-              <div v-if="hasProgress" class="stat-box">
+              <div
+                v-if="hasProgress"
+                class="stat-box"
+              >
                 <div class="stat-value">
                   {{
                     Math.round((answeredQuestions.size / totalQuestions) * 100)
                   }}%
                 </div>
-                <div class="stat-label">Completed</div>
+                <div class="stat-label">
+                  Completed
+                </div>
               </div>
             </div>
 
             <!-- Previous Score Display -->
-            <div v-if="hasProgress" class="previous-progress">
+            <div
+              v-if="hasProgress"
+              class="previous-progress"
+            >
               <div class="progress-badge">
                 <span class="badge-icon">⏱️</span>
                 <div class="badge-content">
@@ -66,10 +95,17 @@
             </div>
 
             <div class="overview-actions">
-              <button v-if="hasProgress" class="btn btn-secondary" @click="startCourseFromBeginning">
+              <button
+                v-if="hasProgress"
+                class="btn btn-secondary"
+                @click="startCourseFromBeginning"
+              >
                 🔄 Start from Beginning
               </button>
-              <button class="btn btn-primary" @click="startCourse">
+              <button
+                class="btn btn-primary"
+                @click="startCourse"
+              >
                 {{ hasProgress ? "▶️ Continue" : "🚀 Start Course" }}
               </button>
             </div>
@@ -77,35 +113,65 @@
         </div>
 
         <!-- Course Conclusion (shows when course is complete) -->
-        <div v-else-if="showConclusion" class="conclusion-wrapper">
+        <div
+          v-else-if="showConclusion"
+          class="conclusion-wrapper"
+        >
           <div class="conclusion-section card">
-            <div class="conclusion-icon">🎉</div>
-            <h2 class="conclusion-title">Congratulations!</h2>
-            <p class="conclusion-subtitle">You've completed the course</p>
+            <div class="conclusion-icon">
+              🎉
+            </div>
+            <h2 class="conclusion-title">
+              Congratulations!
+            </h2>
+            <p class="conclusion-subtitle">
+              You've completed the course
+            </p>
 
             <div class="conclusion-stats">
               <div class="stat-card">
                 <div class="stat-value">
                   {{ score }}
                 </div>
-                <div class="stat-label">Correct Answers</div>
+                <div class="stat-label">
+                  Correct Answers
+                </div>
               </div>
               <div class="stat-card">
                 <div class="stat-value">
                   {{ totalQuestions }}
                 </div>
-                <div class="stat-label">Total Questions</div>
+                <div class="stat-label">
+                  Total Questions
+                </div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">{{ accuracyPercentage }}%</div>
-                <div class="stat-label">Accuracy</div>
+                <div class="stat-value">
+                  {{ accuracyPercentage }}%
+                </div>
+                <div class="stat-label">
+                  Accuracy
+                </div>
               </div>
               <!-- Show earned badges in conclusion -->
-              <div v-if="earnedBadges.length" class="stat-card badge-summary">
-                <div class="stat-label">Achievements</div>
+              <div
+                v-if="earnedBadges.length"
+                class="stat-card badge-summary"
+              >
+                <div class="stat-label">
+                  Achievements
+                </div>
                 <div class="badge-grid">
-                  <span v-for="badge in earnedBadges" :key="badge.id" class="badge-grid-item">
-                    <img :src="badge.image" :alt="badge.label" class="badge-img-large" />
+                  <span
+                    v-for="badge in earnedBadges"
+                    :key="badge.id"
+                    class="badge-grid-item"
+                  >
+                    <img
+                      :src="badge.image"
+                      :alt="badge.label"
+                      class="badge-img-large"
+                    >
                   </span>
                 </div>
               </div>
@@ -122,24 +188,39 @@
                 {{ totalQuestions }} questions with
                 <span :class="accuracyClass">{{ accuracyPercentage }}% accuracy</span>.
               </p>
-              <p v-if="accuracyPercentage >= 80" class="summary-message success">
+              <p
+                v-if="accuracyPercentage >= 80"
+                class="summary-message success"
+              >
                 🌟 Excellent work! You have a strong understanding of the
                 material.
               </p>
-              <p v-else-if="accuracyPercentage >= 60" class="summary-message good">
+              <p
+                v-else-if="accuracyPercentage >= 60"
+                class="summary-message good"
+              >
                 👍 Good job! You have a solid grasp of most concepts.
               </p>
-              <p v-else class="summary-message needs-review">
+              <p
+                v-else
+                class="summary-message needs-review"
+              >
                 📚 Consider reviewing the material to strengthen your
                 understanding.
               </p>
             </div>
 
             <div class="conclusion-actions">
-              <button class="btn btn-secondary" @click="reviewCourse">
+              <button
+                class="btn btn-secondary"
+                @click="reviewCourse"
+              >
                 🔄 Review Course
               </button>
-              <button class="btn btn-primary" @click="goToCourses">
+              <button
+                class="btn btn-primary"
+                @click="goToCourses"
+              >
                 📚 My Courses
               </button>
             </div>
@@ -148,11 +229,19 @@
 
         <!-- Step Flow Mode -->
         <div v-else-if="useStepFlow && !reviewMode">
-          <div ref="stepFlowContainer" class="step-flow" tabindex="0" @keydown.enter="handleStepEnterKey">
+          <div
+            ref="stepFlowContainer"
+            class="step-flow"
+            tabindex="0"
+            @keydown.enter="handleStepEnterKey"
+          >
             <!-- Progress Bar at Top -->
             <div class="progress-bar-top">
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: stepFlowProgressPercentage + '%' }" />
+                <div
+                  class="progress-fill"
+                  :style="{ width: stepFlowProgressPercentage + '%' }"
+                />
               </div>
               <div class="progress-text">
                 <span>{{ answeredQuestions.size }} / {{ totalQuestions }} questions
@@ -162,37 +251,69 @@
             </div>
 
             <!-- Admin Controls in Step Flow -->
-            <div v-if="authStore.user?.isAdmin" class="admin-controls-stepflow">
-              <h3 class="admin-title">🛠️ Admin Debug Controls</h3>
+            <div
+              v-if="authStore.user?.isAdmin"
+              class="admin-controls-stepflow"
+            >
+              <h3 class="admin-title">
+                🛠️ Admin Debug Controls
+              </h3>
               <div class="admin-buttons">
-                <button class="btn btn-admin" @click="completeAllQuestions">
+                <button
+                  class="btn btn-admin"
+                  @click="completeAllQuestions"
+                >
                   ✅ Complete All Questions
                 </button>
-                <button class="btn btn-admin-danger" @click="resetProgress">
+                <button
+                  class="btn btn-admin-danger"
+                  @click="resetProgress"
+                >
                   🔄 Reset All Progress
                 </button>
               </div>
-              <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
+              <div
+                v-if="adminMessage"
+                :class="['admin-message', adminMessageType]"
+              >
                 {{ adminMessage }}
               </div>
             </div>
 
             <!-- End Course Early Button (hidden in review mode) -->
-            <div v-if="answeredQuestions.size > 0 && !reviewMode" class="end-early-container">
-              <button class="btn-end-early" @click="endCourseEarly">
+            <div
+              v-if="answeredQuestions.size > 0 && !reviewMode"
+              class="end-early-container"
+            >
+              <button
+                class="btn-end-early"
+                @click="endCourseEarly"
+              >
                 🏁 End Course Early
               </button>
             </div>
 
             <div class="step-container">
               <!-- Render all revealed steps up to currentStepIndex -->
-              <transition-group name="fade" tag="div" class="steps-list">
-                <div v-for="(step, idx) in courseSteps.slice(
-                  0,
-                  currentStepIndex + 1,
-                )" :key="`step-${idx}`" :id="`step-${idx}`" class="step-card">
+              <transition-group
+                name="fade"
+                tag="div"
+                class="steps-list"
+              >
+                <div
+                  v-for="(step, idx) in courseSteps.slice(
+                    0,
+                    currentStepIndex + 1,
+                  )"
+                  :id="`step-${idx}`"
+                  :key="`step-${idx}`"
+                  class="step-card"
+                >
                   <!-- Explanation Block -->
-                  <div v-if="step.type === 'explanation'" class="explanation-step">
+                  <div
+                    v-if="step.type === 'explanation'"
+                    class="explanation-step"
+                  >
                     <div class="step-header">
                       <h2 class="step-title">
                         {{ step.title }}
@@ -200,29 +321,42 @@
                       <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
                     <div class="explanation-text">
-                      <p>{{ step.content }}</p>
+                      <div v-html="renderMarkdown(step.content)" />
                     </div>
                   </div>
 
                   <!-- Question Block -->
-                  <div v-else-if="step.type === 'question'" class="question-step">
+                  <div
+                    v-else-if="step.type === 'question'"
+                    class="question-step"
+                  >
                     <div class="step-header">
                       <h3 class="step-title">
                         Question {{ getQuestionDisplayNumber(idx) }}
                       </h3>
                       <span class="step-indicator">{{ idx + 1 }} / {{ courseSteps.length }}</span>
                     </div>
-                    <QuizQuestion :question="step.question" :question-index="step.questionIndex"
-                      :section-index="step.sectionIndex" :subsection-index="step.subsectionIndex"
-                      :saved-answer-data="step.savedAnswerData" @answer-submitted="handleStepFlowAnswerSubmit" />
+                    <QuizQuestion
+                      :question="step.question"
+                      :question-index="step.questionIndex"
+                      :section-index="step.sectionIndex"
+                      :subsection-index="step.subsectionIndex"
+                      :saved-answer-data="step.savedAnswerData"
+                      @answer-submitted="handleStepFlowAnswerSubmit"
+                    />
                   </div>
 
                   <!-- Per-step Navigation Controls (button sits at bottom of each step) -->
                   <div class="navigation-controls per-step centered">
-                    <button class="btn-continue" :class="{
-                      pulse: showContinueHint && idx === currentStepIndex,
-                    }" :disabled="idx !== currentStepIndex || !canProceedForStep(idx)
-                        " @click="handleContinueButtonClick">
+                    <button
+                      class="btn-continue"
+                      :class="{
+                        pulse: showContinueHint && idx === currentStepIndex,
+                      }"
+                      :disabled="idx !== currentStepIndex || !canProceedForStep(idx)
+                      "
+                      @click="handleContinueButtonClick"
+                    >
                       {{
                         idx === courseSteps.length - 1
                           ? "Finish"
@@ -265,51 +399,90 @@
                 <span class="progress-percentage">{{ progressPercentage }}%</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: progressPercentage + '%' }" />
+                <div
+                  class="progress-fill"
+                  :style="{ width: progressPercentage + '%' }"
+                />
               </div>
               <div class="progress-stats">
                 <span class="stat-completed">{{ answeredQuestions.size }} completed</span>
                 <span class="stat-remaining">{{ totalQuestions - answeredQuestions.size }} remaining</span>
               </div>
               <!-- Achievement Badges -->
-              <div v-if="earnedBadges.length" class="badge-container">
+              <div
+                v-if="earnedBadges.length"
+                class="badge-container"
+              >
                 <span class="badge-label">Achievements:</span>
-                <span v-for="badge in earnedBadges" :key="badge.id" class="badge-item">
-                  <img :src="badge.image" :alt="badge.label" class="badge-img" />
+                <span
+                  v-for="badge in earnedBadges"
+                  :key="badge.id"
+                  class="badge-item"
+                >
+                  <img
+                    :src="badge.image"
+                    :alt="badge.label"
+                    class="badge-img"
+                  >
                   <span class="badge-text">{{ badge.label }}</span>
                 </span>
               </div>
             </div>
 
             <!-- End Course Button (hidden in review mode) -->
-            <div v-if="
-              !showConclusion && answeredQuestions.size > 0 && !reviewMode
-            " class="end-course-section">
-              <button class="btn btn-secondary" @click="endCourseEarly">
+            <div
+              v-if="
+                !showConclusion && answeredQuestions.size > 0 && !reviewMode
+              "
+              class="end-course-section"
+            >
+              <button
+                class="btn btn-secondary"
+                @click="endCourseEarly"
+              >
                 🏁 End Course Early
               </button>
-              <p class="end-course-hint">Save your progress and view results</p>
+              <p class="end-course-hint">
+                Save your progress and view results
+              </p>
             </div>
           </div>
 
           <!-- Admin Controls (only visible to admin) -->
-          <div v-if="authStore.user?.isAdmin" class="admin-controls card">
-            <h3 class="admin-title">🛠️ Admin Debug Controls</h3>
+          <div
+            v-if="authStore.user?.isAdmin"
+            class="admin-controls card"
+          >
+            <h3 class="admin-title">
+              🛠️ Admin Debug Controls
+            </h3>
             <div class="admin-buttons">
-              <button class="btn btn-admin" @click="completeAllQuestions">
+              <button
+                class="btn btn-admin"
+                @click="completeAllQuestions"
+              >
                 ✅ Complete All Questions
               </button>
-              <button class="btn btn-admin-danger" @click="resetProgress">
+              <button
+                class="btn btn-admin-danger"
+                @click="resetProgress"
+              >
                 🔄 Reset All Progress
               </button>
             </div>
-            <div v-if="adminMessage" :class="['admin-message', adminMessageType]">
+            <div
+              v-if="adminMessage"
+              :class="['admin-message', adminMessageType]"
+            >
               {{ adminMessage }}
             </div>
           </div>
 
           <!-- Review Mode Banner -->
-          <div v-if="reviewMode" class="review-mode-banner">
+          <div
+            v-if="reviewMode"
+            class="review-mode-banner"
+          >
             <div class="review-banner-content">
               <span class="review-icon">🔄</span>
               <div class="review-text">
@@ -319,73 +492,130 @@
                   questions to see your improvement!
                 </p>
               </div>
-              <button class="btn btn-secondary btn-sm" @click="exitReviewMode">
+              <button
+                class="btn btn-secondary btn-sm"
+                @click="exitReviewMode"
+              >
                 Exit Review
               </button>
             </div>
           </div>
 
           <!-- All Sections (progressively revealed question by question) -->
-          <div v-for="(section, sectionIndex) in visibleSections" :id="`section-${sectionIndex}`"
-            :key="`section-${sectionIndex}`" class="section-card card">
+          <div
+            v-for="(section, sectionIndex) in visibleSections"
+            :id="`section-${sectionIndex}`"
+            :key="`section-${sectionIndex}`"
+            class="section-card card"
+          >
             <div class="section-header">
               <h2 class="section-title">
                 {{ section.section_title }}
               </h2>
               <div class="section-progress">
                 Section {{ sectionIndex + 1 }} of {{ course.sections.length }}
-                <span v-if="reviewMode" class="review-badge">📝 Review</span>
-                <span v-if="isSectionComplete(sectionIndex)" class="complete-badge">✓ Complete</span>
+                <span
+                  v-if="reviewMode"
+                  class="review-badge"
+                >📝 Review</span>
+                <span
+                  v-if="isSectionComplete(sectionIndex)"
+                  class="complete-badge"
+                >✓ Complete</span>
               </div>
             </div>
 
             <!-- Explanation (hidden in review mode) -->
-            <div v-if="!reviewMode" class="section-explanation">
-              <p>{{ section.explanation }}</p>
+            <div
+              v-if="!reviewMode"
+              class="section-explanation"
+            >
+              <div v-html="renderMarkdown(section.explanation)" />
             </div>
 
             <!-- Quiz Questions (progressive reveal) -->
-            <div v-if="section.quiz && section.quiz.length > 0" class="quiz-section">
-              <h3 class="quiz-title">Quiz Time! 🎯</h3>
+            <div
+              v-if="section.quiz && section.quiz.length > 0"
+              class="quiz-section"
+            >
+              <h3 class="quiz-title">
+                Quiz Time! 🎯
+              </h3>
 
-              <div v-for="(question, qIndex) in getVisibleQuestions(
-                sectionIndex,
-                section.quiz,
-                'main',
-              )" :id="`question-${sectionIndex}-main-${qIndex}`" :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
-                class="question-card">
-                <QuizQuestion :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`" :question="question"
-                  :question-index="qIndex" :section-index="sectionIndex" :saved-answer-data="getSavedAnswerData(sectionIndex, null, qIndex)
-                    " @answer-submitted="handleAnswerSubmit" />
+              <div
+                v-for="(question, qIndex) in getVisibleQuestions(
+                  sectionIndex,
+                  section.quiz,
+                  'main',
+                )"
+                :id="`question-${sectionIndex}-main-${qIndex}`"
+                :key="`q-${sectionIndex}-${qIndex}-${quizKey}`"
+                class="question-card"
+              >
+                <QuizQuestion
+                  :key="`quiz-${sectionIndex}-main-${qIndex}-${quizKey}`"
+                  :question="question"
+                  :question-index="qIndex"
+                  :section-index="sectionIndex"
+                  :saved-answer-data="getSavedAnswerData(sectionIndex, null, qIndex)
+                  "
+                  @answer-submitted="handleAnswerSubmit"
+                />
               </div>
             </div>
 
             <!-- Subsections (progressive reveal) -->
-            <div v-if="section.subsections && section.subsections.length > 0" class="subsections">
-              <div v-for="(subsection, subIndex) in getVisibleSubsections(
-                sectionIndex,
-                section.subsections,
-              )" :id="`subsection-${sectionIndex}-${subIndex}`" :key="`sub-${sectionIndex}-${subIndex}`"
-                class="subsection-card">
-                <h4 v-if="!reviewMode" class="subsection-title">
+            <div
+              v-if="section.subsections && section.subsections.length > 0"
+              class="subsections"
+            >
+              <div
+                v-for="(subsection, subIndex) in getVisibleSubsections(
+                  sectionIndex,
+                  section.subsections,
+                )"
+                :id="`subsection-${sectionIndex}-${subIndex}`"
+                :key="`sub-${sectionIndex}-${subIndex}`"
+                class="subsection-card"
+              >
+                <h4
+                  v-if="!reviewMode"
+                  class="subsection-title"
+                >
                   {{ subsection.section_title }}
                 </h4>
-                <p v-if="!reviewMode" class="subsection-explanation">
-                  {{ subsection.explanation }}
-                </p>
+                <div
+                  v-if="!reviewMode"
+                  class="subsection-explanation"
+                >
+                  <div v-html="renderMarkdown(subsection.explanation)" />
+                </div>
 
                 <!-- Subsection Quiz (progressive reveal) -->
-                <div v-if="subsection.quiz && subsection.quiz.length > 0" class="quiz-section">
-                  <div v-for="(question, qIndex) in getVisibleQuestions(
-                    sectionIndex,
-                    subsection.quiz,
-                    subIndex,
-                  )" :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
-                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`" class="question-card">
-                    <QuizQuestion :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`" :question="question"
-                      :question-index="qIndex" :section-index="sectionIndex" :subsection-index="subIndex"
+                <div
+                  v-if="subsection.quiz && subsection.quiz.length > 0"
+                  class="quiz-section"
+                >
+                  <div
+                    v-for="(question, qIndex) in getVisibleQuestions(
+                      sectionIndex,
+                      subsection.quiz,
+                      subIndex,
+                    )"
+                    :id="`question-${sectionIndex}-${subIndex}-${qIndex}`"
+                    :key="`subq-${sectionIndex}-${subIndex}-${qIndex}-${quizKey}`"
+                    class="question-card"
+                  >
+                    <QuizQuestion
+                      :key="`quiz-${sectionIndex}-sub${subIndex}-${qIndex}-${quizKey}`"
+                      :question="question"
+                      :question-index="qIndex"
+                      :section-index="sectionIndex"
+                      :subsection-index="subIndex"
                       :saved-answer-data="getSavedAnswerData(sectionIndex, subIndex, qIndex)
-                        " @answer-submitted="handleAnswerSubmit" />
+                      "
+                      @answer-submitted="handleAnswerSubmit"
+                    />
                   </div>
                 </div>
               </div>
@@ -396,7 +626,10 @@
     </div>
 
     <!-- Review Comparison Overlay -->
-    <div v-if="showReviewComparison" class="conclusion-overlay">
+    <div
+      v-if="showReviewComparison"
+      class="conclusion-overlay"
+    >
       <div class="conclusion-content">
         <div class="confetti-container">
           <div class="confetti" />
@@ -406,7 +639,9 @@
         </div>
 
         <div class="conclusion-card review-comparison">
-          <h2 class="conclusion-title">📊 Learning Progress Analysis</h2>
+          <h2 class="conclusion-title">
+            📊 Learning Progress Analysis
+          </h2>
 
           <div class="comparison-stats">
             <div class="comparison-row">
@@ -416,9 +651,14 @@
                   <div class="score-number">
                     {{ originalScore }}
                   </div>
-                  <div class="score-total">/ {{ originalAnsweredCount }}</div>
+                  <div class="score-total">
+                    / {{ originalAnsweredCount }}
+                  </div>
                 </div>
-                <div class="accuracy-badge" :class="getAccuracyClass(originalAccuracy)">
+                <div
+                  class="accuracy-badge"
+                  :class="getAccuracyClass(originalAccuracy)"
+                >
                   {{ originalAccuracy }}% Accuracy
                 </div>
               </div>
@@ -439,14 +679,20 @@
                     / {{ reviewAnsweredQuestions.size }}
                   </div>
                 </div>
-                <div class="accuracy-badge" :class="getAccuracyClass(reviewAccuracy)">
+                <div
+                  class="accuracy-badge"
+                  :class="getAccuracyClass(reviewAccuracy)"
+                >
                   {{ reviewAccuracy }}% Accuracy
                 </div>
               </div>
             </div>
 
             <div class="improvement-summary">
-              <div v-if="improvementPercentage > 0" class="improvement-message positive">
+              <div
+                v-if="improvementPercentage > 0"
+                class="improvement-message positive"
+              >
                 <span class="improvement-icon">🎉</span>
                 <div class="improvement-text">
                   <h4>Excellent Progress!</h4>
@@ -460,7 +706,10 @@
                   </p>
                 </div>
               </div>
-              <div v-else-if="improvementPercentage < 0" class="improvement-message negative">
+              <div
+                v-else-if="improvementPercentage < 0"
+                class="improvement-message negative"
+              >
                 <span class="improvement-icon">📉</span>
                 <div class="improvement-text">
                   <h4>Room for Growth</h4>
@@ -474,7 +723,10 @@
                   </p>
                 </div>
               </div>
-              <div v-else class="improvement-message neutral">
+              <div
+                v-else
+                class="improvement-message neutral"
+              >
                 <span class="improvement-icon">✅</span>
                 <div class="improvement-text">
                   <h4>Consistent Performance</h4>
@@ -491,10 +743,16 @@
           </div>
 
           <div class="conclusion-actions">
-            <button class="btn btn-secondary" @click="reviewCourse">
+            <button
+              class="btn btn-secondary"
+              @click="reviewCourse"
+            >
               🔄 Try Again
             </button>
-            <button class="btn btn-primary" @click="exitReviewMode">
+            <button
+              class="btn btn-primary"
+              @click="exitReviewMode"
+            >
               ✓ Exit Review
             </button>
           </div>
@@ -505,12 +763,22 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCourseStore } from "../stores/course";
 import { useAuthStore } from "../stores/auth";
 import QuizQuestion from "../components/QuizQuestion.vue";
 import { achievements } from "../config/achievements";
+import MarkdownIt from 'markdown-it';
+// Removed markdownItKatex and mathlive imports - using MathJax now
+import DOMPurify from 'dompurify';
+
+// MathJax global loader (assumes MathJax is loaded in public/mathjax/tex-chtml.js)
+function typesetMathJax(el) {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise([el]);
+  }
+}
 
 export default {
   name: "CourseView",
@@ -518,6 +786,7 @@ export default {
     QuizQuestion,
   },
   setup() {
+    // --- Declare stores and refs first ---
     const route = useRoute();
     const router = useRouter();
     const courseStore = useCourseStore();
@@ -545,7 +814,37 @@ export default {
     const stepFlowContainer = ref(null); // Ref for step flow container
     const reviewQuestionOrder = ref([]); // Store shuffled question order for review mode
 
+    // --- Computed property for course ---
     const course = computed(() => courseStore.currentCourse);
+
+    // --- Markdown and MathJax logic ---
+    const md = new MarkdownIt({
+      html: true,
+      linkify: true,
+      typographer: true,
+      breaks: true,
+    });
+
+    function renderMarkdown(raw) {
+      let html = md.render(raw || "");
+      html = DOMPurify.sanitize(html);
+      return html;
+    }
+
+    function mathjaxTypesetNextTick() {
+      nextTick(() => {
+        const containers = document.querySelectorAll('.explanation-text, .section-explanation, .subsection-explanation');
+        containers.forEach(el => typesetMathJax(el));
+      });
+    }
+
+    watch([course, currentStepIndex], () => {
+      mathjaxTypesetNextTick();
+    });
+
+    onMounted(() => {
+      mathjaxTypesetNextTick();
+    });
 
     const currentSection = computed(() => {
       if (!course.value?.sections) return null;
@@ -860,6 +1159,8 @@ export default {
             showContinueHint.value = true;
           }, 1000);
         }
+        // Trigger MathJax typesetting for first explanation
+        mathjaxTypesetNextTick();
       });
     };
 
@@ -879,19 +1180,43 @@ export default {
         saveProgress();
 
         // Scroll to newly revealed step and refocus
-        setTimeout(() => {
-          scrollToStep(currentStepIndex.value);
-          if (stepFlowContainer.value) {
-            stepFlowContainer.value.focus();
-          }
-
-          // Auto-show hint for explanation steps
-          if (currentStep.value?.type === "explanation") {
+        // Use nextTick to ensure DOM has updated before scrolling
+        nextTick(() => {
+          const upcoming = courseSteps.value[currentStepIndex.value];
+          console.log('[CourseView][nextStep] Triggered for step', currentStepIndex.value, 'type:', upcoming?.type);
+          if (upcoming && upcoming.type === 'explanation') {
+            let attempts = 0;
+            const maxAttempts = 8;
+            const scrollExplanationStep = () => {
+              attempts++;
+              console.log(`[CourseView][nextStep] Explanation scroll attempt ${attempts} for step ${currentStepIndex.value}`);
+              scrollToStep(currentStepIndex.value);
+              if (attempts < maxAttempts) {
+                setTimeout(scrollExplanationStep, 120);
+              } else {
+                // Final focus and show hint
+                if (stepFlowContainer.value) {
+                  stepFlowContainer.value.focus();
+                  console.log('[CourseView][nextStep] Focused stepFlowContainer after explanation scroll');
+                }
+                setTimeout(() => {
+                  showContinueHint.value = true;
+                  console.log('[CourseView][nextStep] Showed continue hint for explanation step');
+                }, 1000);
+              }
+            };
+            setTimeout(scrollExplanationStep, 400);
+          } else {
             setTimeout(() => {
-              showContinueHint.value = true;
-            }, 1000);
+              console.log('[CourseView][nextStep] Non-explanation scroll for step', currentStepIndex.value);
+              scrollToStep(currentStepIndex.value);
+              if (stepFlowContainer.value) {
+                stepFlowContainer.value.focus();
+                console.log('[CourseView][nextStep] Focused stepFlowContainer after non-explanation scroll');
+              }
+            }, 150);
           }
-        }, 100);
+        });
       }
     };
 
@@ -943,71 +1268,115 @@ export default {
 
     const scrollToStep = (index) => {
       const el = document.getElementById(`step-${index}`);
-      if (el) {
-        // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
-        const isExplanation = !!el.querySelector(".explanation-step");
-        const headerEl = document.querySelector(".progress-bar-top");
-        const headerHeight = headerEl ? headerEl.offsetHeight : 0;
-
-        if (isExplanation) {
-          // Calculate target Y so the step sits just below the sticky header
-          const rect = el.getBoundingClientRect();
-          const target = window.scrollY + rect.top - headerHeight - 12;
-          window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-        } else {
-          // For questions, center in viewport
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-
-        // Focus the step element without causing additional scroll (preventScroll)
-        if (typeof el.focus === "function") {
-          try {
-            el.focus({ preventScroll: true });
-          } catch (e) {
-            // fallback for older browsers
-            el.focus();
-          }
-        }
-
-        // If this is a question step with a text input (fill-in or short answer), auto-focus it
-        // Delay slightly so the smooth scroll can complete before the input receives focus
-        nextTick(() => {
-          try {
-            const step = courseSteps.value[index];
-            if (step && step.type === "question" && step.question) {
-              const qType = String(step.question.type || "")
-                .toLowerCase()
-                .replace(/[_\s]/g, "");
-              if (qType === "fillintheblank" || qType === "shortanswer") {
-                // Prefer textarea for shortanswer, input for fill-in
-                const inputSelector =
-                  "textarea.form-textarea, input.form-input";
-                const focusInput = () => {
-                  const inputEl = el.querySelector(inputSelector);
-                  if (inputEl && !inputEl.disabled) {
-                    try {
-                      inputEl.focus();
-                    } catch (e) {
-                      // ignore
-                    }
-                    // place cursor at end for text inputs
-                    const len = inputEl.value?.length || 0;
-                    if (typeof inputEl.setSelectionRange === "function") {
-                      inputEl.setSelectionRange(len, len);
-                    }
-                  }
-                };
-
-                // Wait ~350ms to let smooth scroll finish, then focus input
-                setTimeout(focusInput, 350);
-              }
-            }
-          } catch (err) {
-            // fail silently
-          }
-        });
+      if (!el) {
+        console.warn(`[CourseView][scrollToStep] Element step-${index} not found.`);
+        return;
       }
-    };
+      // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
+      const step = courseSteps.value[index];
+      const isExplanation = step && step.type === "explanation";
+      const headerEl = document.querySelector(".progress-bar-top");
+      const headerHeight = headerEl ? headerEl.offsetHeight : 0;
+      console.log(`[CourseView][scrollToStep] Scrolling to step-${index}, type: ${step?.type}, headerHeight: ${headerHeight}`);
+
+      if (isExplanation) {
+        // Wait for layout to settle (use rAF) then compute exact top to position
+        const maxFrames = 12;
+        let lastTop = null;
+        let frames = 0;
+        const tryScroll = () => {
+          frames++;
+          const rect = el.getBoundingClientRect();
+          const currentTop = rect.top;
+          // consider layout settled when the change in top is small or we've tried enough frames
+          if (lastTop !== null && Math.abs(currentTop - lastTop) < 2) {
+            // Compute exact document Y to place the element just below the sticky header
+            const target = window.scrollY + currentTop - headerHeight - 12;
+            window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+            setTimeout(() => {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              setTimeout(() => {
+                const parent = el.parentElement;
+                if (parent && parent.scrollTop !== undefined) {
+                  parent.scrollTop = el.offsetTop - headerHeight - 12;
+                }
+              }, 300);
+            }, 300);
+            return;
+          }
+          lastTop = currentTop;
+          if (frames < maxFrames) {
+            requestAnimationFrame(tryScroll);
+          } else {
+            // Timeout fallback: scrollIntoView then nudge
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+              try {
+                window.scrollBy({ top: -Math.max(0, headerHeight + 12), behavior: 'smooth' });
+              } catch {
+                window.scrollTo({ top: Math.max(0, window.scrollY - (headerHeight + 12)) });
+              }
+            }, 120);
+          }
+        };
+        // Kick off the waiting loop
+        requestAnimationFrame(tryScroll);
+      } else {
+        // For questions, center in viewport
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        console.log(`[CourseView][scrollToStep] Centered question step-${index}`);
+      }
+
+      // Focus the step element without causing additional scroll (preventScroll)
+      if (typeof el.focus === "function") {
+        try {
+          el.focus({ preventScroll: true });
+          console.log(`[CourseView][scrollToStep] Focused step-${index} with preventScroll`);
+        } catch {
+          el.focus();
+          console.log(`[CourseView][scrollToStep] Focused step-${index} without preventScroll`);
+        }
+      }
+
+      // If this is a question step with a text input (fill-in or short answer), auto-focus it
+      // Delay slightly so the smooth scroll can complete before the input receives focus
+      nextTick(() => {
+        try {
+          const step = courseSteps.value[index];
+          if (step && step.type === "question" && step.question) {
+            const qType = String(step.question.type || "")
+              .toLowerCase()
+              .replace(/[_\s]/g, "");
+            if (qType === "fillintheblank" || qType === "shortanswer") {
+              // Prefer textarea for shortanswer, input for fill-in
+              const inputSelector =
+                "textarea.form-textarea, input.form-input";
+              const focusInput = () => {
+                const inputEl = el.querySelector(inputSelector);
+                if (inputEl && !inputEl.disabled) {
+                  try {
+                    inputEl.focus();
+                    console.log(`[CourseView][scrollToStep] Focused input in step-${index}`);
+                  } catch {
+                    // ignore
+                  }
+                  // place cursor at end for text inputs
+                  const len = inputEl.value?.length || 0;
+                  if (typeof inputEl.setSelectionRange === "function") {
+                    inputEl.setSelectionRange(len, len);
+                  }
+                }
+              };
+
+              // Wait ~350ms to let smooth scroll finish, then focus input
+              setTimeout(focusInput, 350);
+            }
+          }
+        } catch {
+          // fail silently
+        }
+      });
+  }
 
     const canProceedForStep = (idx) => {
       const step = courseSteps.value[idx];
@@ -1114,6 +1483,22 @@ export default {
             reviewScore.value++;
           }
           reviewAnsweredQuestions.value.add(questionKey);
+
+          // Auto-scroll to next question in review mode
+          if (useStepFlow.value && currentStepIndex.value < courseSteps.value.length - 1) {
+            // In step flow review mode, auto-advance to next question
+            setTimeout(() => {
+              currentStepIndex.value++;
+              nextTick(() => {
+                setTimeout(() => {
+                  scrollToStep(currentStepIndex.value);
+                  if (stepFlowContainer.value) {
+                    stepFlowContainer.value.focus();
+                  }
+                }, 150);
+              });
+            }, 800);
+          }
 
           // Check if review is complete
           if (reviewAnsweredQuestions.value.size === totalQuestions.value) {
@@ -1387,17 +1772,20 @@ export default {
       } else if (!course.value) {
         error.value = "No course data available";
       }
+
+      // Attach keydown listener to step flow container (if present) so Enter works reliably
+      nextTick(() => {
+        // Removed undefined handleStepContainerKeyDown event listener
+      });
     });
 
-    // Watch for course ID changes
-    watch(
-      () => route.params.id,
-      () => {
-        if (route.params.id) {
-          loadCourse();
-        }
-      },
-    );
+    onUnmounted(() => {
+      try {
+        // Removed undefined handleStepContainerKeyDown event listener
+      } catch {
+        // ignore
+      }
+    });
 
     // Admin controls
     const adminMessage = ref("");
@@ -1688,6 +2076,9 @@ export default {
       endedEarly.value = true;
     };
 
+    // Markdown renderer (MathJax handles LaTeX automatically)
+  // (Removed duplicate MarkdownIt instance)
+    // (Removed duplicate renderMarkdown function)
     return {
       loading,
       error,
@@ -1748,11 +2139,11 @@ export default {
       handleContinueButtonClick,
       handleStepFlowAnswerSubmit,
       handleEndEarly,
-      // Expose new helpers for step rendering
       canProceedForStep,
       getQuestionDisplayNumber,
       scrollToStep,
       scrollToContent,
+      renderMarkdown,
     };
   },
 };
@@ -2276,7 +2667,7 @@ export default {
 .progress-container {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255,  255, 0.05);
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }

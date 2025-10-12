@@ -143,11 +143,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Initialize user from localStorage/cookies if available
   function initialize() {
+    console.log('[AuthStore] Initializing user from storage...')
     // Priority 1: Try to restore full user data from localStorage
     const localUserData = localStorage.getItem('userData')
     if (localUserData) {
       try {
-        user.value = JSON.parse(localUserData)
+        const parsedUser = JSON.parse(localUserData)
+        console.log('[AuthStore] Loaded from localStorage:', parsedUser)
+        user.value = parsedUser
         return
       } catch (e) {
         console.error('Failed to parse userData:', e)
@@ -158,7 +161,9 @@ export const useAuthStore = defineStore('auth', () => {
     const sessionUserData = sessionStorage.getItem('userData')
     if (sessionUserData) {
       try {
-        user.value = JSON.parse(sessionUserData)
+        const parsedUser = JSON.parse(sessionUserData)
+        console.log('[AuthStore] Loaded from sessionStorage:', parsedUser)
+        user.value = parsedUser
         return
       } catch (e) {
         console.error('Failed to parse sessionUserData:', e)

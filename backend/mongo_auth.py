@@ -113,7 +113,11 @@ class MongoAuthManager:
 
     def verify_password(self, plain_password, hashed_password):
         # Check hashed password. Using .encode('utf-8') for both.
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        try:
+            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except ValueError:
+            # Invalid salt/hash format (corrupted or not bcrypt)
+            return False
 
     def add_user(self, username, password, email, name, marketing_consent=False, google_id=None, google_linked=False):
         if not self._ensure_connection():

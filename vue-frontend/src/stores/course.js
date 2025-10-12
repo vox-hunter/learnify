@@ -68,7 +68,6 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function generateCourse(file) {
-    
     // Don't check limit here - check when saving instead
     // This allows guests to generate courses but limits saving
 
@@ -77,49 +76,37 @@ export const useCourseStore = defineStore('course', () => {
     
     try {
       const formData = new FormData()
+      formData.append('message', 'Please generate a course from this file.')
       formData.append('file', file)
       
-      const response = await api.post('/course/generate/upload', formData, {
+      const response = await api.post('/chat/message', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       })
       
-      currentCourse.value = response.data.course_data
-      
-      // Don't increment count here - it will be incremented when course is saved
-      
-      return { success: true, course: response.data.course_data }
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Course generation failed')
+      }
+
+      // Check if AI detected and generated a course
+      if (response.data.is_course && response.data.course_data) {
+        currentCourse.value = response.data.course_data
+        return { success: true, course: response.data.course_data }
+      } else {
+        // AI didn't generate a course - maybe not suitable content
+        error.value = 'The uploaded file does not contain suitable content for course generation. Please try a different file with educational material.'
+        return { success: false, error: error.value }
+      }
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Course generation failed'
+      error.value = err.response?.data?.detail || err.message || 'Course generation failed'
       return { success: false, error: error.value }
     } finally {
       loading.value = false
     }
   }
 
-  async function generateCourseFromUrl(url) {
-    
-    // Don't check limit here - check when saving instead
-    // This allows guests to generate courses but limits saving
-
-    loading.value = true
-    error.value = null
-    
-    try {
-      const response = await api.post('/course/generate/url', { file_url: url })
-      currentCourse.value = response.data.course_data
-      
-      // Don't increment count here - it will be incremented when course is saved
-      
-      return { success: true, course: response.data.course_data }
-    } catch (err) {
-      error.value = err.response?.data?.detail || 'Course generation failed'
-      return { success: false, error: error.value }
-    } finally {
-      loading.value = false
-    }
-  }
+  // URL-based course generation removed
 
   async function saveCourse(courseData, courseTitle, isPublic = true) {
     const authStore = useAuthStore()
@@ -295,32 +282,23 @@ export const useCourseStore = defineStore('course', () => {
 
   async function deleteCourse(courseId) {
     const authStore = useAuthStore()
+    // If guest user, remove from localStorage
+    if (!authStore.isAuthenticated) {
+      const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
+      const remaining = stored.filter(c => c.course_id !== courseId)
+      localStorage.setItem('guestCourses', JSON.stringify(remaining))
+      // update in-memory list if loaded
+      courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId);
+      return { success: true, isLocal: true }
+    }
+    // Authenticated user - call API
     try {
-      // If guest user, remove from localStorage
-      if (!authStore.isAuthenticated) {
-        const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
-        const remaining = stored.filter(c => c.course_id !== courseId)
-        localStorage.setItem('guestCourses', JSON.stringify(remaining))
-        // decrement guestCourseCount safely
-        try {
-          guestCourseCount.value = Math.max(0, guestCourseCount.value - 1)
-          localStorage.setItem('guestCourseCount', guestCourseCount.value.toString())
-        } catch (e) {
-          console.warn('Failed to update guestCourseCount on delete', e)
-        }
-        // update in-memory list if loaded
-        courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
-        return { success: true, isLocal: true }
-      }
-
-      // Authenticated user - call API
       await api.delete(`/course/${courseId}`)
       // Remove from in-memory list
       courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId)
       return { success: true }
-    } catch (err) {
-      console.error('[Course Store] deleteCourse error:', err)
-      return { success: false, error: err.response?.data?.detail || 'Failed to delete course' }
+    } catch (e) {
+      return { success: false, error: e }
     }
   }
 
@@ -332,14 +310,12 @@ export const useCourseStore = defineStore('course', () => {
     guestCourseCount,
     canGenerateCourse,
     remainingGuestCourses,
-    generateCourse,
-    generateCourseFromUrl,
+  generateCourse,
     saveCourse,
     loadCourses,
     loadCourse,
     updateProgress,
-    loadProgress
-    ,
+    loadProgress,
     deleteCourse
-  }
-})
+  };
+});

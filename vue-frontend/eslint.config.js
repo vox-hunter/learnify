@@ -6,6 +6,11 @@ export default [
   ...pluginVue.configs['flat/recommended'],
   {
     files: ['**/*.{js,mjs,cjs,vue}'],
+    languageOptions: {
+      globals: {
+        MathJax: 'readonly'
+      }
+    },
     rules: {
       'vue/multi-word-component-names': 'off',
       'no-unused-vars': 'warn',
@@ -13,6 +18,6 @@ export default [
     }
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'build/**']
+    ignores: ['dist/**', 'node_modules/**', 'build/**', 'public/mathjax/**']
   }
 ]

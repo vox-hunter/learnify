@@ -134,11 +134,16 @@ def validate_google_oauth_user(user_info: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Validated user data dict
     """
+    print(f"[Google OAuth] Raw user_info from Google: {user_info}")
+    
     if not user_info.get("email"):
         raise ValueError("No email in user info")
     
     if not user_info.get("verified_email", False):
         raise ValueError("Email not verified by Google")
+    
+    google_id = user_info.get("sub") or user_info.get("id", "")
+    print(f"[Google OAuth] Extracted google_id: {google_id}")
     
     return {
         "email": user_info["email"],
@@ -146,6 +151,6 @@ def validate_google_oauth_user(user_info: Dict[str, Any]) -> Dict[str, Any]:
         "given_name": user_info.get("given_name", ""),
         "family_name": user_info.get("family_name", ""),
         "picture": user_info.get("picture", ""),
-        "google_id": user_info.get("id", ""),
+        "google_id": google_id,
         "email_verified": True  # Google has already verified
     }

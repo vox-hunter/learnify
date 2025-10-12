@@ -4,7 +4,11 @@
       <!-- Hero Section -->
       <section class="hero">
         <div class="hero-logo">
-          <img src="/logo.png" alt="AI Loom" class="logo-large">
+          <img
+            src="/logo.png"
+            alt="AI Loom"
+            class="logo-large"
+          >
         </div>
         <h1 class="hero-title">
           AI Loom
@@ -24,28 +28,46 @@
         </p>
 
         <!-- Input Method Tabs -->
+        <!-- Only show upload tab -->
         <div class="tabs">
-          <button :class="['tab', { active: inputMethod === 'upload' }]" @click="inputMethod = 'upload'">
-            📤 Upload File
-          </button>
-          <button :class="['tab', { active: inputMethod === 'url' }]" @click="inputMethod = 'url'">
-            🔗 Provide URL
+          <button
+            class="tab active"
+            disabled
+          >
+            📁 Upload File
           </button>
         </div>
 
         <!-- Upload Method -->
-        <div v-if="inputMethod === 'upload'" class="input-section">
+        <div
+          v-if="inputMethod === 'upload'"
+          class="input-section"
+        >
           <div class="file-upload-area">
-            <input id="file-upload" ref="fileInput" type="file"
-              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf" class="file-input"
-              @change="handleFileChange">
-            <label for="file-upload" class="file-upload-label">
+            <input
+              id="file-upload"
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+              class="file-input"
+              @change="handleFileChange"
+            >
+            <label
+              for="file-upload"
+              class="file-upload-label"
+            >
               <div class="upload-icon">📄</div>
-              <div v-if="!selectedFile" class="upload-text">
+              <div
+                v-if="!selectedFile"
+                class="upload-text"
+              >
                 <p class="upload-title">Click to upload or drag and drop</p>
                 <p class="upload-subtitle">PDF, Word, PowerPoint, Excel, Text files (max 20MB)</p>
               </div>
-              <div v-else class="selected-file">
+              <div
+                v-else
+                class="selected-file"
+              >
                 <p class="file-name">{{ selectedFile.name }}</p>
                 <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
               </div>
@@ -53,46 +75,60 @@
           </div>
         </div>
 
-        <!-- URL Method -->
-        <div v-if="inputMethod === 'url'" class="input-section">
-          <div class="form-group">
-            <label class="form-label">PDF URL</label>
-            <input v-model="pdfUrl" type="url" class="form-input" placeholder="https://example.com/document.pdf">
-          </div>
-        </div>
+        <!-- URL input removed -->
 
         <!-- Error Message -->
-        <div v-if="error" class="alert alert-error">
+        <div
+          v-if="error"
+          class="alert alert-error"
+        >
           {{ error }}
         </div>
 
         <!-- Progress -->
-        <div v-if="generating" class="progress-section">
+        <div
+          v-if="generating"
+          class="progress-section"
+        >
           <div class="progress-header">
             <span class="progress-title">⚡ Generating Your Course</span>
             <span class="progress-percentage">{{ progress }}%</span>
           </div>
 
           <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progress + '%' }" />
+            <div
+              class="progress-fill"
+              :style="{ width: progress + '%' }"
+            />
           </div>
 
           <!-- Status Steps -->
           <div class="status-steps">
-            <div v-for="(step, index) in generationSteps" :key="index" class="status-step" :class="{
-              'active': currentStep === index,
-              'completed': currentStep > index
-            }">
+            <div
+              v-for="(step, index) in generationSteps"
+              :key="index"
+              class="status-step"
+              :class="{
+                'active': currentStep === index,
+                'completed': currentStep > index
+              }"
+            >
               <div class="step-icon">
                 <span v-if="currentStep > index">✓</span>
-                <span v-else-if="currentStep === index" class="spinner-small" />
+                <span
+                  v-else-if="currentStep === index"
+                  class="spinner-small"
+                />
                 <span v-else>{{ index + 1 }}</span>
               </div>
               <div class="step-content">
                 <div class="step-title">
                   {{ step.title }}
                 </div>
-                <div v-if="currentStep === index" class="step-description">
+                <div
+                  v-if="currentStep === index"
+                  class="step-description"
+                >
                   {{ step.description }}
                 </div>
               </div>
@@ -105,14 +141,20 @@
         </div>
 
         <!-- Generate Button -->
-        <button :disabled="generating || (!selectedFile && !pdfUrl)" class="btn btn-primary btn-generate"
-          @click="generateCourse">
+        <button
+          :disabled="generating || (!selectedFile && !pdfUrl)"
+          class="btn btn-primary btn-generate"
+          @click="generateCourse"
+        >
           {{ generating ? 'Generating...' : '🚀 Generate Course' }}
         </button>
       </div>
 
       <!-- Generated Course Display -->
-      <div v-if="generatedCourse" class="course-preview card">
+      <div
+        v-if="generatedCourse"
+        class="course-preview card"
+      >
         <h2 class="section-title">
           Course Generated Successfully! 🎉
         </h2>
@@ -125,16 +167,24 @@
         </p>
 
         <div class="course-actions">
-          <button class="btn btn-primary" @click="startCourse">
+          <button
+            class="btn btn-primary"
+            @click="startCourse"
+          >
             ▶️ Start Learning
           </button>
         </div>
       </div>
 
       <!-- Guest User Limit Warning -->
-      <div v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2" class="alert alert-warning">
-        <p><strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{
-          courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.</p>
+      <div
+        v-if="!authStore.isAuthenticated && courseStore.remainingGuestCourses < 2"
+        class="alert alert-warning"
+      >
+        <p>
+          <strong>Guest User:</strong> You can save {{ courseStore.remainingGuestCourses }} more course{{
+            courseStore.remainingGuestCourses !== 1 ? 's' : '' }}.
+        </p>
         <p v-if="courseStore.remainingGuestCourses === 0">
           You've reached the limit of 2 saved courses. Please <router-link to="/login">
             log in

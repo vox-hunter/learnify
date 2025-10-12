@@ -26,10 +26,11 @@ Vue Frontend (port 3000) ←→ FastAPI Backend (port 8000) ←→ MongoDB + Gem
 
 **Data Flow for Course Generation:**
 1. User uploads file in `HomeView.vue` → `useCourseStore().generateCourse()`
-2. API endpoint `/course/generate/upload` receives file → calls `generate_course()` in `local_backend.py`
-3. `generate_course()` validates file security, converts if needed (DOCX→PDF via `document_converter.py`), sends to Gemini with structured schema
-4. Gemini returns Pydantic-validated course structure (sections → subsections → quizzes)
-5. Frontend receives course data, stores in `courseStore`, navigates to `CourseView.vue`
+2. Store sends file to `/chat/message` endpoint with message "Please generate a course from this file."
+3. `ChatSessionManager.send_message()` processes the file and sends to Gemini AI with system instruction
+4. AI analyzes file content and decides whether to generate a course based on content suitability
+5. If suitable, Gemini returns JSON course structure; `chat_manager.py` detects and parses it
+6. Frontend receives course data via `is_course` flag and `course_data` in response, stores in `courseStore`, navigates to `CourseView.vue`
 
 ### Critical State Management Pattern
 **Auth Store (`stores/auth.js`):**
@@ -72,17 +73,18 @@ Component uses computed properties to determine question type:
 
 When adding question types, update both backend schema and frontend rendering logic.
 
-### 3. File Security & Conversion Pipeline
+**File Security & Conversion Pipeline**
 `file_security.py` enforces:
 - Max file size: 10MB (`MAX_FILE_SIZE`)
 - Max content: 15,000 words (`MAX_CONTENT_WORDS`)
 - Blocked extensions: `.exe`, `.bat`, `.py`, archives, etc. (see `DANGEROUS_EXTENSIONS`)
 - Allowed: Documents, images, audio, video (see `SAFE_EXTENSIONS`)
 
-Conversion flow (in `generate_course()`):
-1. Check if file should convert to PDF (`should_convert_to_pdf()` checks extension)
-2. If DOCX/PPTX/XLSX/TXT → convert via `document_converter.py` or `file_converter.py`
-3. PDF is Gemini's preferred format per documentation
+Conversion flow (in `chat_manager.py`):
+1. File validation happens at `/chat/message` endpoint before processing
+2. File is sent directly to Gemini AI as bytes with MIME type
+3. AI processes file content and determines if course generation is appropriate
+4. System instruction guides AI to detect educational content and output JSON when suitable
 
 ### 4. Admin Controls Pattern
 Admin user (hardcoded email check in `api/main.py:login`) gets special features in `CourseView.vue`:
@@ -93,13 +95,7 @@ Admin user (hardcoded email check in `api/main.py:login`) gets special features 
 Extend this pattern for other admin features by checking `isAdmin` flag.
 
 ### 5. Status Callbacks for Real-Time Updates
-Course generation supports `status_callback` parameter in `generate_course()`:
-```python
-def update_status(message, progress=None):
-    if status_callback:
-        status_callback(message, progress)
-```
-Use this for implementing real-time progress indicators (per IMPLEMENTATION_PLAN.md wishlist).
+Chat messages support streaming responses for real-time updates. Course generation happens through the chat interface, providing natural feedback to the user about the processing status.
 
 ## Development Workflows
 
@@ -155,7 +151,7 @@ Test by submitting short answer questions in UI - watch network tab for `/quiz/v
 - `api/main.py` - FastAPI app and all REST endpoints
 
 **Core Business Logic:**
-- `backend/local_backend.py` - AI course generation (see `generate_course()` function)
+- `backend/chat_manager.py` - AI chat sessions and course generation via chat
 - `vue-frontend/src/views/CourseView.vue` - Main learning interface with quiz rendering
 - `vue-frontend/src/components/QuizQuestion.vue` - Individual question rendering logic
 

@@ -1,113 +1,196 @@
 <template>
-    <div class="chat-view">
-        <div class="container">
-            <div ref="chatFeed" class="chat-feed">
-                <!-- Welcome Message -->
-                <div v-if="messages.length === 0" class="welcome-message">
-                    <div class="welcome-icon">✨</div>
-                    <h2>Learning starts when you start talking.</h2>
-                    <p>Ask AI Loom anything, upload notes, or paste a URL to get started.</p>
-                    <div class="example-prompts">
-                        <button v-for="(example, i) in examplePrompts" :key="i" class="example-prompt"
-                            @click="sendExamplePrompt(example)">
-                            {{ example }}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Message List -->
-                <div v-for="(msg, index) in messages" :key="index"
-                    :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']">
-                    <div class="message-avatar">
-                        <span v-if="msg.role === 'user'">👤</span>
-                        <span v-else>🤖</span>
-                    </div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'AI Loom' }}</span>
-                            <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-                        </div>
-                        <div class="message-text" v-html="formatMessage(msg.text, msg.role)"></div>
-                        <div v-if="msg.attachment" class="message-attachment">
-                            <span class="attachment-icon">📎</span>
-                            <span class="attachment-name">{{ msg.attachment.name }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading Indicator -->
-                <div v-if="isLoading" class="message ai-message loading">
-                    <div class="message-avatar"> <span>🤖</span> </div>
-                    <div class="message-content">
-                        <div class="typing-indicator">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="chat-input-container">
-                <div v-if="selectedFile || urlInput" class="attachment-preview">
-                    <div v-if="selectedFile" class="preview-item">
-                        <span class="preview-icon">📄</span>
-                        <span class="preview-name">{{ selectedFile.name }}</span>
-                        <button class="preview-remove" @click="removeFile">×</button>
-                    </div>
-                    <div v-if="urlInput" class="preview-item">
-                        <span class="preview-icon">🔗</span>
-                        <span class="preview-name">{{ urlInput }}</span>
-                        <button class="preview-remove" @click="removeUrl">×</button>
-                    </div>
-                </div>
-
-                <div v-if="error" class="chat-error">{{ error }}</div>
-
-                <div v-if="reachedNgLimit" class="ng-limit-block">
-                    <div class="danger-warning" style="margin-bottom:0.75rem">
-                        <strong>You've reached the free chat limit.</strong>
-                        <p style="margin:0.25rem 0 0; color:var(--text-muted)">Link your Google account to continue
-                            chatting with your personal quota, or visit the Danger Zone in your account.</p>
-                    </div>
-                    <div class="input-group">
-                        <button class="btn btn-primary" @click.prevent="goToDangerZone">Go to Danger Zone</button>
-                        <button class="btn" style="margin-left:0.5rem" @click.prevent="linkGoogleAccount">Link Google
-                            Account</button>
-                    </div>
-                </div>
-                <div v-else class="input-group">
-                    <label class="input-btn file-btn" title="Upload file">
-                        <input ref="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
-                            hidden @change="handleFileSelect" />
-                        📎
-                    </label>
-
-                    <button class="input-btn url-btn" :class="{ active: showUrlInput }" title="Add URL"
-                        @click="toggleUrlInput">
-                        🔗
-                    </button>
-
-                    <input v-if="showUrlInput" v-model="urlInput" type="url" class="url-input"
-                        placeholder="Paste URL here..." @keydown.enter="handleUrlSubmit"
-                        @keydown.esc="showUrlInput = false" />
-
-                    <input v-else v-model="messageInput" type="text" class="message-input"
-                        placeholder="Ask AI Loom or upload notes..." @keydown.enter="sendMessage"
-                        :disabled="isLoading" />
-
-                    <button class="input-btn send-btn" :disabled="!canSend || isLoading" @click="sendMessage">{{
-                        isLoading ? '⏳' : '🚀' }}</button>
-                </div>
-            </div>
+  <div class="chat-view">
+    <div class="container">
+      <div
+        ref="chatFeed"
+        class="chat-feed"
+      >
+        <!-- Welcome Message -->
+        <div
+          v-if="messages.length === 0"
+          class="welcome-message"
+        >
+          <div class="welcome-icon">
+            ✨
+          </div>
+          <h2>Learning starts when you start talking.</h2>
+          <p>Ask Stitch anything, upload notes, or paste a URL to get started.</p>
+          <div class="example-prompts">
+            <button
+              v-for="(example, i) in examplePrompts"
+              :key="i"
+              class="example-prompt"
+              @click="sendExamplePrompt(example)"
+            >
+              {{ example }}
+            </button>
+          </div>
         </div>
+
+        <!-- Message List -->
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message', 'wrap']"
+        >
+          <div class="message-avatar">
+            <span v-if="msg.role === 'user'">👤</span>
+            <span v-else>
+              <img
+                src="/STITCH.png"
+                alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
+              >
+            </span>
+          </div>
+          <div class="message-content">
+            <div class="message-header">
+              <span class="message-sender">{{ msg.role === 'user' ? 'You' : 'Stitch' }}</span>
+              <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+            </div>
+            <div
+              class="message-text"
+              v-html="formatMessage(msg.text, msg.role)"
+            />
+            <div
+              v-if="msg.attachment"
+              class="message-attachment"
+            >
+              <span class="attachment-icon">📎</span>
+              <span class="attachment-name">{{ msg.attachment.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div
+          v-if="isLoading"
+          class="message ai-message loading"
+        >
+          <div class="message-avatar">
+            <span>
+              <img
+                src="/STITCH.png"
+                alt="Stitch Logo"
+                class="stitch-logo"
+                style="width:2em;height:2em;vertical-align:middle;"
+              >
+            </span>
+          </div>
+          <div class="message-content">
+            <div class="typing-indicator">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-container">
+        <div
+          v-if="selectedFile || urlInput"
+          class="attachment-preview"
+        >
+          <div
+            v-if="selectedFile"
+            class="preview-item"
+          >
+            <span class="preview-icon">📄</span>
+            <span class="preview-name">{{ selectedFile.name }}</span>
+            <button
+              class="preview-remove"
+              @click="removeFile"
+            >
+              ×
+            </button>
+          </div>
+          <div
+            v-if="urlInput"
+            class="preview-item"
+          >
+            <span class="preview-icon">🔗</span>
+            <span class="preview-name">{{ urlInput }}</span>
+            <button
+              class="preview-remove"
+              @click="removeUrl"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="error"
+          class="chat-error"
+        >
+          {{ error }}
+        </div>
+
+        <div class="input-group">
+          <label
+            class="input-btn file-btn"
+            title="Upload file"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.xlsx,.xls,.md,.rtf"
+              hidden
+              @change="handleFileSelect"
+            >
+            📎
+          </label>
+
+
+          <input
+            v-if="showUrlInput"
+            v-model="urlInput"
+            type="url"
+            class="url-input"
+            placeholder="Paste URL here..."
+            @keydown.enter="handleUrlSubmit"
+            @keydown.esc="showUrlInput = false"
+          >
+
+          <button
+            v-else-if="reachedNgLimit"
+            class="link-google-btn"
+            @click="linkGoogleAccount"
+          >
+            🔗 Link Google Account to Continue
+          </button>
+
+          <input
+            v-else
+            v-model="messageInput"
+            type="text"
+            class="message-input"
+            placeholder="Ask Stitch or upload notes..."
+            :disabled="isLoading"
+            @keydown.enter="sendMessage"
+          >
+
+          <button
+            v-if="!reachedNgLimit"
+            class="input-btn send-btn"
+            :disabled="!canSend || isLoading"
+            @click="sendMessage"
+          >
+            {{
+              isLoading ? '⏳' : '🚀' }}
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
 </template>
 
 <script>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
@@ -118,6 +201,7 @@ export default {
     name: 'ChatView',
     setup() {
         const router = useRouter()
+        const route = useRoute()
         const courseStore = useCourseStore()
         const authStore = useAuthStore()
 
@@ -162,23 +246,64 @@ export default {
             setNgCount(username, c)
             return c
         }
-
-        const nonGoogleCount = ref(authStore.user?.username ? getNgCount(authStore.user.username) : 0)
+        const nonGoogleCount = ref(0)
         const reachedNgLimit = computed(() => {
-            // Skip limit if user is Google-linked
+            // Unlock chat if user is Google user
             if (authStore.user?.isGoogleUser) return false
-            return !!authStore.user && nonGoogleCount.value >= 6
+            // Check limit for non-Google authenticated users
+            const isLimited = !!authStore.user && !authStore.user?.isGoogleUser && nonGoogleCount.value >= 6
+            console.log('[ChatView] Limit check:', { 
+                isGoogleUser: authStore.user?.isGoogleUser, 
+                nonGoogleCount: nonGoogleCount.value, 
+                isLimited 
+            })
+            return isLimited
         })
-
-        // Clear the counter when a user becomes Google-linked and keep in sync on user change
         watch(() => authStore.user, (newUser) => {
+            console.log('[ChatView] User changed:', { 
+                username: newUser?.username, 
+                isGoogleUser: newUser?.isGoogleUser 
+            })
             if (newUser?.isGoogleUser && newUser.username) {
                 localStorage.removeItem(ngStorageKey(newUser.username))
                 nonGoogleCount.value = 0
+                // Reset error state when user becomes Google user
+                error.value = null
+                console.log('[ChatView] Reset count for Google user')
+            } else if (newUser?.username && !newUser?.isGoogleUser) {
+                // Only get count for non-Google users
+                const count = getNgCount(newUser.username)
+                nonGoogleCount.value = count
+                console.log('[ChatView] Loaded count for non-Google user:', count)
+            } else if (!newUser) {
+                // User logged out
+                nonGoogleCount.value = 0
+                console.log('[ChatView] User logged out, reset count')
             }
-            if (newUser?.username) {
-                nonGoogleCount.value = getNgCount(newUser.username)
+        }, { deep: true, immediate: true })
+
+        // Watch for route changes (e.g., returning from OAuth)
+        watch(() => route.path, (newPath) => {
+            console.log('[ChatView] Route changed to:', newPath)
+            // Force re-check user status when navigating to chat
+            if (newPath === '/' && authStore.user?.username) {
+                // Re-initialize user data from localStorage in case it was updated
+                const userData = localStorage.getItem('userData')
+                if (userData) {
+                    try {
+                        const parsedUser = JSON.parse(userData)
+                        console.log('[ChatView] Reloading user from localStorage:', parsedUser)
+                        authStore.user = parsedUser
+                    } catch (e) {
+                        console.error('[ChatView] Failed to parse userData:', e)
+                    }
+                }
             }
+        })
+
+        // Watch messages and typeset math when they change
+        watch(messages, () => {
+            typesetMath()
         }, { deep: true })
 
         const showGoogleLinkButton = computed(() => {
@@ -193,15 +318,36 @@ export default {
 
         const linkGoogleAccount = async () => {
             try {
-                const resp = await api.get('/auth/google/url')
-                if (resp.data?.url) {
-                    window.location.href = resp.data.url
+                // Store current route for redirect after OAuth (use root path for chat)
+                localStorage.setItem('oauth_redirect', '/')
+                
+                // Generate state for CSRF protection
+                const state = generateRandomState()
+                localStorage.setItem('oauth_state', state)
+
+                // Determine redirect URI based on current host
+                const redirectUri = `${window.location.origin}/auth/google/callback`
+
+                // Get Google OAuth URL from backend
+                const response = await api.post('/auth/google/url', {
+                    redirect_uri: redirectUri,
+                    state: state
+                })
+
+                if (response.data.success && response.data.auth_url) {
+                    window.location.href = response.data.auth_url
                 } else {
                     error.value = 'Failed to get Google login URL.'
                 }
             } catch (e) {
                 error.value = 'Failed to get Google login URL.'
             }
+        }
+
+        function generateRandomState() {
+            const array = new Uint8Array(32)
+            window.crypto.getRandomValues(array)
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
         }
 
         const scrollToBottom = () => {
@@ -215,20 +361,32 @@ export default {
             return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
 
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
         const formatMessage = (text, role = 'assistant') => {
             if (!text) return ''
             // Replace reference-style citation links to safe links
-            const withCitations = String(text).replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
+            let withCitations = String(text).replace(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g, '[$1]($2)')
 
             if (role === 'assistant') {
+                // Render markdown
                 const rendered = md.render(withCitations)
                 return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
             }
 
             // simple user message formatting
             return withCitations.replace(/\n/g, '<br>')
+        }
+
+        // Typeset math after messages update
+        const typesetMath = () => {
+            nextTick(() => {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().catch((err) => {
+                        console.error('MathJax typesetting failed:', err)
+                    })
+                }
+            })
         }
 
         const handleFileSelect = (e) => {
@@ -260,9 +418,6 @@ export default {
             sendMessage()
         }
 
-        const goToDangerZone = () => {
-            router.push({ path: '/account', query: { tab: 'danger' } })
-        }
 
         const sendMessage = async () => {
             if (!canSend.value) return
@@ -320,6 +475,7 @@ export default {
                 if (authStore.user?.username) formData.append('username', authStore.user.username)
 
                 const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                console.log('Chat API response:', response)
 
                 if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
 
@@ -336,7 +492,11 @@ export default {
                         throw new Error(saveResult.error || 'Failed to save course')
                     }
                 } else {
-                    messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                    if (response.data.reply && response.data.reply.trim()) {
+                        messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                    } else {
+                        messages.value.push({ role: 'system', text: '⚠️ No reply received from AI. Please check backend logs or try again later.', timestamp: Date.now() })
+                    }
                 }
 
                 scrollToBottom()
@@ -344,14 +504,69 @@ export default {
                 console.error('Error sending message:', err)
                 error.value = err.response?.data?.detail || err.message || 'Failed to send message'
                 messages.value.pop()
+                messages.value.push({ role: 'system', text: `⚠️ Error: ${error.value}`, timestamp: Date.now() })
+                scrollToBottom()
             } finally {
                 isLoading.value = false
             }
         }
 
+        // Save and load chat messages from localStorage
+        const saveChatMessages = () => {
+            try {
+                const chatData = {
+                    messages: messages.value,
+                    sessionId: sessionId.value,
+                    timestamp: Date.now()
+                }
+                localStorage.setItem('chat_messages', JSON.stringify(chatData))
+            } catch (e) {
+                console.error('Failed to save chat messages:', e)
+            }
+        }
+
+        const loadChatMessages = () => {
+            try {
+                const savedData = localStorage.getItem('chat_messages')
+                if (savedData) {
+                    const chatData = JSON.parse(savedData)
+                    // Load messages if they're less than 24 hours old
+                    const age = Date.now() - (chatData.timestamp || 0)
+                    if (age < 24 * 60 * 60 * 1000) {
+                        if (Array.isArray(chatData.messages)) {
+                            messages.value = chatData.messages
+                        } else {
+                            messages.value = []
+                        }
+                        sessionId.value = chatData.sessionId || sessionId.value
+                        // Scroll to bottom after loading
+                        nextTick(() => scrollToBottom())
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load chat messages:', e)
+                messages.value = []
+            }
+        }
+
+        // Watch messages and save to localStorage whenever they change
+        watch(messages, () => {
+            saveChatMessages()
+        }, { deep: true })
+
         onMounted(() => {
             const saved = localStorage.getItem('chat_session_id')
             if (saved) sessionId.value = saved
+            // Load saved chat messages
+            loadChatMessages()
+            // Initialize nonGoogleCount for current user
+            if (authStore.user?.username && !authStore.user?.isGoogleUser) {
+                const count = getNgCount(authStore.user.username)
+                nonGoogleCount.value = count
+                console.log('[ChatView] Initialized count on mount:', count, 'for user:', authStore.user.username)
+            } else if (authStore.user?.isGoogleUser) {
+                console.log('[ChatView] Google user on mount, count stays 0')
+            }
         })
 
         return {
@@ -377,8 +592,7 @@ export default {
             sendMessage,
             showGoogleLinkButton,
             linkGoogleAccount,
-            reachedNgLimit,
-            goToDangerZone
+            reachedNgLimit
         }
     }
 }
@@ -406,8 +620,9 @@ export default {
 
 .chat-feed {
     flex: 1;
-    /* only show scrollbar when content overflows */
+    /* only show vertical scrollbar when content overflows; never show horizontal */
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 1.25rem 0.75rem;
     display: flex;
     flex-direction: column;
@@ -509,13 +724,13 @@ export default {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7733ff, #00d4ff);
+    background: none;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.25rem;
     flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(119, 51, 255, 0.18);
+    box-shadow: none;
 }
 
 .user-message .message-avatar {
@@ -523,24 +738,33 @@ export default {
 }
 
 .message-content {
-    /* Shrink-to-fit container for the message bubble. It won't grow unnecessarily, but will cap at a percentage of the row. */
-    display: inline-block;
-    flex: 0 0 auto;
-    /* do not grow; size to content */
+    /* Make this a flex item that can shrink to avoid overflow in a flex row */
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0; /* critical: allow text to wrap instead of forcing overflow */
+}
+
+/* AI messages occupy remaining width of the row */
+.ai-message .message-content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.user-message .message-content {
+    /* Keep user messages constrained, but shrink-to-fit content */
+    flex: 0 1 auto; /* don't grow to fill the row */
     max-width: 70%;
-    vertical-align: top;
 }
 
 .user-message .message-text {
     /* Balanced padding and left-aligned text inside the right-side bubble */
-    padding: 0.6rem 0.9rem;
     text-align: left;
 }
 
 .ai-message .message-text {
-    /* ensure AI bubbles use similar balanced padding */
-    padding: 0.9rem 1rem;
+    /* AI messages use full width with no extra padding for LaTeX */
     text-align: left;
+    padding: 0.5rem 0;
 }
 
 .message-header {
@@ -565,25 +789,36 @@ export default {
 }
 
 .message-text {
-    padding: 1rem;
-    background: var(--card-bg);
-    border-radius: 1.25rem;
-    color: var(--text-primary);
     line-height: 1.6;
     font-size: 0.95rem;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 2px 8px var(--shadow-color);
+    color: var(--text-primary);
+    white-space: normal; /* ensure standard wrapping */
+    /* Ensure long words/URLs wrap instead of causing horizontal scroll */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
+/* AI: no bubble, just aligned text */
 .ai-message .message-text {
-    border-top-left-radius: 0.25rem;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .user-message .message-text {
+    /* Keep bubble styling for user messages */
+    padding: 1rem;
     background: linear-gradient(135deg, #7733ff, #00d4ff);
     color: white;
     border: none;
+    border-radius: 1.25rem;
     border-top-right-radius: 0.25rem;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    display: inline-block; /* shrink bubble to content */
+    max-width: 100%;
 }
 
 .message-attachment {
@@ -764,6 +999,33 @@ export default {
     box-shadow: 0 6px 20px rgba(119, 51, 255, 0.4);
 }
 
+.link-google-btn {
+    flex: 1;
+    padding: 0.85rem 1.5rem;
+    border: none;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #4285f4, #34a853);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.link-google-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+}
+
+.link-google-btn:active {
+    transform: translateY(0);
+}
+
 :deep(.citation-link) {
     color: var(--accent-primary);
     text-decoration: none;
@@ -803,7 +1065,21 @@ export default {
     padding: 1rem;
     border-radius: 0.5rem;
     overflow-x: auto;
+    max-width: 100%;
     margin: 0.75rem 0;
+}
+
+/* Ensure rich content doesn't overflow the viewport */
+:deep(.message-text) img {
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+}
+
+:deep(.message-text) table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 :deep(.message-text) ul,
@@ -819,6 +1095,23 @@ export default {
 :deep(.message-text) a {
     color: var(--accent-primary);
     text-decoration: underline;
+}
+
+/* MathLive display math styling */
+:deep(.math-display) {
+    text-align: center !important;
+    margin: 1rem 0 !important;
+    display: block !important;
+    overflow-x: auto;
+}
+
+:deep(.math-error) {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin: 0.5rem 0;
+    display: block;
 }
 
 .user-message :deep(.message-text) code,
@@ -848,7 +1141,7 @@ export default {
     }
 
     .message-content {
-        max-width: 85%;
+        max-width: 95%;
     }
 
     .input-btn {

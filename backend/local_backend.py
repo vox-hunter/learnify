@@ -200,7 +200,7 @@ Be fair but accurate in your evaluation.
 """
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-preview-09-2025",
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.3  # Lower temperature for more consistent evaluation
@@ -538,7 +538,7 @@ The file you uploaded has a format that is not supported by our AI system.
         # Generate content using Gemini API
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash-preview-05-20",
+                model="gemini-2.5-flash-preview-09-2025",
                 config=types.GenerateContentConfig(
                     system_instruction=sys_ins,
                     response_mime_type="application/json",

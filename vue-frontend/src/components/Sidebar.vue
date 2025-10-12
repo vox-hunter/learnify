@@ -1,83 +1,163 @@
 <template>
-    <aside :class="['sidebar', { collapsed: isCollapsed }]" @mouseenter="handleMouseEnter"
-        @mouseleave="handleMouseLeave">
-        <!-- Top Section -->
-        <div class="sidebar-top">
-            <!-- Brand (Decorative Only) -->
-            <div class="sidebar-brand">
-                <img v-if="!isCollapsed" src="/logo.png" alt="AI Loom" class="brand-logo">
-                <img v-else src="/logo.png" alt="AI Loom" class="brand-logo-small">
-                <span v-if="!isCollapsed" class="brand-text">AI Loom</span>
-            </div>
+  <aside
+    :class="['sidebar', { collapsed: isCollapsed }]"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
+  >
+    <!-- Top Section -->
+    <div class="sidebar-top">
+      <!-- Brand (Decorative Only) -->
+      <div class="sidebar-brand">
+        <img
+          v-if="!isCollapsed"
+          src="/logo.png"
+          alt="AI Loom"
+          class="brand-logo"
+        >
+        <img
+          v-else
+          src="/logo.png"
+          alt="AI Loom"
+          class="brand-logo-small"
+        >
+        <span
+          v-if="!isCollapsed"
+          class="brand-text"
+        >AI Loom</span>
+      </div>
 
-            <!-- New Chat Button - Primary CTA with Glow -->
-            <button class="new-chat-btn" @click="startNewChat" :title="isCollapsed ? 'New Chat' : ''">
-                <span class="icon">+</span>
-                <span v-if="!isCollapsed" class="text">New Chat</span>
-            </button>
+      <!-- New Chat Button - Primary CTA with Glow -->
+      <button
+        class="new-chat-btn"
+        :title="isCollapsed ? 'New Chat' : ''"
+        @click="startNewChat"
+      >
+        <span class="icon">+</span>
+        <span
+          v-if="!isCollapsed"
+          class="text"
+        >New Chat</span>
+      </button>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+      <router-link
+        to="/"
+        class="nav-item"
+        :title="isCollapsed ? 'Chat' : ''"
+      >
+        <span class="nav-icon">💬</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >Chat</span>
+      </router-link>
+
+      <router-link
+        to="/courses"
+        class="nav-item"
+        :title="isCollapsed ? 'Courses' : ''"
+      >
+        <span class="nav-icon">📚</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >Courses</span>
+      </router-link>
+
+      <router-link
+        to="/library"
+        class="nav-item"
+        :title="isCollapsed ? 'Library' : ''"
+      >
+        <span class="nav-icon">🏛️</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >Library</span>
+      </router-link>
+
+      <router-link
+        v-if="!isAuthenticated"
+        to="/login"
+        class="nav-item"
+        :title="isCollapsed ? 'Login' : ''"
+      >
+        <span class="nav-icon">🔐</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >Login</span>
+      </router-link>
+    </nav>
+
+    <!-- Bottom Section -->
+    <div class="sidebar-bottom">
+      <!-- Theme Toggle -->
+      <button
+        class="theme-toggle-btn"
+        :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+        @click="toggleTheme"
+      >
+        <span class="nav-icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+        <span
+          v-if="!isCollapsed"
+          class="nav-label"
+        >
+          {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
+        </span>
+      </button>
+
+      <!-- User Profile with Dropdown -->
+      <div
+        v-if="isAuthenticated"
+        class="user-profile"
+      >
+        <div
+          class="user-trigger"
+          :title="isCollapsed ? username : ''"
+          @click="toggleDropdown"
+        >
+          <div class="user-avatar">
+            {{ userInitials }}
+          </div>
+          <div
+            v-if="!isCollapsed"
+            class="user-info"
+          >
+            <div class="user-name">
+              {{ username }}
+            </div>
+          </div>
         </div>
 
-        <!-- Navigation -->
-        <nav class="sidebar-nav">
-            <router-link to="/" class="nav-item" :title="isCollapsed ? 'Chat' : ''">
-                <span class="nav-icon">💬</span>
-                <span v-if="!isCollapsed" class="nav-label">Chat</span>
+        <!-- Dropdown Menu (Top-aligned) -->
+        <transition name="dropdown">
+          <div
+            v-if="showDropdown && !isCollapsed"
+            class="user-dropdown"
+          >
+            <router-link
+              to="/account"
+              class="dropdown-item"
+              @click="closeDropdown"
+            >
+              <span class="dropdown-icon">⚙️</span>
+              <span class="dropdown-label">Settings</span>
             </router-link>
-
-            <router-link to="/courses" class="nav-item" :title="isCollapsed ? 'Courses' : ''">
-                <span class="nav-icon">📚</span>
-                <span v-if="!isCollapsed" class="nav-label">Courses</span>
-            </router-link>
-
-            <router-link to="/library" class="nav-item" :title="isCollapsed ? 'Library' : ''">
-                <span class="nav-icon">🏛️</span>
-                <span v-if="!isCollapsed" class="nav-label">Library</span>
-            </router-link>
-
-            <router-link v-if="!isAuthenticated" to="/login" class="nav-item" :title="isCollapsed ? 'Login' : ''">
-                <span class="nav-icon">🔐</span>
-                <span v-if="!isCollapsed" class="nav-label">Login</span>
-            </router-link>
-        </nav>
-
-        <!-- Bottom Section -->
-        <div class="sidebar-bottom">
-            <!-- Theme Toggle -->
-            <button class="theme-toggle-btn" @click="toggleTheme"
-                :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
-                <span class="nav-icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-                <span v-if="!isCollapsed" class="nav-label">
-                    {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
-                </span>
+            <button
+              class="dropdown-item logout"
+              @click="logout"
+            >
+              <span class="dropdown-icon">🚪</span>
+              <span class="dropdown-label">Logout</span>
             </button>
-
-            <!-- User Profile with Dropdown -->
-            <div v-if="isAuthenticated" class="user-profile">
-                <div class="user-trigger" @click="toggleDropdown" :title="isCollapsed ? username : ''">
-                    <div class="user-avatar">
-                        {{ userInitials }}
-                    </div>
-                    <div v-if="!isCollapsed" class="user-info">
-                        <div class="user-name">{{ username }}</div>
-                    </div>
-                </div>
-
-                <!-- Dropdown Menu (Top-aligned) -->
-                <transition name="dropdown">
-                    <div v-if="showDropdown && !isCollapsed" class="user-dropdown">
-                        <router-link to="/account" class="dropdown-item" @click="closeDropdown">
-                            <span class="dropdown-icon">⚙️</span>
-                            <span class="dropdown-label">Settings</span>
-                        </router-link>
-                        <button @click="logout" class="dropdown-item logout">
-                            <span class="dropdown-icon">🚪</span>
-                            <span class="dropdown-label">Logout</span>
-                        </button>
-                    </div>
-                </transition>
-            </div>
-        </div>
-    </aside>
+          </div>
+        </transition>
+      </div>
+    </div>
+  </aside>
 </template>
 
 <script>
@@ -131,6 +211,7 @@ export default {
         const startNewChat = () => {
             // Clear chat session and navigate to home
             localStorage.removeItem('chat_session_id')
+      localStorage.removeItem('chat_messages')
             router.push('/')
             // Force page reload to clear chat
             if (router.currentRoute.value.path === '/') {
@@ -465,6 +546,13 @@ export default {
     box-shadow: 0 8px 24px var(--shadow-color);
     overflow: hidden;
     z-index: 100;
+}
+
+/* Ensure solid dropdown in dark mode (no translucency) */
+:root[data-theme="dark"] .user-dropdown {
+  background-color: #111827; /* solid slate-900 */
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
 }
 
 .dropdown-item {

@@ -47,7 +47,7 @@ class ChatSessionManager:
         self.username = username
         self.quota_project_id = quota_project_id
         
-        self.model_id = "gemini-2.0-flash-exp"  # Using latest model with URL context support
+        self.model_id = "gemini-2.5-flash-preview-09-2025"  # Using latest model with URL context support
 
         # Load system instruction from sys_ins.txt file (robust, non-fatal)
         sys_ins_path = os.path.join(os.path.dirname(__file__), 'sys_ins.txt')

@@ -40,7 +40,7 @@
           <h2>{{ isLinking ? 'Account Linked!' : `Welcome${userName ? `, ${userName}` : ''}!` }}</h2>
           <p>{{ isNewUser ? 'Your account has been created successfully.' : isLinking ? 'Google account has been linked to your account.' : 'Successfully signed in.' }}</p>
           <p class="redirect-message">
-            Redirecting{{ isLinking ? ' to account settings' : ' to home' }}...
+            Redirecting to {{ redirectTarget }}...
           </p>
         </div>
       </div>
@@ -66,6 +66,8 @@ export default {
     const success = ref(false)
     const userName = ref('')
     const isNewUser = ref(false)
+    const isLinking = ref(false)
+    const redirectTarget = ref('')
 
     const handleCallback = async () => {
       try {
@@ -101,9 +103,8 @@ export default {
           if (response.data.needs_username) {
             // Store OAuth data for username selection
             sessionStorage.setItem('google_oauth_pending', JSON.stringify({
-              code: code,
-              redirect_uri: redirectUri,
-              state: state,
+              // Use signup_token flow to avoid reusing one-time code
+              signup_token: response.data.signup_token || null,
               user_info: response.data.user_info
             }))
             
@@ -113,38 +114,71 @@ export default {
             return
           }
           
+          console.log('[GoogleCallback] Full response data:', response.data)
+          
           // Existing user or linked account - complete login
+          // Since OAuth callback succeeded, user has linked Google account
           authStore.user = {
             username: response.data.username,
             name: response.data.name,
             email: response.data.email,
             picture: response.data.picture,
             isAdmin: response.data.isAdmin,
-            isGoogleUser: response.data.is_google_user || false,
-            hasPassword: response.data.has_password || false
+            isGoogleUser: true,  // OAuth callback success = Google account linked
+            hasPassword: response.data.hasPassword || false
           }
+          
+          console.log('[GoogleCallback] Created user object:', authStore.user)
+          console.log('[GoogleCallback] Created user object:', authStore.user)
           
           // Store username for API requests
           localStorage.setItem('username', response.data.username)
           
-          // Store complete user data
+          // Store complete user data in both localStorage and sessionStorage
           const userData = JSON.stringify(authStore.user)
+          console.log('[GoogleCallback] Saving to storage:', userData)
           localStorage.setItem('userData', userData)
+          sessionStorage.setItem('userData', userData)
+          
+          // Store isAdmin flag if present
+          if (response.data.isAdmin) {
+            localStorage.setItem('isAdmin', 'true')
+            sessionStorage.setItem('isAdmin', 'true')
+          }
+          
+          console.log('[GoogleCallback] User data updated:', authStore.user)
           
           // Check if user was linking from account page
           const isLinkMode = localStorage.getItem('oauth_link_mode') === 'true'
+          const redirectPath = localStorage.getItem('oauth_redirect') || null
+          
           if (isLinkMode) {
             localStorage.removeItem('oauth_link_mode')
+          }
+          if (redirectPath) {
+            localStorage.removeItem('oauth_redirect')
           }
           
           userName.value = response.data.name || response.data.username
           isNewUser.value = response.data.is_new_user && !isLinkMode
+          isLinking.value = isLinkMode
           success.value = true
           loading.value = false
 
+          // Determine redirect target for display
+          if (redirectPath) {
+            redirectTarget.value = redirectPath === '/' ? 'chat' : 'home'
+          } else if (isLinkMode) {
+            redirectTarget.value = 'account settings'
+          } else {
+            redirectTarget.value = 'home'
+          }
+
           // Redirect based on context
           setTimeout(() => {
-            if (isLinkMode) {
+            if (redirectPath) {
+              router.push(redirectPath)
+            } else if (isLinkMode) {
               router.push('/account')
             } else {
               router.push('/')
@@ -169,7 +203,9 @@ export default {
       error,
       success,
       userName,
-      isNewUser
+      isNewUser,
+      isLinking,
+      redirectTarget
     }
   }
 }
