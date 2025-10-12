@@ -190,7 +190,7 @@
 
 <script>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
@@ -201,6 +201,7 @@ export default {
     name: 'ChatView',
     setup() {
         const router = useRouter()
+        const route = useRoute()
         const courseStore = useCourseStore()
         const authStore = useAuthStore()
 
@@ -279,7 +280,26 @@ export default {
                 nonGoogleCount.value = 0
                 console.log('[ChatView] User logged out, reset count')
             }
-        }, { deep: true })
+        }, { deep: true, immediate: true })
+
+        // Watch for route changes (e.g., returning from OAuth)
+        watch(() => route.path, (newPath) => {
+            console.log('[ChatView] Route changed to:', newPath)
+            // Force re-check user status when navigating to chat
+            if (newPath === '/' && authStore.user?.username) {
+                // Re-initialize user data from localStorage in case it was updated
+                const userData = localStorage.getItem('userData')
+                if (userData) {
+                    try {
+                        const parsedUser = JSON.parse(userData)
+                        console.log('[ChatView] Reloading user from localStorage:', parsedUser)
+                        authStore.user = parsedUser
+                    } catch (e) {
+                        console.error('[ChatView] Failed to parse userData:', e)
+                    }
+                }
+            }
+        })
 
         // Watch messages and typeset math when they change
         watch(messages, () => {
@@ -298,8 +318,8 @@ export default {
 
         const linkGoogleAccount = async () => {
             try {
-                // Store current route for redirect after OAuth
-                localStorage.setItem('oauth_redirect', '/chat')
+                // Store current route for redirect after OAuth (use root path for chat)
+                localStorage.setItem('oauth_redirect', '/')
                 
                 // Generate state for CSRF protection
                 const state = generateRandomState()

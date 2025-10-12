@@ -128,9 +128,18 @@ export default {
           // Store username for API requests
           localStorage.setItem('username', response.data.username)
           
-          // Store complete user data
+          // Store complete user data in both localStorage and sessionStorage
           const userData = JSON.stringify(authStore.user)
           localStorage.setItem('userData', userData)
+          sessionStorage.setItem('userData', userData)
+          
+          // Store isAdmin flag if present
+          if (response.data.isAdmin) {
+            localStorage.setItem('isAdmin', 'true')
+            sessionStorage.setItem('isAdmin', 'true')
+          }
+          
+          console.log('[GoogleCallback] User data updated:', authStore.user)
           
           // Check if user was linking from account page
           const isLinkMode = localStorage.getItem('oauth_link_mode') === 'true'
@@ -151,7 +160,7 @@ export default {
 
           // Determine redirect target for display
           if (redirectPath) {
-            redirectTarget.value = redirectPath === '/chat' ? 'chat' : 'home'
+            redirectTarget.value = redirectPath === '/' ? 'chat' : 'home'
           } else if (isLinkMode) {
             redirectTarget.value = 'account settings'
           } else {
