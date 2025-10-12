@@ -129,33 +129,7 @@
           {{ error }}
         </div>
 
-        <div
-          v-if="reachedNgLimit"
-          class="ng-limit-block"
-        >
-          <div
-            class="danger-warning"
-            style="margin-bottom:0.75rem"
-          >
-            <strong>You've reached the free chat limit.</strong>
-            <p style="margin:0.25rem 0 0; color:var(--text-muted)">
-              Link your Google account to continue
-              chatting with your personal quota, or visit the Danger Zone in your account.
-            </p>
-          </div>
-                    <div class="input-group">
-                        <button
-                            class="btn btn-primary"
-                            @click.prevent="linkGoogleAccount"
-                        >
-                            Login with Google
-                        </button>
-                    </div>
-        </div>
-        <div
-          v-else
-          class="input-group"
-        >
+        <div class="input-group">
           <label
             class="input-btn file-btn"
             title="Upload file"
@@ -181,6 +155,14 @@
             @keydown.esc="showUrlInput = false"
           >
 
+          <button
+            v-else-if="reachedNgLimit"
+            class="link-google-btn"
+            @click="linkGoogleAccount"
+          >
+            🔗 Link Google Account to Continue
+          </button>
+
           <input
             v-else
             v-model="messageInput"
@@ -192,6 +174,7 @@
           >
 
           <button
+            v-if="!reachedNgLimit"
             class="input-btn send-btn"
             :disabled="!canSend || isLoading"
             @click="sendMessage"
@@ -261,17 +244,19 @@ export default {
             const c = getNgCount(username) + 1
             setNgCount(username, c)
             return c
+        }
+        const nonGoogleCount = ref(0)
         const reachedNgLimit = computed(() => {
             // Unlock chat if user is Google user or authenticated
             if (authStore.user?.isGoogleUser || authStore.isAuthenticated) return false
             return !!authStore.user && nonGoogleCount.value >= 6
         })
-
-        // Clear the counter when a user becomes Google-linked and keep in sync on user change
         watch(() => authStore.user, (newUser) => {
             if (newUser?.isGoogleUser && newUser.username) {
                 localStorage.removeItem(ngStorageKey(newUser.username))
                 nonGoogleCount.value = 0
+                // Reset error state when user becomes Google user
+                error.value = null
             }
             if (newUser?.username) {
                 nonGoogleCount.value = getNgCount(newUser.username)
@@ -295,6 +280,9 @@ export default {
 
         const linkGoogleAccount = async () => {
             try {
+                // Store current route for redirect after OAuth
+                localStorage.setItem('oauth_redirect', '/chat')
+                
                 // Generate state for CSRF protection
                 const state = generateRandomState()
                 localStorage.setItem('oauth_state', state)
@@ -449,6 +437,7 @@ export default {
                 if (authStore.user?.username) formData.append('username', authStore.user.username)
 
                 const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                console.log('Chat API response:', response)
 
                 if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
 
@@ -465,7 +454,11 @@ export default {
                         throw new Error(saveResult.error || 'Failed to save course')
                     }
                 } else {
-                    messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                    if (response.data.reply && response.data.reply.trim()) {
+                        messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                    } else {
+                        messages.value.push({ role: 'system', text: '⚠️ No reply received from AI. Please check backend logs or try again later.', timestamp: Date.now() })
+                    }
                 }
 
                 scrollToBottom()
@@ -473,6 +466,8 @@ export default {
                 console.error('Error sending message:', err)
                 error.value = err.response?.data?.detail || err.message || 'Failed to send message'
                 messages.value.pop()
+                messages.value.push({ role: 'system', text: `⚠️ Error: ${error.value}`, timestamp: Date.now() })
+                scrollToBottom()
             } finally {
                 isLoading.value = false
             }
@@ -500,7 +495,11 @@ export default {
                     // Load messages if they're less than 24 hours old
                     const age = Date.now() - (chatData.timestamp || 0)
                     if (age < 24 * 60 * 60 * 1000) {
-                        messages.value = chatData.messages || []
+                        if (Array.isArray(chatData.messages)) {
+                            messages.value = chatData.messages
+                        } else {
+                            messages.value = []
+                        }
                         sessionId.value = chatData.sessionId || sessionId.value
                         // Scroll to bottom after loading
                         nextTick(() => scrollToBottom())
@@ -508,6 +507,7 @@ export default {
                 }
             } catch (e) {
                 console.error('Failed to load chat messages:', e)
+                messages.value = []
             }
         }
 
@@ -543,12 +543,11 @@ export default {
             handleUrlSubmit,
             removeUrl,
             sendExamplePrompt,
-                sendMessage,
-                showGoogleLinkButton,
-                linkGoogleAccount,
-                reachedNgLimit
+            sendMessage,
+            showGoogleLinkButton,
+            linkGoogleAccount,
+            reachedNgLimit
         }
-    }
     }
 }
 </script>
@@ -952,6 +951,33 @@ export default {
 .send-btn:hover:not(:disabled) {
     transform: translateY(-2px) scale(1.05);
     box-shadow: 0 6px 20px rgba(119, 51, 255, 0.4);
+}
+
+.link-google-btn {
+    flex: 1;
+    padding: 0.85rem 1.5rem;
+    border: none;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #4285f4, #34a853);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.link-google-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+}
+
+.link-google-btn:active {
+    transform: translateY(0);
 }
 
 :deep(.citation-link) {

@@ -34,7 +34,7 @@
             class="tab active"
             disabled
           >
-            � Upload File
+            📁 Upload File
           </button>
         </div>
 

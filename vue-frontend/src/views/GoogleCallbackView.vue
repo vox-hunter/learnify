@@ -40,7 +40,7 @@
           <h2>{{ isLinking ? 'Account Linked!' : `Welcome${userName ? `, ${userName}` : ''}!` }}</h2>
           <p>{{ isNewUser ? 'Your account has been created successfully.' : isLinking ? 'Google account has been linked to your account.' : 'Successfully signed in.' }}</p>
           <p class="redirect-message">
-            Redirecting{{ isLinking ? ' to account settings' : ' to home' }}...
+            Redirecting to {{ redirectTarget }}...
           </p>
         </div>
       </div>
@@ -66,6 +66,8 @@ export default {
     const success = ref(false)
     const userName = ref('')
     const isNewUser = ref(false)
+    const isLinking = ref(false)
+    const redirectTarget = ref('')
 
     const handleCallback = async () => {
       try {
@@ -132,18 +134,35 @@ export default {
           
           // Check if user was linking from account page
           const isLinkMode = localStorage.getItem('oauth_link_mode') === 'true'
+          const redirectPath = localStorage.getItem('oauth_redirect') || null
+          
           if (isLinkMode) {
             localStorage.removeItem('oauth_link_mode')
+          }
+          if (redirectPath) {
+            localStorage.removeItem('oauth_redirect')
           }
           
           userName.value = response.data.name || response.data.username
           isNewUser.value = response.data.is_new_user && !isLinkMode
+          isLinking.value = isLinkMode
           success.value = true
           loading.value = false
 
+          // Determine redirect target for display
+          if (redirectPath) {
+            redirectTarget.value = redirectPath === '/chat' ? 'chat' : 'home'
+          } else if (isLinkMode) {
+            redirectTarget.value = 'account settings'
+          } else {
+            redirectTarget.value = 'home'
+          }
+
           // Redirect based on context
           setTimeout(() => {
-            if (isLinkMode) {
+            if (redirectPath) {
+              router.push(redirectPath)
+            } else if (isLinkMode) {
               router.push('/account')
             } else {
               router.push('/')
@@ -168,7 +187,9 @@ export default {
       error,
       success,
       userName,
-      isNewUser
+      isNewUser,
+      isLinking,
+      redirectTarget
     }
   }
 }
