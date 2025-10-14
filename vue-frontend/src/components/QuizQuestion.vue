@@ -25,7 +25,9 @@
         @click="!isAnswered && selectAnswer(option)"
       >
         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
-        <span class="option-text">{{ option }}</span>
+        <span class="option-text">
+          <div v-html="renderMarkdown(option)" />
+        </span>
         <span
           v-if="isAnswered && option === question.answer"
           class="option-icon"
@@ -50,7 +52,9 @@
         }]"
         @click="!isAnswered && selectAnswer(true)"
       >
-        <span class="option-text">✓ True</span>
+        <span class="option-text">
+          <div v-html="renderMarkdown('✓ True')" />
+        </span>
         <span
           v-if="isAnswered && question.answer === true"
           class="option-icon"
@@ -64,7 +68,9 @@
         }]"
         @click="!isAnswered && selectAnswer(false)"
       >
-        <span class="option-text">✗ False</span>
+        <span class="option-text">
+          <div v-html="renderMarkdown('✗ False')" />
+        </span>
         <span
           v-if="isAnswered && question.answer === false"
           class="option-icon"
@@ -139,7 +145,7 @@
           class="matching-row"
         >
           <div class="matching-key">
-            {{ key }}
+            <div v-html="renderMarkdown(key)" />
           </div>
           <select
             v-model="matchingAnswers[key]"
@@ -153,9 +159,8 @@
               v-for="(value, vIndex) in matchingValues"
               :key="vIndex"
               :value="value"
-            >
-              {{ value }}
-            </option>
+              v-html="renderMarkdown(value)"
+            />
           </select>
           <span
             v-if="isAnswered"
@@ -244,6 +249,8 @@ export default {
         if (platform.includes('mac')) osType.value = 'mac';
         else if (platform.includes('linux')) osType.value = 'linux';
         else osType.value = 'win';
+        // MathJax typeset on mount
+        typesetMathJax();
       });
     // Initialize from saved data if available
     const savedData = props.savedAnswerData
@@ -456,6 +463,28 @@ export default {
       const rendered = md.render(String(text));
       return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
     };
+
+    // MathJax typesetting helper
+    function typesetMathJax() {
+      // Wait for DOM update
+      setTimeout(() => {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          // Typeset all .question-text and .feedback-text blocks
+          const elements = document.querySelectorAll('.question-text, .feedback-text, .correct-answer');
+          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+        }
+      }, 0);
+    }
+
+    // Typeset on question change
+    watch(() => [props.question, props.sectionIndex, props.subsectionIndex, props.questionIndex], () => {
+      typesetMathJax();
+    }, { immediate: true });
+
+    // Typeset on feedback/explanation change
+    watch([explanation, expectedAnswer], () => {
+      typesetMathJax();
+    });
 
     return {
       selectedAnswer,

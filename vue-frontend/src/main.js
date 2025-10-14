@@ -1,10 +1,21 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App.vue'
-import router from './router'
-import './assets/main.css'
 
-const app = createApp(App)
+import { createApp } from 'vue';
+import SimpleAnalytics from 'simple-analytics-vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
+import router from './router';
+import './assets/main.css';
+import * as Sentry from '@sentry/vue';
+
+
+const app = createApp(App);
+
+// Initialize Sentry as early as possible
+Sentry.init({
+	app,
+	dsn: "https://e47d48ee632b1605699c2e234894fc13@o4510181581389824.ingest.de.sentry.io/4510181650268240",
+	sendDefaultPii: true
+});
 
 // Runtime device input detection: add 'device-touch' class when touch input is available
 function updateDeviceClass() {
@@ -30,7 +41,19 @@ if (window.matchMedia) {
 	window.addEventListener('touchstart', updateDeviceClass, { once: true, passive: true })
 }
 
-app.use(createPinia())
-app.use(router)
 
-app.mount('#app')
+app.use(createPinia());
+app.use(router);
+
+// Register Simple Analytics with skip option for development
+app.use(SimpleAnalytics, { skip: import.meta.env.MODE !== 'production' });
+
+
+
+// Vue global error handler for Sentry
+app.config.errorHandler = (err, vm, info) => {
+	Sentry.captureException(err);
+	throw err; // rethrow for default behavior
+};
+
+app.mount('#app');

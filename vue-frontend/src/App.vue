@@ -61,6 +61,12 @@ export default {
   height: 100vh;
 }
 
+/* Remove padding for chat view when active */
+.main-content:has(.chat-view.has-messages) {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
 /* When sidebar is collapsed */
 #app.sidebar-collapsed .main-content {
   margin-left: 80px;
@@ -72,6 +78,10 @@ export default {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
     width: 100%;
+  }
+
+  .main-content:has(.chat-view.has-messages) {
+    padding: 0 !important;
   }
 
   #app:not(.sidebar-collapsed) .main-content {

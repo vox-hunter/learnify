@@ -331,3 +331,6 @@ vue-frontend/*.log
 api/__pycache__/
 api/*.pyc
 api/.env
+
+# Sentry Config File
+.env.sentry-build-plugin

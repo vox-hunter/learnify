@@ -35,6 +35,7 @@ if %errorlevel% neq 0 (
 
 REM Check Node.js
 node --version >nul 2>&1
+
 if %errorlevel% neq 0 (
     echo [ERROR] Node.js is not installed or not in PATH
     pause
@@ -68,9 +69,8 @@ echo [OK] Dependencies installed
 echo.
 
 REM Start backend in new window
-echo [INFO] Starting FastAPI backend...
-start "Learnify Backend" cmd /k "cd api && ..\venv\Scripts\activate.bat && python main.py"
-
+echo [INFO] Starting FastAPI backend with New Relic agent...
+start "Learnify Backend" cmd /k "cd api && ..\venv\Scripts\activate.bat && set NEW_RELIC_CONFIG_FILE=../newrelic.ini && ..\venv\Scripts\newrelic-admin.exe run-program python main.py"
 REM Wait a bit for backend to start
 timeout /t 3 /nobreak >nul
 

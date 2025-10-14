@@ -237,41 +237,20 @@
           >
             <!-- Vertical Progress Bar on Right -->
             <div class="vertical-progress-bar">
-              <div class="progress-stats-vertical">
-                <div class="stat-item">
-                  <span class="stat-number">{{ answeredQuestions.size }}</span>
-                  <span class="stat-divider">/</span>
-                  <span class="stat-total">{{ totalQuestions }}</span>
-                </div>
-                <div class="stat-label-small">
-                  Questions
-                </div>
-              </div>
-              <div class="progress-bar-container-vertical">
-                <div class="progress-track">
-                  <!-- Correct answers (green) -->
-                  <div
-                    class="progress-fluid correct"
-                    :style="{ height: (score / totalQuestions * 100) + '%' }"
-                  >
-                    <div class="fluid-animation" />
+                  <div class="progress-bar-container-vertical">
+                    <div class="progress-track">
+                      <!-- Correct answers (green) -->
+                      <div
+                        class="progress-fluid correct"
+                        :style="{ height: (score / totalQuestions * 100) + '%' }"
+                      />
+                      <!-- Incorrect answers (red) -->
+                      <div
+                        class="progress-fluid incorrect"
+                        :style="{ height: ((answeredQuestions.size - score) / totalQuestions * 100) + '%', bottom: (score / totalQuestions * 100) + '%' }"
+                      />
+                    </div>
                   </div>
-                  <!-- Incorrect answers (red) -->
-                  <div
-                    class="progress-fluid incorrect"
-                    :style="{ 
-                      height: ((answeredQuestions.size - score) / totalQuestions * 100) + '%',
-                      bottom: (score / totalQuestions * 100) + '%'
-                    }"
-                  >
-                    <div class="fluid-animation" />
-                  </div>
-                </div>
-              </div>
-              <div class="progress-score-vertical">
-                <span class="score-label">Score</span>
-                <span class="score-value">{{ score }}</span>
-              </div>
             </div>
 
             <!-- Admin Controls in Step Flow -->
@@ -1508,21 +1487,37 @@ export default {
           }
           reviewAnsweredQuestions.value.add(questionKey);
 
-          // Auto-scroll to next question in review mode
-          if (useStepFlow.value && currentStepIndex.value < courseSteps.value.length - 1) {
-            // In step flow review mode, auto-advance to next question
-            setTimeout(() => {
-              currentStepIndex.value++;
-              nextTick(() => {
-                setTimeout(() => {
-                  scrollToStep(currentStepIndex.value);
-                  if (stepFlowContainer.value) {
-                    stepFlowContainer.value.focus();
-                  }
-                }, 150);
-              });
-            }, 800);
-          }
+          // Auto-scroll to next question in review mode (all questions visible)
+          setTimeout(() => {
+            // Try to find the next question element in DOM, even if it's in the next section/subsection
+            let nextEl = null;
+            // Try next in current subsection/main
+            if (subsectionIndex === null || subsectionIndex === undefined) {
+              nextEl = document.getElementById(`question-${sectionIndex}-main-${questionIndex + 1}`);
+            } else {
+              nextEl = document.getElementById(`question-${sectionIndex}-${subsectionIndex}-${questionIndex + 1}`);
+            }
+            // If not found, try next subsection in current section
+            if (!nextEl && subsectionIndex !== null && subsectionIndex !== undefined) {
+              const section = course.value.sections[sectionIndex];
+              if (section && section.subsections && subsectionIndex + 1 < section.subsections.length) {
+                nextEl = document.getElementById(`question-${sectionIndex}-${subsectionIndex + 1}-0`);
+              }
+            }
+            // If not found, try first question in next section
+            if (!nextEl && sectionIndex + 1 < course.value.sections.length) {
+              const nextSection = course.value.sections[sectionIndex + 1];
+              if (nextSection && nextSection.quiz && nextSection.quiz.length > 0) {
+                nextEl = document.getElementById(`question-${sectionIndex + 1}-main-0`);
+              } else if (nextSection && nextSection.subsections && nextSection.subsections.length > 0) {
+                nextEl = document.getElementById(`question-${sectionIndex + 1}-0-0`);
+              }
+            }
+            // Scroll if found
+            if (nextEl) {
+              nextEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 500);
 
           // Check if review is complete
           if (reviewAnsweredQuestions.value.size === totalQuestions.value) {
@@ -3272,66 +3267,19 @@ export default {
 /* Vertical Progress Bar on Right */
 .vertical-progress-bar {
   position: fixed;
-  right: 2rem;
+  right: 1rem;
   top: 50%;
   transform: translateY(-50%);
   z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  background: var(--card-bg);
-  padding: 1.5rem 1rem;
-  border-radius: 2rem;
-  border: 2px solid var(--border-color);
-  box-shadow: 0 8px 32px var(--shadow-color);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 
 .vertical-progress-bar:hover {
-  box-shadow: 0 12px 48px var(--shadow-color);
-  transform: translateY(-50%) scale(1.02);
-}
-
-.progress-stats-vertical {
-  text-align: center;
-  margin-bottom: 0.5rem;
-}
-
-.stat-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 0.25rem;
-  font-weight: 700;
-}
-
-.stat-number {
-  font-size: 1.5rem;
-  color: var(--accent-primary);
-}
-
-.stat-divider {
-  font-size: 1rem;
-  color: var(--text-secondary);
-}
-
-.stat-total {
-  font-size: 1.25rem;
-  color: var(--text-secondary);
-}
-
-.stat-label-small {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 0.25rem;
+  opacity: 0.9;
 }
 
 .progress-bar-container-vertical {
-  width: 60px;
+  width: 4px;
   height: 300px;
   position: relative;
 }
@@ -3339,12 +3287,10 @@ export default {
 .progress-track {
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2rem;
+  background: #e5e7eb; /* Tailwind gray-200 for visibility */
+  border-radius: 2px;
   overflow: hidden;
   position: relative;
-  border: 2px solid var(--border-color);
-  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .progress-fluid {
@@ -3352,95 +3298,19 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
 }
 
 .progress-fluid.correct {
-  background: linear-gradient(180deg, 
-    rgba(74, 222, 128, 0.9) 0%, 
-    rgba(34, 197, 94, 1) 100%);
+  background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%); /* green */
   z-index: 2;
 }
 
 .progress-fluid.incorrect {
-  background: linear-gradient(180deg, 
-    rgba(248, 113, 113, 0.9) 0%, 
-    rgba(239, 68, 68, 1) 100%);
+  background: linear-gradient(180deg, #f87171 0%, #ef4444 100%); /* red */
   z-index: 1;
   position: absolute;
-}
-
-/* Fluid Animation Effect */
-.fluid-animation {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  right: -50%;
-  bottom: -50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    transparent 60%
-  );
-  animation: fluidWave 3s ease-in-out infinite;
-}
-
-@keyframes fluidWave {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translate(10%, -10%) scale(1.1);
-    opacity: 0.8;
-  }
-}
-
-/* Ripple effect on hover */
-.progress-track::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    transparent 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
-  pointer-events: none;
-}
-
-.progress-score-vertical {
-  text-align: center;
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.score-label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-
-.score-value {
-  display: block;
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, 
-    var(--accent-primary) 0%, 
-    var(--accent-secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* Admin Controls in Step Flow */
@@ -3670,25 +3540,11 @@ export default {
   /* Mobile adjustments for vertical progress bar */
   .vertical-progress-bar {
     right: 0.5rem;
-    padding: 1rem 0.75rem;
-    border-radius: 1.5rem;
   }
 
   .progress-bar-container-vertical {
-    width: 40px;
+    width: 3px;
     height: 200px;
-  }
-
-  .stat-number {
-    font-size: 1.25rem;
-  }
-
-  .stat-total {
-    font-size: 1rem;
-  }
-
-  .score-value {
-    font-size: 1.5rem;
   }
 }
 

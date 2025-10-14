@@ -19,6 +19,13 @@ if os.path.exists(api_env_path):
 else:
     load_dotenv()
 
+def _log_error(message):
+    """Log error using Streamlit if available, otherwise use print/logging"""
+    if STREAMLIT_AVAILABLE:
+        st.error(message)
+    else:
+        print(f"ERROR: {message}")
+
 # It's good practice to load secrets at the beginning and provide clear error messages if they are missing.
 MONGODB_URI = None
 DB_NAME = "learnify_auth"  # Or get from secrets if it varies
@@ -44,13 +51,6 @@ if not MONGODB_URI:
         st.stop()
     else:
         raise ValueError(error_msg)
-
-def _log_error(message):
-    """Log error using Streamlit if available, otherwise use print/logging"""
-    if STREAMLIT_AVAILABLE:
-        _log_error(message)
-    else:
-        print(f"ERROR: {message}")
 
 class MongoAuthManager:
     def __init__(self):
@@ -328,7 +328,7 @@ class MongoAuthManager:
                 return True, None
             else:
                 return False, "User not found or password not updated."
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error updating password: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
@@ -349,7 +349,7 @@ class MongoAuthManager:
                 return True, None
             else:
                 return False, "User not found or password not updated."
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error updating password: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
@@ -388,7 +388,7 @@ class MongoAuthManager:
                 return True, "No changes detected." 
             else:
                 return False, "User not found."
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error updating user details: {e}")
             return False, f"Database error: {e}"
         except Exception as e:
@@ -417,7 +417,7 @@ class MongoAuthManager:
                 config_doc.pop('_id', None)
                 return config_doc
             return None # Or return a default config dict
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error loading config: {e}")
             return None
         except Exception as e:
@@ -438,7 +438,7 @@ class MongoAuthManager:
                 upsert=True
             )
             return True
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error saving config: {e}")
             return False
         except Exception as e:
@@ -624,7 +624,7 @@ class MongoAuthManager:
                     
                     return True, f"Account deleted successfully. Removed {courses_result.deleted_count} courses and {user_courses_result.deleted_count} course associations."
                     
-        except pymongo.errors.PyMongoError as e:
+        except pymongo_errors.PyMongoError as e:
             _log_error(f"MongoDB error deleting account: {e}")
             return False, f"Database error: {e}"
         except (ValueError, TypeError, AttributeError) as e:

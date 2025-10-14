@@ -45,7 +45,7 @@
         >
           <div class="course-card-header">
             <h3 class="course-card-title">
-              {{ course.course_title || 'Untitled Course' }}
+              <div v-html="renderMarkdown(course.course_title || 'Untitled Course')" />
             </h3>
             <button
               class="delete-btn"
@@ -84,9 +84,11 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '../stores/course'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
 
 export default {
   name: 'CoursesView',
@@ -110,6 +112,17 @@ export default {
       }
     }
 
+    // MathJax typesetting helper
+    function typesetMathJax() {
+      nextTick(() => {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          // Typeset all course-card-title and meta-badge blocks
+          const elements = document.querySelectorAll('.course-card-title, .meta-badge');
+          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+        }
+      });
+    }
+
     const loadCourses = async () => {
       loading.value = true
       try {
@@ -124,6 +137,7 @@ export default {
         }
         courses.value = resolved
         console.log('[CoursesView] Resolved courses count:', courses.value.length, 'sample:', courses.value[0])
+        typesetMathJax();
       } catch (err) {
         console.error('[CoursesView] Error loading courses:', err)
         // Fallback to empty list so UI doesn't stay stuck
@@ -150,7 +164,21 @@ export default {
 
     onMounted(() => {
       loadCourses()
+      typesetMathJax();
     })
+
+    // Watch for changes in courses and typeset
+    watch(courses, () => {
+      typesetMathJax();
+    });
+
+    // Markdown renderer
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+    const renderMarkdown = (text) => {
+      if (!text) return '';
+      const rendered = md.render(String(text));
+      return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
+    };
 
     const confirmDelete = async (courseId) => {
       // If this course is not pending delete, set pending and wait for second click
@@ -197,7 +225,8 @@ export default {
       pendingDelete,
       confirmDelete,
       openCourse,
-      formatDate
+      formatDate,
+      renderMarkdown
     }
   }
 }

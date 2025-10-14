@@ -118,7 +118,17 @@
 
 <script>
 export default {
-  name: 'PrivacyView'
+  name: 'PrivacyView',
+  mounted() {
+    this.trackPrivacyView();
+  },
+  methods: {
+    trackPrivacyView() {
+      if (typeof this.saEvent === 'function') {
+        this.saEvent('privacy_view_opened');
+      }
+    }
+  }
 }
 </script>
 

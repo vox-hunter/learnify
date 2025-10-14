@@ -18,7 +18,7 @@ try:
 except ImportError:
     # Fallback if oauth_config.py is not available
     def get_oauth_redirect_uri():
-        return "https://learnify-pr-17.onrender.com"
+        return "https://ailoom.me"
 
 
 class GoogleOAuthManager:

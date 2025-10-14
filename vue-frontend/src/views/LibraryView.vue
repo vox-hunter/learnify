@@ -144,7 +144,7 @@
         >
           <div class="course-card-header">
             <h3 class="course-card-title">
-              {{ course.course_title || 'Untitled Course' }}
+              <div v-html="renderMarkdown(course.course_title || 'Untitled Course')" />
             </h3>
             <div
               v-if="course.rating > 0"
@@ -162,7 +162,7 @@
             v-if="course.description"
             class="course-description"
           >
-            <p>{{ course.description }}</p>
+            <div v-html="renderMarkdown(course.description)" />
           </div>
 
           <div class="course-card-meta">
@@ -289,15 +289,27 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCourseStore } from '../stores/course'
 import api from '../services/api'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
 
 export default {
     name: 'LibraryView',
     setup() {
+    // MathJax typesetting helper
+    function typesetMathJax() {
+      nextTick(() => {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          // Typeset all course-card-title, meta-badge, and course-description blocks
+          const elements = document.querySelectorAll('.course-card-title, .meta-badge, .course-description');
+          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+        }
+      });
+    }
         const router = useRouter()
         const authStore = useAuthStore()
         const courseStore = useCourseStore()
@@ -359,40 +371,41 @@ export default {
         const notificationMessage = ref('')
         const notificationType = ref('success')
 
-        const loadCourses = async (reset = true) => {
-            loading.value = true
+    const loadCourses = async (reset = true) => {
+      loading.value = true
 
-            if (reset) {
-                currentPage.value = 0
-                courses.value = []
-            }
+      if (reset) {
+        currentPage.value = 0
+        courses.value = []
+      }
 
-            try {
-                let url = `/library/courses?page=${currentPage.value}&limit=20&sort_by=${sortBy.value}&sort_order=-1`
+      try {
+        let url = `/library/courses?page=${currentPage.value}&limit=20&sort_by=${sortBy.value}&sort_order=-1`
 
-                if (searchQuery.value.trim()) {
-                    url = `/library/search?q=${encodeURIComponent(searchQuery.value)}&page=${currentPage.value}&limit=20`
-                } else if (selectedSubject.value) {
-                    url = `/library/subject/${selectedSubject.value}?page=${currentPage.value}&limit=20`
-                }
-
-                const response = await api.get(url)
-                const newCourses = response.data.courses || []
-
-                if (reset) {
-                    courses.value = newCourses
-                } else {
-                    courses.value = [...courses.value, ...newCourses]
-                }
-
-                hasMore.value = newCourses.length === 20
-            } catch (error) {
-                console.error('Error loading courses:', error)
-                courses.value = []
-            } finally {
-                loading.value = false
-            }
+        if (searchQuery.value.trim()) {
+          url = `/library/search?q=${encodeURIComponent(searchQuery.value)}&page=${currentPage.value}&limit=20`
+        } else if (selectedSubject.value) {
+          url = `/library/subject/${selectedSubject.value}?page=${currentPage.value}&limit=20`
         }
+
+        const response = await api.get(url)
+        const newCourses = response.data.courses || []
+
+        if (reset) {
+          courses.value = newCourses
+        } else {
+          courses.value = [...courses.value, ...newCourses]
+        }
+
+        hasMore.value = newCourses.length === 20
+        typesetMathJax();
+      } catch (error) {
+        console.error('Error loading courses:', error)
+        courses.value = []
+      } finally {
+        loading.value = false
+      }
+    }
 
         const loadMore = () => {
             currentPage.value++
@@ -528,6 +541,14 @@ export default {
             return '⭐'.repeat(fullStars) + (hasHalfStar ? '⭐' : '')
         }
 
+        // Markdown renderer
+        const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        const renderMarkdown = (text) => {
+            if (!text) return '';
+            const rendered = md.render(String(text));
+            return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
+        };
+
         const formatDate = (dateString) => {
             if (!dateString) return 'Unknown date'
             const date = new Date(dateString)
@@ -538,9 +559,15 @@ export default {
             })
         }
 
-        onMounted(() => {
-            loadCourses()
-        })
+    onMounted(() => {
+      loadCourses()
+      typesetMathJax();
+    })
+
+    // Watch for changes in courses and typeset
+    watch(courses, () => {
+      typesetMathJax();
+    });
 
         return {
             courses,
@@ -572,7 +599,8 @@ export default {
             // notification state for template
             showNotification,
             notificationMessage,
-            notificationType
+            notificationType,
+            renderMarkdown
         }
     }
 }

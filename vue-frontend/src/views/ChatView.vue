@@ -1,37 +1,44 @@
 <template>
-  <div class="chat-view">
-    <div class="container">
-      <div
-        ref="chatFeed"
-        class="chat-feed"
+  <div 
+    class="chat-view"
+    :class="{ 'has-messages': messages.length > 0 }"
+  >
+    <!-- Centered Chat Container -->
+    <div 
+      class="chat-container"
+      :class="{ 'chat-active': messages.length > 0 }"
+    >
+      <!-- Header/Branding -->
+      <div 
+        v-if="messages.length === 0" 
+        class="chat-header"
       >
-        <!-- Welcome Message -->
-        <div
-          v-if="messages.length === 0"
-          class="welcome-message"
-        >
-          <div class="welcome-icon">
-            ✨
-          </div>
-          <h2>Learning starts when you start talking.</h2>
-          <p>Ask Stitch anything, upload notes, or paste a URL to get started.</p>
-          <div class="example-prompts">
-            <button
-              v-for="(example, i) in examplePrompts"
-              :key="i"
-              class="example-prompt"
-              @click="sendExamplePrompt(example)"
-            >
-              {{ example }}
-            </button>
-          </div>
+        <div class="brand-logo">
+          <img
+            src="/STITCH.png"
+            alt="Stitch"
+            class="logo-image"
+          >
         </div>
+        <h1 class="brand-title">
+          What's new, Vox?
+        </h1>
+        <p class="brand-subtitle">
+          Start a conversation with Stitch
+        </p>
+      </div>
 
+      <!-- Messages Area -->
+      <div
+        v-if="messages.length > 0"
+        ref="chatFeed"
+        class="messages-area"
+      >
         <!-- Message List -->
         <div
           v-for="(msg, index) in messages"
           :key="index"
-          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message', 'wrap']"
+          :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
         >
           <div class="message-avatar">
             <span v-if="msg.role === 'user'">👤</span>
@@ -40,7 +47,6 @@
                 src="/STITCH.png"
                 alt="Stitch Logo"
                 class="stitch-logo"
-                style="width:2em;height:2em;vertical-align:middle;"
               >
             </span>
           </div>
@@ -74,7 +80,6 @@
                 src="/STITCH.png"
                 alt="Stitch Logo"
                 class="stitch-logo"
-                style="width:2em;height:2em;vertical-align:middle;"
               >
             </span>
           </div>
@@ -89,7 +94,7 @@
       </div>
 
       <!-- Input Area -->
-      <div class="chat-input-container">
+      <div class="chat-input-wrapper">
         <div
           v-if="selectedFile || urlInput"
           class="attachment-preview"
@@ -129,9 +134,9 @@
           {{ error }}
         </div>
 
-        <div class="input-group">
+        <div class="input-container">
           <label
-            class="input-btn file-btn"
+            class="attach-btn"
             title="Upload file"
           >
             <input
@@ -144,12 +149,11 @@
             📎
           </label>
 
-
           <input
             v-if="showUrlInput"
             v-model="urlInput"
             type="url"
-            class="url-input"
+            class="chat-input"
             placeholder="Paste URL here..."
             @keydown.enter="handleUrlSubmit"
             @keydown.esc="showUrlInput = false"
@@ -167,20 +171,26 @@
             v-else
             v-model="messageInput"
             type="text"
-            class="message-input"
-            placeholder="Ask Stitch or upload notes..."
+            class="chat-input"
+            placeholder="How can I help you today?"
             :disabled="isLoading"
             @keydown.enter="sendMessage"
           >
 
           <button
             v-if="!reachedNgLimit"
-            class="input-btn send-btn"
+            class="send-btn"
             :disabled="!canSend || isLoading"
             @click="sendMessage"
           >
-            {{
-              isLoading ? '⏳' : '🚀' }}
+            <span
+              v-if="isLoading"
+              class="spinner-icon"
+            >⏳</span>
+            <span
+              v-else
+              class="send-icon"
+            >➤</span>
           </button>
         </div>
       </div>
@@ -420,6 +430,12 @@ export default {
 
 
         const sendMessage = async () => {
+
+            // Simple Analytics event for send button click
+            if (typeof window.saEvent === 'function') {
+                window.saEvent('chat_send_clicked');
+            }
+
             if (!canSend.value) return
 
             const userMessage = messageInput.value.trim()
@@ -599,112 +615,156 @@ export default {
 </script>
 
 <style scoped>
+/* Main Chat View Container */
 .chat-view {
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     background: var(--bg-primary);
+    padding: 1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    /* stretch to fill available space so chat occupies full width */
-    max-width: none;
+
+.chat-view.has-messages {
+    align-items: stretch;
+    padding: 0;
     margin: 0;
     width: 100%;
-    padding: 0;
+    box-sizing: border-box;
+    position: static;
+}
+
+/* Chat Container - Centered initially, then expands */
+.chat-container {
+    width: 100%;
+    max-width: 680px;
+    background: var(--card-bg);
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 60px var(--shadow-color);
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+
+.chat-container.chat-active {
+    max-width: 100%;
+    width: 100%;
     height: 100vh;
+    border-radius: 0;
+    animation: expandToBottom 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    box-sizing: border-box;
+    margin: 0;
+    position: relative;
 }
 
-.chat-feed {
-    flex: 1;
-    /* only show vertical scrollbar when content overflows; never show horizontal */
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 1.25rem 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+@keyframes expandToBottom {
+    0% {
+        transform: translateY(0);
+        max-width: 680px;
+        border-radius: 1.5rem;
+    }
+    100% {
+        transform: translateY(0);
+        max-width: 100%;
+        border-radius: 0;
+    }
 }
 
-.welcome-message {
+/* Chat Header - Only visible before first message */
+.chat-header {
+    padding: 3rem 2rem 2rem;
     text-align: center;
-    padding: 4rem 2rem;
-    color: var(--text-secondary);
-    margin: auto 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.brand-logo {
+    margin-bottom: 1.5rem;
     display: flex;
-    flex-direction: column;
-    align-items: center;
     justify-content: center;
 }
 
-.welcome-icon {
-    font-size: 3.2rem;
-    /* slightly smaller sparkle */
-    margin-bottom: 1rem;
-    filter: drop-shadow(0 0 14px rgba(119, 51, 255, 0.25));
+.logo-image {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    animation: float 3s ease-in-out infinite;
 }
 
-.welcome-message h2 {
-    color: var(--text-primary);
-    font-size: 1.6rem;
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.brand-title {
+    font-size: 2rem;
     font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 0.5rem;
 }
 
-.welcome-message p {
+.brand-subtitle {
+    color: var(--text-secondary);
     font-size: 1rem;
-    max-width: 420px;
 }
 
-.example-prompts {
+/* Messages Area - Scrollable conversation */
+.messages-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 3rem;
-    max-width: 500px;
-    width: 100%;
+    gap: 1.5rem;
+    scroll-behavior: smooth;
+    min-height: 0;
 }
 
-.example-prompt {
-    padding: 0.75rem 1rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: all 0.25s;
-    text-align: left;
-    font-size: 0.95rem;
-    box-shadow: 0 2px 8px var(--shadow-color);
+/* Scrollbar styling */
+.messages-area::-webkit-scrollbar {
+    width: 6px;
 }
 
-.example-prompt:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-primary);
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px var(--shadow-color);
+.messages-area::-webkit-scrollbar-track {
+    background: transparent;
 }
 
+.messages-area::-webkit-scrollbar-thumb {
+    background: rgba(119, 51, 255, 0.2);
+    border-radius: 3px;
+}
+
+.messages-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(119, 51, 255, 0.3);
+}
+
+/* Individual Message */
 .message {
     display: flex;
     gap: 1rem;
-    animation: slideIn 0.3s ease;
-    max-width: 100%;
     align-items: flex-start;
-    /* ensure avatar and bubble align at top, avoid vertical stretch */
-    width: 100%;
-    /* allow margin-left:auto on user messages to push row to the right */
+    animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    animation-fill-mode: forwards;
 }
 
-@keyframes slideIn {
+@keyframes messageSlideIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(15px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -713,119 +773,100 @@ export default {
 
 .user-message {
     flex-direction: row-reverse;
+    justify-content: flex-start;
     margin-left: auto;
 }
 
-.ai-message {
-    margin-right: auto;
-}
-
+/* Message Avatar */
 .message-avatar {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: none;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.25rem;
     flex-shrink: 0;
-    box-shadow: none;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
 }
 
 .user-message .message-avatar {
-    background: linear-gradient(135deg, #00d4ff, #7733ff);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border: none;
 }
 
+.stitch-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* Message Content */
 .message-content {
-    /* Make this a flex item that can shrink to avoid overflow in a flex row */
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0; /* critical: allow text to wrap instead of forcing overflow */
-}
-
-/* AI messages occupy remaining width of the row */
-.ai-message .message-content {
-    flex: 1 1 auto;
+    flex: 1;
     min-width: 0;
 }
 
 .user-message .message-content {
-    /* Keep user messages constrained, but shrink-to-fit content */
-    flex: 0 1 auto; /* don't grow to fill the row */
-    max-width: 70%;
-}
-
-.user-message .message-text {
-    /* Balanced padding and left-aligned text inside the right-side bubble */
-    text-align: left;
-}
-
-.ai-message .message-text {
-    /* AI messages use full width with no extra padding for LaTeX */
-    text-align: left;
-    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
 }
 
 .message-header {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     align-items: center;
     margin-bottom: 0.5rem;
-    font-size: 0.875rem;
 }
 
 .user-message .message-header {
     flex-direction: row-reverse;
+    justify-content: flex-start;
 }
 
 .message-sender {
     font-weight: 600;
+    font-size: 0.875rem;
     color: var(--text-primary);
 }
 
 .message-time {
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
 
+/* Message Text */
 .message-text {
     line-height: 1.6;
     font-size: 0.95rem;
     color: var(--text-primary);
-    white-space: normal; /* ensure standard wrapping */
-    /* Ensure long words/URLs wrap instead of causing horizontal scroll */
+    word-wrap: break-word;
     overflow-wrap: anywhere;
-    word-break: break-word;
-    max-width: 100%;
-    overflow-x: hidden;
-}
-
-/* AI: no bubble, just aligned text */
-.ai-message .message-text {
-    padding: 0;
-    background: transparent;
-    border: none;
-    box-shadow: none;
 }
 
 .user-message .message-text {
-    /* Keep bubble styling for user messages */
-    padding: 1rem;
-    background: linear-gradient(135deg, #7733ff, #00d4ff);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: white;
-    border: none;
+    padding: 0.875rem 1.125rem;
     border-radius: 1.25rem;
     border-top-right-radius: 0.25rem;
-    box-shadow: 0 2px 8px var(--shadow-color);
-    display: inline-block; /* shrink bubble to content */
-    max-width: 100%;
+    box-shadow: 0 4px 12px rgba(119, 51, 255, 0.25);
+    display: inline-block;
 }
 
+.ai-message .message-text {
+    padding: 0.5rem 0;
+}
+
+/* Message Attachment */
 .message-attachment {
-    margin-top: 0.5rem;
-    padding: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
     background: var(--bg-tertiary);
-    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -836,18 +877,23 @@ export default {
     font-size: 1rem;
 }
 
+.attachment-name {
+    color: var(--text-secondary);
+}
+
+/* Typing Indicator */
 .typing-indicator {
     display: flex;
-    gap: 0.35rem;
-    padding: 1.25rem;
+    gap: 0.4rem;
+    padding: 1rem;
 }
 
 .typing-indicator span {
-    width: 10px;
-    height: 10px;
-    background: var(--text-muted);
+    width: 8px;
+    height: 8px;
+    background: var(--accent-primary);
     border-radius: 50%;
-    animation: typing 1.4s infinite;
+    animation: typing 1.4s ease-in-out infinite;
 }
 
 .typing-indicator span:nth-child(2) {
@@ -859,41 +905,67 @@ export default {
 }
 
 @keyframes typing {
-
-    0%,
-    60%,
-    100% {
+    0%, 60%, 100% {
         transform: translateY(0);
-        opacity: 0.5;
+        opacity: 0.4;
     }
-
     30% {
-        transform: translateY(-10px);
+        transform: translateY(-8px);
         opacity: 1;
     }
 }
 
-.chat-input-container {
-    padding: 1.5rem;
+/* Chat Input Wrapper - Sticky at bottom */
+.chat-input-wrapper {
+    padding: 1.25rem 1.5rem;
     background: var(--card-bg);
     border-top: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    flex-shrink: 0;
+    z-index: 10;
 }
 
+/* Attachment Preview */
 .attachment-preview {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .preview-item {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.625rem 1rem;
     background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     border-radius: 0.75rem;
     font-size: 0.875rem;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.preview-icon {
+    font-size: 1rem;
+}
+
+.preview-name {
+    color: var(--text-secondary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .preview-remove {
@@ -917,99 +989,134 @@ export default {
     color: var(--text-primary);
 }
 
+/* Chat Error */
 .chat-error {
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1rem;
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
     border-radius: 0.75rem;
     color: #ef4444;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     font-size: 0.875rem;
+    animation: fadeIn 0.3s ease;
 }
 
-.input-group {
+/* Input Container */
+.input-container {
     display: flex;
-    gap: 0.6rem;
+    gap: 0.75rem;
     align-items: center;
-    max-width: 100%;
-    width: 100%;
-    box-sizing: border-box;
-    /* prevent send button from being cut off on devices with notches */
-    padding-right: max(env(safe-area-inset-right), 0.75rem);
-    flex-wrap: nowrap; /* force single row */
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 1.5rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
 }
 
-.input-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 0.9rem;
-    border: 1px solid var(--border-color);
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 1.1rem;
+.input-container:focus-within {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 4px rgba(119, 51, 255, 0.1);
+}
+
+/* Attach Button */
+.attach-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1.25rem;
     cursor: pointer;
-    transition: all 0.18s;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 auto;
+    flex-shrink: 0;
 }
 
-.input-btn:hover:not(:disabled) {
-    background: var(--card-bg);
-    border-color: var(--accent-primary);
-    transform: translateY(-2px);
+.attach-btn:hover {
+    background: var(--border-color);
+    color: var(--accent-primary);
 }
 
-.input-btn:disabled {
-    opacity: 0.5;
+/* Chat Input Field */
+.chat-input {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+    min-width: 0;
+}
+
+.chat-input::placeholder {
+    color: var(--text-muted);
+}
+
+.chat-input:disabled {
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-.input-btn.active {
-    background: var(--accent-primary);
-    color: white;
-    border-color: var(--accent-primary);
-}
-
-.message-input,
-.url-input {
-    flex: 1;
-    padding: 0.85rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.95rem;
-    transition: all 0.18s;
-    min-width: 0; /* allow input to shrink properly inside flex */
-}
-
-.message-input:focus,
-.url-input:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    background: var(--card-bg);
-    box-shadow: 0 0 0 3px rgba(119, 51, 255, 0.1);
-}
-
+/* Send Button */
 .send-btn {
-    background: linear-gradient(135deg, #7733ff, #00d4ff);
-    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 0.75rem;
     border: none;
-    box-shadow: 0 4px 15px rgba(119, 51, 255, 0.3);
-    flex: 0 0 auto;
-    min-width: 44px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    font-size: 1.125rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(119, 51, 255, 0.3);
 }
 
 .send-btn:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 6px 20px rgba(119, 51, 255, 0.4);
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(119, 51, 255, 0.4);
 }
 
+.send-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.send-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Link Google Button */
 .link-google-btn {
     flex: 1;
-    padding: 0.85rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 1rem;
     background: linear-gradient(135deg, #4285f4, #34a853);
@@ -1017,17 +1124,13 @@ export default {
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.18s;
-    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
 }
 
 .link-google-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+    box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
 }
 
 .link-google-btn:active {
@@ -1127,64 +1230,94 @@ export default {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* Responsive Design */
 @media (max-width: 768px) {
-    .container {
+    .chat-view {
+        padding: 0;
+    }
+
+    .chat-container {
+        border-radius: 0;
         max-width: 100%;
     }
 
-    .welcome-message {
-        padding: 2rem 1rem;
+    .chat-header {
+        padding: 2rem 1.5rem 1.5rem;
     }
 
-    .welcome-icon {
-        font-size: 2.6rem;
+    .brand-title {
+        font-size: 1.5rem;
     }
 
-    .welcome-message h2 {
+    .brand-subtitle {
+        font-size: 0.875rem;
+    }
+
+    .logo-image {
+        width: 60px;
+        height: 60px;
+    }
+
+    .messages-area {
+        padding: 1rem;
+        gap: 1.25rem;
+    }
+
+    .message-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .stitch-logo {
+        width: 20px;
+        height: 20px;
+    }
+
+    .message-text {
+        font-size: 0.9rem;
+    }
+
+    .chat-input-wrapper {
+        padding: 1rem;
+    }
+
+    .input-container {
+        padding: 0.375rem 0.5rem;
+    }
+
+    .attach-btn,
+    .send-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .chat-input {
+        font-size: 0.9rem;
+        padding: 0.625rem 0.375rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-header {
+        padding: 1.5rem 1rem 1rem;
+    }
+
+    .brand-title {
         font-size: 1.25rem;
     }
 
-    .welcome-message p {
-        font-size: 0.95rem;
+    .messages-area {
+        padding: 0.75rem;
     }
 
-    .message-content {
-        max-width: 95%;
+    .message {
+        gap: 0.75rem;
     }
 
-    .input-btn {
-        width: 38px;
-        height: 38px;
-        font-size: 0.95rem;
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
     }
-
-    .chat-input-container {
-        padding: 1rem;
-    }
-}
-
-/* Chat-feed scrollbar: hide by default on some platforms, show thin when needed */
-.chat-feed {
-    -ms-overflow-style: auto;
-    /* IE/Edge */
-    scrollbar-width: thin;
-    /* Firefox */
-}
-
-.chat-feed::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-feed::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chat-feed::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.12);
-    border-radius: 6px;
-}
-
-.chat-feed::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.2);
 }
 </style>

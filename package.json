@@ -1,6 +1,11 @@
 {
   "dependencies": {
+    "@sentry/vite-plugin": "^4.4.0",
+    "@sentry/vue": "^10.19.0",
     "katex": "^0.16.23",
     "markdown-it-katex": "^2.0.3"
+  },
+  "devDependencies": {
+    "simple-analytics-vue": "^3.1.0"
   }
 }
