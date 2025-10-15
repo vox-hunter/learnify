@@ -1,6 +1,6 @@
 
 import { createApp } from 'vue';
-import SimpleAnalytics from 'simple-analytics-vue';
+// ...existing code...
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
@@ -45,8 +45,8 @@ if (window.matchMedia) {
 app.use(createPinia());
 app.use(router);
 
-// Register Simple Analytics with skip option for development
-app.use(SimpleAnalytics, { skip: import.meta.env.MODE !== 'production' });
+// ...existing code...
+// ...existing code...
 
 
 

@@ -436,7 +436,7 @@ export default {
 
         const sendMessage = async () => {
 
-            // Simple Analytics event for send button click
+            // ...existing code...
             if (typeof window.saEvent === 'function') {
                 window.saEvent('chat_send_clicked');
             }
@@ -634,7 +634,7 @@ export default {
 
 .chat-view.has-messages {
     align-items: stretch;
-    padding: 0;
+    padding: 0 !important;
     margin: 0;
     width: 100%;
     box-sizing: border-box;

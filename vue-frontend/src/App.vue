@@ -64,6 +64,7 @@ export default {
 /* Remove padding for chat view when active */
 .main-content:has(.chat-view.has-messages) {
   padding: 0 !important;
+  margin: 0;
   overflow: hidden;
 }
 
