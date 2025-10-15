@@ -10,6 +10,7 @@
     "lint": "eslint . --fix"
   },
   "dependencies": {
+    "@sentry/vite-plugin": "^4.4.0",
     "axios": "^1.7.9",
     "dompurify": "^3.0.4",
     "markdown-it": "^13.0.1",

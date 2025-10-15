@@ -35,9 +35,11 @@ applyTo: '**'
 - Refactoring file upload flow: Removing /course/generate/upload endpoint, routing all uploads through chat/message for AI-driven course generation decisions
 
 ## Notes
-- If further Markdown/LaTeX issues arise, check delimiters and KaTeX CSS
-- For new features, follow Context7 and official docs first
-- File uploads now go through chat interface; AI determines whether to generate course based on content
+
+## UI/Avatar Update (Oct 2025)
+- AI logo avatar in ChatView.vue: border removed, logo size increased, aligned with text
+- Logo path standardized to /STITCH.png for all usages (header, messages, loading)
+- All build and lint checks pass, only warnings remain
 
 ## Current Error Fix Task
 Critical errors identified:

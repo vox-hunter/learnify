@@ -16,8 +16,8 @@
         <div class="brand-logo">
           <img
             src="/STITCH.png"
-            alt="Stitch"
-            class="logo-image"
+            alt="AI"
+            style="width: 44px; height: 44px; object-fit: contain; vertical-align: middle;"
           >
         </div>
         <h1 class="brand-title">
@@ -40,13 +40,16 @@
           :key="index"
           :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
         >
-          <div class="message-avatar">
+          <div
+            class="message-avatar"
+            style="display: flex; align-items: center; justify-content: center; margin-right: 16px;"
+          >
             <span v-if="msg.role === 'user'">👤</span>
             <span v-else>
               <img
                 src="/STITCH.png"
-                alt="Stitch Logo"
-                class="stitch-logo"
+                alt="AI"
+                style="width: 36px; height: 36px; object-fit: contain; vertical-align: middle;"
               >
             </span>
           </div>
@@ -68,18 +71,20 @@
             </div>
           </div>
         </div>
-
         <!-- Loading Indicator -->
         <div
           v-if="isLoading"
           class="message ai-message loading"
         >
-          <div class="message-avatar">
+          <div
+            class="message-avatar"
+            style="display: flex; align-items: center; justify-content: center; margin-right: 16px;"
+          >
             <span>
               <img
                 src="/STITCH.png"
-                alt="Stitch Logo"
-                class="stitch-logo"
+                alt="AI"
+                style="width: 36px; height: 36px; object-fit: contain; vertical-align: middle;"
               >
             </span>
           </div>
@@ -778,17 +783,18 @@ export default {
 }
 
 /* Message Avatar */
+
 .message-avatar {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.25rem;
     flex-shrink: 0;
-    background: var(--bg-tertiary);
-    border: 2px solid var(--border-color);
+    background: transparent;
+    border: none;
 }
 
 .user-message .message-avatar {
@@ -796,10 +802,13 @@ export default {
     border: none;
 }
 
+
 .stitch-logo {
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
     object-fit: contain;
+    border: none;
+    border-radius: 0;
 }
 
 /* Message Content */

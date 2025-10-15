@@ -237,20 +237,20 @@
           >
             <!-- Vertical Progress Bar on Right -->
             <div class="vertical-progress-bar">
-                  <div class="progress-bar-container-vertical">
-                    <div class="progress-track">
-                      <!-- Correct answers (green) -->
-                      <div
-                        class="progress-fluid correct"
-                        :style="{ height: (score / totalQuestions * 100) + '%' }"
-                      />
-                      <!-- Incorrect answers (red) -->
-                      <div
-                        class="progress-fluid incorrect"
-                        :style="{ height: ((answeredQuestions.size - score) / totalQuestions * 100) + '%', bottom: (score / totalQuestions * 100) + '%' }"
-                      />
-                    </div>
-                  </div>
+              <div class="progress-bar-container-vertical">
+                <div class="progress-track">
+                  <!-- Correct answers (green) -->
+                  <div
+                    class="progress-fluid correct"
+                    :style="{ height: (score / totalQuestions * 100) + '%' }"
+                  />
+                  <!-- Incorrect answers (red) -->
+                  <div
+                    class="progress-fluid incorrect"
+                    :style="{ height: ((answeredQuestions.size - score) / totalQuestions * 100) + '%', bottom: (score / totalQuestions * 100) + '%' }"
+                  />
+                </div>
+              </div>
             </div>
 
             <!-- Admin Controls in Step Flow -->
