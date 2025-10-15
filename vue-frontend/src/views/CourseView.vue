@@ -3473,6 +3473,7 @@ export default {
   box-shadow: 0 10px 30px var(--shadow-color);
   width: 100%;
   animation: fadeIn 0.5s ease;
+  min-height: 250px; /* Prevent layout shift */
 }
 
 .step-header {
@@ -3502,6 +3503,7 @@ export default {
   font-size: 1.25rem;
   line-height: 1.8;
   color: var(--text-primary);
+  min-height: 100px; /* Prevent layout shift when content loads */
 }
 
 .explanation-text p {

@@ -116,7 +116,7 @@
       />
       <div
         v-if="!isAnswered && isShortAnswer"
-        class="shortcut-label"
+        class="shortcut-label desktop-only"
       >
         {{ osShortcutLabel }}
       </div>
@@ -184,6 +184,7 @@
     <!-- Feedback -->
     <div
       v-if="isAnswered"
+      ref="feedbackSection"
       :class="['feedback', isCorrect ? 'feedback-correct' : 'feedback-incorrect']"
     >
       <div class="feedback-header">
@@ -237,6 +238,9 @@ export default {
   },
   emits: ['answer-submitted'],
   setup(props, { emit }) {
+      // Feedback ref for auto-scroll
+      const feedbackSection = ref(null);
+      
       // OS detection for shortcut label
       const osType = ref('win');
       const osShortcutLabel = computed(() => {
@@ -244,6 +248,18 @@ export default {
         if (osType.value === 'linux') return 'Shift + Enter to submit';
         return 'Shift + Enter to submit';
       });
+      
+      // Auto-scroll to feedback when it appears
+      const scrollToFeedback = () => {
+        nextTick(() => {
+          if (feedbackSection.value) {
+            feedbackSection.value.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'nearest' 
+            });
+          }
+        });
+      };
 
       onMounted(() => {
         const platform = window.navigator.platform.toLowerCase();
@@ -367,15 +383,24 @@ export default {
       validating.value = true
 
       try {
-        const response = await api.post('/quiz/validate-answer', {
+        // Create timeout promise for 2 seconds
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Validation timeout')), 2000)
+        )
+        
+        const validationPromise = api.post('/quiz/validate-answer', {
           question: props.question.question,
           user_answer: userAnswer.value,
           expected_answer: String(props.question.answer)
         })
+        
+        // Race between validation and timeout
+        const response = await Promise.race([validationPromise, timeoutPromise])
 
         const correct = response.data.is_correct
         explanation.value = response.data.explanation
         checkAnswer(userAnswer.value, correct)
+        scrollToFeedback()
       } catch (error) {
         console.error('Failed to validate answer:', error)
         // Fallback: simple comparison
@@ -383,6 +408,7 @@ export default {
           String(props.question.answer).toLowerCase()
         )
         checkAnswer(userAnswer.value, correct)
+        scrollToFeedback()
       } finally {
         validating.value = false
       }
@@ -421,6 +447,9 @@ export default {
       isCorrect.value = correct
       isAnswered.value = true
       expectedAnswer.value = props.question.answer
+
+      // Auto-scroll to feedback
+      scrollToFeedback()
 
       // Emit result to parent with answer data for saving
       emit('answer-submitted', {
@@ -518,6 +547,7 @@ export default {
     });
 
     return {
+      feedbackSection,
       selectedAnswer,
       userAnswer,
       matchingAnswers,
@@ -860,7 +890,19 @@ export default {
   color: #06b6d4;
 }
 
+/* Hide keyboard hint on touch devices */
+@media (pointer: coarse) {
+  .desktop-only {
+    display: none;
+  }
+}
+
+/* Also hide on small screens */
 @media (max-width: 768px) {
+  .desktop-only {
+    display: none;
+  }
+  
   .quiz-question {
     padding: 1.5rem;
   }

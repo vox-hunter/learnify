@@ -9,6 +9,9 @@ export const useCourseStore = defineStore('course', () => {
   const loading = ref(false)
   const error = ref(null)
   const guestCourseCount = ref(parseInt(localStorage.getItem('guestCourseCount') || '0'))
+  
+  // Cache for loaded courses to prevent redundant fetches
+  const courseCache = ref(new Map())
 
   // Guest user limit
   const GUEST_COURSE_LIMIT = 2
@@ -187,6 +190,14 @@ export const useCourseStore = defineStore('course', () => {
   }
 
   async function loadCourse(courseId) {
+    // Check cache first to prevent redundant fetches
+    if (courseCache.value.has(courseId)) {
+      console.log(`[Course Store] Loading course ${courseId} from cache`)
+      const cachedCourse = courseCache.value.get(courseId)
+      currentCourse.value = cachedCourse
+      return { success: true, course: cachedCourse }
+    }
+    
     loading.value = true
     const authStore = useAuthStore()
     console.log(`[Course Store] loadCourse called with courseId: ${courseId}`)
@@ -208,6 +219,8 @@ export const useCourseStore = defineStore('course', () => {
             course_title: localCourse.course_title,
             sections: localCourse.sections
           }
+          // Cache the loaded course
+          courseCache.value.set(courseId, currentCourse.value)
           return { success: true, course: currentCourse.value }
         } else {
           console.log('[Course Store] Course NOT found in localStorage')
@@ -218,6 +231,8 @@ export const useCourseStore = defineStore('course', () => {
       console.log('[Course Store] Attempting to load from API')
       const response = await api.get(`/course/${courseId}`)
       currentCourse.value = response.data
+      // Cache the loaded course
+      courseCache.value.set(courseId, currentCourse.value)
       console.log('[Course Store] Successfully loaded from API')
       return { success: true, course: response.data }
     } catch (err) {
@@ -282,6 +297,9 @@ export const useCourseStore = defineStore('course', () => {
 
   async function deleteCourse(courseId) {
     const authStore = useAuthStore()
+    // Clear from cache
+    courseCache.value.delete(courseId)
+    
     // If guest user, remove from localStorage
     if (!authStore.isAuthenticated) {
       const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
@@ -301,6 +319,12 @@ export const useCourseStore = defineStore('course', () => {
       return { success: false, error: e }
     }
   }
+  
+  // Clear entire cache (useful when user logs out or switches accounts)
+  function clearCache() {
+    courseCache.value.clear()
+    console.log('[Course Store] Cache cleared')
+  }
 
   return {
     courses,
@@ -316,6 +340,7 @@ export const useCourseStore = defineStore('course', () => {
     loadCourse,
     updateProgress,
     loadProgress,
-    deleteCourse
+    deleteCourse,
+    clearCache
   };
 });

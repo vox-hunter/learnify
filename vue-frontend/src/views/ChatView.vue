@@ -21,10 +21,15 @@
           >
         </div>
         <h1 class="brand-title">
-          What's new, Vox?
+          <template v-if="greetingFirstName">
+            What's new, {{ greetingFirstName }}?
+          </template>
+          <template v-else>
+            Learning starts when you start talking
+          </template>
         </h1>
         <p class="brand-subtitle">
-          Start a conversation with Stitch
+          Ask Stitch to generated a course for you, or help you learn anything.
         </p>
       </div>
 
@@ -177,7 +182,7 @@
             v-model="messageInput"
             type="text"
             class="chat-input"
-            placeholder="How can I help you today?"
+            placeholder="I want to learn about..."
             :disabled="isLoading"
             @keydown.enter="sendMessage"
           >
@@ -243,6 +248,21 @@ export default {
         })
 
         const isAuthenticated = computed(() => !!authStore.user)
+
+        const greetingFirstName = computed(() => {
+            const u = authStore.user
+            // If no signed-in user, return null so template shows fallback text
+            if (!u) return null
+            // Prefer common fields that might contain first name
+            if (u.first_name) return u.first_name
+            if (u.given_name) return u.given_name
+            if (u.name) {
+                // If name is full name, return first token
+                return String(u.name).split(' ')[0]
+            }
+            if (u.username) return u.username
+            return null
+        })
 
         // Non-Google per-user counter (frontend UX enforcement)
         const ngStorageKey = (username) => `ng_chat_count:${username}`
@@ -604,6 +624,7 @@ export default {
             canSend,
             formatTime,
             formatMessage,
+            greetingFirstName,
             handleFileSelect,
             removeFile,
             toggleUrlInput,

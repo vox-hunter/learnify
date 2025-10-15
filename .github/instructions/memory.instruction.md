@@ -41,6 +41,22 @@ applyTo: '**'
 - Logo path standardized to /STITCH.png for all usages (header, messages, loading)
 - All build and lint checks pass, only warnings remain
 
+## Current Task: Frontend Performance & UX Optimization (Completed Oct 15, 2025)
+- All performance and UX issues resolved
+- Mobile keyboard hint hidden on touch devices
+- Auto-scroll to correction feedback implemented
+- Short answer validation optimized with 2s timeout
+- Text info flicker prevented with min-height CSS
+- Course caching implemented to prevent redundant reloads
+- All views already using lazy loading via router
+- Build and lint successful (0 errors, 24 warnings - all expected)
+
+### Changes Made:
+1. **QuizQuestion.vue**: Added auto-scroll to feedback, mobile CSS hiding, validation timeout
+2. **course.js**: Implemented Map-based course caching to prevent refetching
+3. **CourseView.vue**: Added min-height to prevent layout shift
+4. **Router already optimized**: All views use lazy loading with import()
+
 ## Current Error Fix Task
 Critical errors identified:
 1. Recursive _log_error function in mongo_auth.py (line 52)
