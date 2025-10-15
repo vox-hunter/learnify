@@ -63,3 +63,13 @@ Fix Progress:
 - Vue frontend builds successfully without errors
 - Remaining errors are static analysis false positives
 - Linting shows only minor warnings, no errors
+
+## Current Task: Subpoints Feature Implementation (Oct 2025)
+- Adding hierarchical subpoints to STITCH schema
+- Schema already updated in sys_ins.txt
+- Backend schema updated to support 'subpoints' as alias
+- Frontend updated to render nested subpoints with visual indicators
+- Numbering: parent sections (1, 2, 3...), subpoints (1a, 1b, 1c...)
+- Backward compatibility: undefined subpoints work without breaking UI
+- Visual indicators: ▼ icon for sections with subpoints, └─ for subpoint items
+- Enhanced styling with indentation and branch connectors

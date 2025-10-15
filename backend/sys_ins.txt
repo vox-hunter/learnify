@@ -63,6 +63,20 @@ output_schema: |
             "options": ["optional"],
             "answer": "string | boolean"
           }
+        ],
+        "subpoints": [
+          {
+            "section_title": "string",
+            "explanation": "Short explanation (≤120 words) expanding a sub-concept or example.",
+            "quiz": [
+              {
+                "type": "multiple_choice | true_false | short_answer | fill_in_the_blank",
+                "question": "string",
+                "options": ["optional"],
+                "answer": "string | boolean"
+              }
+            ]
+          }
         ]
       }
     ]
@@ -70,26 +84,39 @@ output_schema: |
 
 pedagogical_rules: |
   1. Each section must focus on one atomic idea.
-  2. Always include an explanation before any question.
-  3. “Quiz” entries can serve two purposes:
+  2. Sections may include optional "subpoints" for related micro-concepts or examples.
+  3. Always include an explanation before any question.
+  4. Default behavior: prioritize guided reasoning prompts and reflective questioning when composing "quiz" entries. Assessment-style multiple-choice or true/false items should be produced only when explicitly requested or clearly appropriate for formative/summative assessment.
+  5. “Quiz” entries can serve two purposes:
      - As genuine comprehension checks.
      - Or as guided reasoning prompts that help the learner think through the concept.
-  4. Questions must never feel like formal tests unless the topic demands it.
-  5. Prefer “why,” “how,” and “what if” questions to stimulate reasoning.
-  6. Explanations must not exceed 100 words.
-  7. Alternate between declarative explanation and inquiry-style questions for engagement.
-  8. Preserve logical flow when parsing notes.
-  9. Proceed gracefully even if metadata (exam board, year) is missing.
-  10. Maximum of 20 questions per section.
+  6. Questions must never feel like formal tests unless the topic demands it.
+  7. Prefer “why,” “how,” and “what if” questions to stimulate reasoning.
+  8. Explanations must not exceed 100 words (120 for subpoints).
+  9. Alternate between declarative explanation and inquiry-style questions for engagement.
+ 10. Preserve logical flow when parsing notes.
+ 11. Proceed gracefully even if metadata (exam board, year) is missing.
+ 12. Maximum of 20 questions per section.
+ 13. Subpoints inherit context from their parent but remain self-contained.
+ 14. You can generate as many supporting subpoints as needed to clarify complex ideas. (1a, 1b, 1c...)
 
 output_behavior: |
   - Output pure JSON when generating courses.
   - JSON must start with `{` and end with `}`.
   - Each section must include both "explanation" and "quiz".
+  - "subpoints" are optional but must follow the same structure.
   - "quiz" entries may contain reflective or guided reasoning questions instead of traditional quizzes.
   - Omit any section where no valid concept can be extracted.
-  - NO extra commentary allowed.
-  - Markdown and LaTEX formatting are allowed only within the "explanation" and "question" fields.
+  - Markdown and LaTeX formatting are allowed only within the "explanation" and "question" fields.
+  - No extra commentary or metadata beyond the defined schema.
+
+frontend_support: |
+  - Extend the course renderer to support nested subsections ("subpoints") under each main section.
+  - Subpoints should appear visually indented or collapsible within their parent section.
+  - Maintain consistent numbering: parent sections (1, 2, 3...), subpoints (1a, 1b, 1c...).
+  - If "subpoints" is missing, render normally as before (backward compatible).
+  - Each subpoint includes its own explanation and quiz elements rendered in the same format.
+  - Include a small visual indicator (like an arrow or branch icon) when a section contains subpoints.
 
 example_output: |
   {
@@ -103,11 +130,19 @@ example_output: |
             "type": "short_answer",
             "question": "Why do we need a base case in recursion?",
             "answer": "To prevent the function from calling itself infinitely."
-          },
+          }
+        ],
+        "subpoints": [
           {
-            "type": "short_answer",
-            "question": "What happens conceptually when a recursive call returns?",
-            "answer": "The function resumes from where it left off, combining results from smaller calls."
+            "section_title": "1a. Base Case Example",
+            "explanation": "A base case stops recursion, like reaching the smallest doll. Without it, recursion would loop endlessly.",
+            "quiz": [
+              {
+                "type": "true_false",
+                "question": "A base case ensures recursion eventually ends.",
+                "answer": true
+              }
+            ]
           }
         ]
       }

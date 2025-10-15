@@ -159,8 +159,9 @@
               v-for="(value, vIndex) in matchingValues"
               :key="vIndex"
               :value="value"
-              v-html="renderMarkdown(value)"
-            />
+            >
+              {{ renderPlain(value) }}
+            </option>
           </select>
           <span
             v-if="isAnswered"
@@ -205,7 +206,7 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import api from '../services/api'
@@ -464,14 +465,32 @@ export default {
       return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
     };
 
+    // Render plain text from markdown for use inside native <option> elements
+    const renderPlain = (text) => {
+      if (!text) return '';
+      // Render inline markdown then strip any HTML tags to produce safe option text
+      const renderedInline = md.renderInline(String(text));
+      // Strip all tags to plain text
+      const stripped = DOMPurify.sanitize(renderedInline, { ALLOWED_TAGS: [] });
+      return stripped;
+    };
+
     // MathJax typesetting helper
     function typesetMathJax() {
       // Wait for DOM update
       setTimeout(() => {
         if (window.MathJax && window.MathJax.typesetPromise) {
-          // Typeset all .question-text and .feedback-text blocks
-          const elements = document.querySelectorAll('.question-text, .feedback-text, .correct-answer');
-          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+          // Typeset question, feedback, correct answer, option text and matching keys
+          // Note: HTML inside native <option> elements is not fully supported by browsers,
+          // but we include matching-select in the selector so visible rendered nodes are typeset.
+          const elements = document.querySelectorAll(
+            '.question-text, .feedback-text, .correct-answer, .option-text, .matching-key, .matching-select'
+          );
+          try {
+            window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+          } catch {
+            // swallow errors to avoid breaking UI
+          }
         }
       }, 0);
     }
@@ -480,6 +499,18 @@ export default {
     watch(() => [props.question, props.sectionIndex, props.subsectionIndex, props.questionIndex], () => {
       typesetMathJax();
     }, { immediate: true });
+
+    // When MCQ options change, ensure typesetting runs after DOM updates
+    watch(() => props.question.options, async () => {
+      await nextTick();
+      typesetMathJax();
+    }, { immediate: true, deep: true });
+
+    // Ensure typesetting runs when matching values change (selects are plain text but keep consistent)
+    watch(() => matchingValues.value, async () => {
+      await nextTick();
+      typesetMathJax();
+    });
 
     // Typeset on feedback/explanation change
     watch([explanation, expectedAnswer], () => {
@@ -511,6 +542,7 @@ export default {
       submitShortAnswer,
       submitMatching,
       renderMarkdown,
+      renderPlain,
     }
   }
 }

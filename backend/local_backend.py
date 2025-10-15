@@ -1,7 +1,7 @@
 import logging
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, AliasChoices
 from typing import Union, Optional, List, Literal
 from dotenv import load_dotenv
 import json
@@ -66,16 +66,23 @@ class QuizItem(BaseModel):
         "true or false"  # Added 'true or false' to accepted literals
     ]  # accept both formats
     question: str
-    options: Optional[List[str]] = Field(default=None, alias="choices")
+    options: Optional[List[str]] = Field(default=None, validation_alias=AliasChoices("options", "choices"))
     answer: Union[str, bool, List[str], ArbitraryMapping]
 
 class Section(BaseModel):
-    section_title: str = Field(alias="section")
+    model_config = {"populate_by_name": True}
+    
+    section_title: str = Field(validation_alias=AliasChoices("section_title", "section"))
     explanation: str
-    quiz: List[QuizItem] = Field(alias="questions")
-    # Allow sections to be nested. The alias "sub_sections" is provided as the AI might prefer it.
-    # If the AI doesn't provide this field, it will default to None.
-    subsections: Optional[List['Section']] = Field(default=None, alias="sub_sections", title="Sub Sections")
+    quiz: List[QuizItem] = Field(validation_alias=AliasChoices("quiz", "questions"))
+    # Allow sections to be nested. Support both "subpoints" (new) and "subsections"/"sub_sections" (legacy)
+    # Use "subpoints" as the primary field name for consistency with sys_ins.txt
+    subpoints: Optional[List['Section']] = Field(
+        default=None,
+        validation_alias=AliasChoices("subpoints", "subsections", "sub_sections"),
+        alias="subpoints",
+        title="Subpoints"
+    )
 
 # Pydantic v2 automatically handles the self-reference 'Section' in List['Section']
 

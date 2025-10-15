@@ -281,6 +281,14 @@ class ChatSessionManager:
                         is_json = True
                         course_data = parsed_json
                         logger.info(f"✓ Detected course JSON response: {parsed_json.get('course_title')}")
+                        
+                        # Print the entire course JSON for debugging
+                        logger.info("=" * 80)
+                        logger.info("FULL COURSE JSON:")
+                        logger.info("=" * 80)
+                        formatted_json = json.dumps(parsed_json, indent=2, ensure_ascii=False)
+                        logger.info(formatted_json)
+                        logger.info("=" * 80)
                     else:
                         logger.info("JSON parsed but missing course structure keys")
                 except Exception as e:

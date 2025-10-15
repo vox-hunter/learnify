@@ -513,6 +513,14 @@
           >
             <div class="section-header">
               <h2 class="section-title">
+                <span class="section-number">{{ getSectionNumber(sectionIndex) }}.</span>
+                <span
+                  v-if="getSubsections(section) && getSubsections(section).length > 0"
+                  class="has-subpoints-icon"
+                  :title="`Contains ${getSubsections(section).length} subpoint${getSubsections(section).length > 1 ? 's' : ''}`"
+                >
+                  ▼
+                </span>
                 {{ section.section_title }}
               </h2>
               <div class="section-progress">
@@ -567,15 +575,15 @@
               </div>
             </div>
 
-            <!-- Subsections (progressive reveal) -->
+            <!-- Subsections/Subpoints (progressive reveal) -->
             <div
-              v-if="section.subsections && section.subsections.length > 0"
+              v-if="getSubsections(section) && getSubsections(section).length > 0"
               class="subsections"
             >
               <div
                 v-for="(subsection, subIndex) in getVisibleSubsections(
                   sectionIndex,
-                  section.subsections,
+                  getSubsections(section),
                 )"
                 :id="`subsection-${sectionIndex}-${subIndex}`"
                 :key="`sub-${sectionIndex}-${subIndex}`"
@@ -585,6 +593,8 @@
                   v-if="!reviewMode"
                   class="subsection-title"
                 >
+                  <span class="subpoint-indicator">└─</span>
+                  <span class="section-number">{{ getSectionNumber(sectionIndex, subIndex) }}.</span>
                   {{ subsection.section_title }}
                 </h4>
                 <div
@@ -854,6 +864,13 @@ export default {
       return course.value.sections[currentSectionIndex.value];
     });
 
+    // Helper function to get subsections/subpoints (supports both field names)
+    const getSubsections = (section) => {
+      if (!section) return null;
+      // Check for 'subpoints' first (new schema), then 'subsections' (legacy)
+      return section.subpoints || section.subsections || null;
+    };
+
     // Calculate which sections should be visible
     const visibleSections = computed(() => {
       if (!course.value?.sections) return [];
@@ -876,8 +893,9 @@ export default {
 
       // Count questions in this section
       let sectionQuestionCount = section.quiz?.length || 0;
-      if (section.subsections) {
-        section.subsections.forEach((subsection) => {
+      const subsectionsForCount = getSubsections(section);
+      if (subsectionsForCount) {
+        subsectionsForCount.forEach((subsection) => {
           sectionQuestionCount += subsection.quiz?.length || 0;
         });
       }
@@ -899,8 +917,9 @@ export default {
       }
 
       // Check subsection questions
-      if (section.subsections) {
-        section.subsections.forEach((subsection, subIndex) => {
+      const subsections = getSubsections(section);
+      if (subsections) {
+        subsections.forEach((subsection, subIndex) => {
           if (subsection.quiz) {
             subsection.quiz.forEach((_, qIndex) => {
               const questionKey = `${sectionIndex}-${subIndex}-${qIndex}`;
@@ -927,8 +946,9 @@ export default {
         let count = 0;
         for (const section of sections) {
           count += section.quiz?.length || 0;
-          if (section.subsections) {
-            count += countQuestions(section.subsections);
+          const subsections = getSubsections(section);
+          if (subsections) {
+            count += countQuestions(subsections);
           }
         }
         return count;
@@ -1002,6 +1022,7 @@ export default {
       // First check if main section questions are complete
       const mainQuestionsComplete =
         !section.quiz ||
+        section.quiz.length === 0 ||
         section.quiz.every((_, qIndex) => {
           const questionKey = `${sectionIndex}-main-${qIndex}`;
           return answeredQuestions.value.has(questionKey);
@@ -1015,7 +1036,11 @@ export default {
       let firstIncompleteIndex = -1;
       for (let i = 0; i < subsections.length; i++) {
         const subsection = subsections[i];
-        if (!subsection.quiz) continue;
+        
+        // If subsection has no quiz or empty quiz, it's always "complete" - just show it
+        if (!subsection.quiz || subsection.quiz.length === 0) {
+          continue; // Move to next subsection
+        }
 
         const allAnswered = subsection.quiz.every((_, qIndex) => {
           const questionKey = `${sectionIndex}-${i}-${qIndex}`;
@@ -1500,7 +1525,8 @@ export default {
             // If not found, try next subsection in current section
             if (!nextEl && subsectionIndex !== null && subsectionIndex !== undefined) {
               const section = course.value.sections[sectionIndex];
-              if (section && section.subsections && subsectionIndex + 1 < section.subsections.length) {
+              const subsections = getSubsections(section);
+              if (section && subsections && subsectionIndex + 1 < subsections.length) {
                 nextEl = document.getElementById(`question-${sectionIndex}-${subsectionIndex + 1}-0`);
               }
             }
@@ -1509,8 +1535,11 @@ export default {
               const nextSection = course.value.sections[sectionIndex + 1];
               if (nextSection && nextSection.quiz && nextSection.quiz.length > 0) {
                 nextEl = document.getElementById(`question-${sectionIndex + 1}-main-0`);
-              } else if (nextSection && nextSection.subsections && nextSection.subsections.length > 0) {
-                nextEl = document.getElementById(`question-${sectionIndex + 1}-0-0`);
+              } else {
+                const nextSubsections = getSubsections(nextSection);
+                if (nextSubsections && nextSubsections.length > 0) {
+                  nextEl = document.getElementById(`question-${sectionIndex + 1}-0-0`);
+                }
               }
             }
             // Scroll if found
@@ -1564,8 +1593,8 @@ export default {
                   });
                 }
               } else if (
-                section.subsections &&
-                section.subsections.length > 0
+                getSubsections(section) &&
+                getSubsections(section).length > 0
               ) {
                 // Main questions done, scroll to first subsection
                 const firstSubsectionEl = document.getElementById(
@@ -1602,7 +1631,8 @@ export default {
               }
             } else {
               // We're in subsection questions
-              const subsection = section.subsections[subsectionIndex];
+              const subsections = getSubsections(section);
+              const subsection = subsections ? subsections[subsectionIndex] : null;
               const subsectionQuestions = subsection.quiz || [];
               const nextQuestionIndex = questionIndex + 1;
 
@@ -1617,38 +1647,41 @@ export default {
                     block: "center",
                   });
                 }
-              } else if (subsectionIndex + 1 < section.subsections.length) {
-                // Subsection done, scroll to next subsection
-                const nextSubsectionEl = document.getElementById(
-                  `subsection-${sectionIndex}-${subsectionIndex + 1}`,
-                );
-                if (nextSubsectionEl) {
-                  nextSubsectionEl.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  });
-                }
-              } else if (
-                isSectionComplete(sectionIndex) &&
-                sectionIndex === currentSectionIndex.value
-              ) {
-                // All subsections done, reveal next section
-                if (
-                  currentSectionIndex.value <
-                  course.value.sections.length - 1
+              } else {
+                const subsections = getSubsections(section);
+                if (subsections && subsectionIndex + 1 < subsections.length) {
+                  // Subsection done, scroll to next subsection
+                  const nextSubsectionEl = document.getElementById(
+                    `subsection-${sectionIndex}-${subsectionIndex + 1}`,
+                  );
+                  if (nextSubsectionEl) {
+                    nextSubsectionEl.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }
+                } else if (
+                  isSectionComplete(sectionIndex) &&
+                  sectionIndex === currentSectionIndex.value
                 ) {
-                  currentSectionIndex.value++;
-                  setTimeout(() => {
-                    const nextSectionEl = document.getElementById(
-                      `section-${currentSectionIndex.value}`,
-                    );
-                    if (nextSectionEl) {
-                      nextSectionEl.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }
-                  }, 100);
+                  // All subsections done, reveal next section
+                  if (
+                    currentSectionIndex.value <
+                    course.value.sections.length - 1
+                  ) {
+                    currentSectionIndex.value++;
+                    setTimeout(() => {
+                      const nextSectionEl = document.getElementById(
+                        `section-${currentSectionIndex.value}`,
+                      );
+                      if (nextSectionEl) {
+                        nextSectionEl.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      }
+                    }, 100);
+                  }
                 }
               }
             }
@@ -1699,8 +1732,9 @@ export default {
           }
 
           // Add subsection questions
-          if (section.subsections && section.subsections.length > 0) {
-            section.subsections.forEach((subsection, subsectionIndex) => {
+          const subsections = getSubsections(section);
+          if (subsections && subsections.length > 0) {
+            subsections.forEach((subsection, subsectionIndex) => {
               if (subsection.quiz && subsection.quiz.length > 0) {
                 subsection.quiz.forEach((question, questionIndex) => {
                   allQuestionSteps.push({
@@ -1832,8 +1866,9 @@ export default {
             }
 
             // Subsection questions
-            if (section.subsections) {
-              section.subsections.forEach((subsection, subIdx) => {
+            const subsections = getSubsections(section);
+            if (subsections) {
+              subsections.forEach((subsection, subIdx) => {
                 if (subsection.quiz) {
                   subsection.quiz.forEach((_, qIndex) => {
                     const questionKey = `${actualSectionIndex}-${subIdx}-${qIndex}`;
@@ -2043,8 +2078,9 @@ export default {
         }
 
         // Add subsections
-        if (section.subsections && section.subsections.length > 0) {
-          section.subsections.forEach((subsection, subsectionIndex) => {
+        const subsections = getSubsections(section);
+        if (subsections && subsections.length > 0) {
+          subsections.forEach((subsection, subsectionIndex) => {
             // Add subsection explanation
             if (!reviewMode.value && subsection.section_title) {
               steps.push({
@@ -2085,6 +2121,18 @@ export default {
 
       return steps;
     });
+
+    // Helper function to get section/subpoint number
+    const getSectionNumber = (sectionIndex, subsectionIndex = null) => {
+      if (subsectionIndex === null || subsectionIndex === undefined) {
+        // Main section - numbered 1, 2, 3...
+        return `${sectionIndex + 1}`;
+      } else {
+        // Subpoint - numbered 1a, 1b, 1c...
+        const letter = String.fromCharCode(97 + subsectionIndex); // 97 is 'a'
+        return `${sectionIndex + 1}${letter}`;
+      }
+    };
 
     const handleEndEarly = () => {
       // Save final progress
@@ -2163,6 +2211,7 @@ export default {
       scrollToStep,
       scrollToContent,
       renderMarkdown,
+      getSectionNumber,
     };
   },
 };
@@ -2292,9 +2341,29 @@ export default {
 .subsection-card {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-secondary);
   border-radius: 1rem;
   padding: 2rem;
   margin-bottom: 2rem;
+  margin-left: 2rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.subsection-card::before {
+  content: '';
+  position: absolute;
+  left: -2rem;
+  top: 2rem;
+  width: 1.5rem;
+  height: 2px;
+  background: var(--border-color);
+  opacity: 0.5;
+}
+
+.subsection-card:hover {
+  border-left-color: var(--accent-primary);
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .subsection-title {
@@ -2302,6 +2371,36 @@ export default {
   font-weight: 600;
   color: var(--accent-primary);
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subpoint-indicator {
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  opacity: 0.7;
+}
+
+.section-number {
+  color: var(--accent-primary);
+  font-weight: 700;
+  margin-right: 0.25rem;
+}
+
+.has-subpoints-icon {
+  display: inline-block;
+  color: var(--accent-secondary);
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+  opacity: 0.8;
+  cursor: help;
+  transition: transform 0.3s ease;
+}
+
+.has-subpoints-icon:hover {
+  transform: scale(1.2);
+  opacity: 1;
 }
 
 .subsection-explanation {
