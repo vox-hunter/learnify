@@ -35,7 +35,9 @@ applyTo: '**'
 - Refactoring file upload flow: Removing /course/generate/upload endpoint, routing all uploads through chat/message for AI-driven course generation decisions
 
 ## Notes
-
+## Notes
+- Double reload after cloning is caused by both navigation in LibraryView.vue and onMounted in CourseView.vue triggering course load
+- Next step: Implement fix to ensure only one course load after cloning
 ## UI/Avatar Update (Oct 2025)
 - AI logo avatar in ChatView.vue: border removed, logo size increased, aligned with text
 - Logo path standardized to /STITCH.png for all usages (header, messages, loading)

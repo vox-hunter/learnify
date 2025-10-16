@@ -1,3 +1,9 @@
+    const readyToEndCourse = ref(false); // Show End Course button when ready
+
+    // End Course handler
+    function endCourse() {
+      endedEarly.value = true;
+    }
 <template>
   <div class="course-view">
     <div class="container">
@@ -112,7 +118,20 @@
           </div>
         </div>
 
-        <!-- Course Conclusion (shows when course is complete) -->
+        <!-- End Course Button (shows when all questions are answered) -->
+        <div
+          v-else-if="readyToEndCourse && !showConclusion"
+          class="end-course-wrapper"
+        >
+          <button
+            class="btn btn-success"
+            @click="endCourse"
+          >
+            🎉 End Course
+          </button>
+        </div>
+
+        <!-- Course Conclusion (shows when user clicks End Course) -->
         <div
           v-else-if="showConclusion"
           class="conclusion-wrapper"
@@ -799,6 +818,8 @@ export default {
     QuizQuestion,
   },
   setup() {
+    const readyToEndCourse = ref(false); // Show End Course button when ready
+
     // --- Declare stores and refs first ---
     const route = useRoute();
     const router = useRouter();
@@ -826,6 +847,14 @@ export default {
     const showContinueHint = ref(false); // Show hint to press enter
     const stepFlowContainer = ref(null); // Ref for step flow container
     const reviewQuestionOrder = ref([]); // Store shuffled question order for review mode
+
+    // End Course handler
+    function endCourse() {
+      endedEarly.value = true;
+    }
+
+    // ...existing code...
+    // Place watcher after totalQuestions computed property
 
     // --- Computed property for course ---
     const course = computed(() => courseStore.currentCourse);
@@ -866,9 +895,9 @@ export default {
 
     // Helper function to get subsections/subpoints (supports both field names)
     const getSubsections = (section) => {
-      if (!section) return null;
-      // Check for 'subpoints' first (new schema), then 'subsections' (legacy)
-      return section.subpoints || section.subsections || null;
+  if (!section || typeof section !== 'object') return null;
+  // Check for 'subpoints' first (new schema), then 'subsections' (legacy)
+  return section.subpoints || section.subsections || null;
     };
 
     // Calculate which sections should be visible
@@ -964,16 +993,25 @@ export default {
       );
     });
 
+    // Watch for course completion to show End Course button
+    watch([answeredQuestions, totalQuestions, reviewMode], () => {
+      if (
+        totalQuestions.value > 0 &&
+        answeredQuestions.value.size === totalQuestions.value &&
+        !reviewMode.value
+      ) {
+        readyToEndCourse.value = true;
+      } else {
+        readyToEndCourse.value = false;
+      }
+    });
+
     const showConclusion = computed(() => {
       if (reviewMode.value) {
         return false; // Don't show conclusion in review mode
       }
-      // Show conclusion if all questions answered OR if user ended early
-      return (
-        endedEarly.value ||
-        (totalQuestions.value > 0 &&
-          answeredQuestions.value.size === totalQuestions.value)
-      );
+      // Only show conclusion if user clicked End Course or ended early
+      return endedEarly.value;
     });
 
     const reviewAccuracy = computed(() => {
@@ -1819,9 +1857,12 @@ export default {
     // Load course on mount if we have an ID
     onMounted(async () => {
       if (route.params.id) {
-        await loadCourse();
-        // Load saved progress after course is loaded
-        await loadSavedProgress();
+        // Prevent double reload: only load if not already loaded for this ID
+        if (!course.value || course.value.course_id !== route.params.id) {
+          await loadCourse();
+          // Load saved progress after course is loaded
+          await loadSavedProgress();
+        }
       } else if (!course.value) {
         error.value = "No course data available";
       }
@@ -2147,31 +2188,33 @@ export default {
   // (Removed duplicate MarkdownIt instance)
     // (Removed duplicate renderMarkdown function)
     return {
-      loading,
-      error,
-      course,
-      currentSection,
-      currentSectionIndex,
-      totalQuestions,
-      score,
-      answeredQuestions,
-      progressPercentage,
-      showConclusion,
-      accuracyPercentage,
-      accuracyClass,
-      handleAnswerSubmit,
-      reviewCourse,
-      goToCourses,
-      authStore,
-      adminMessage,
-      adminMessageType,
-      completeAllQuestions,
-      resetProgress,
-      reviewMode,
-      originalScore,
-      originalAnsweredCount,
-      reviewScore,
-      reviewAnsweredQuestions,
+  loading,
+  error,
+  course,
+  currentSection,
+  currentSectionIndex,
+  totalQuestions,
+  score,
+  answeredQuestions,
+  progressPercentage,
+  showConclusion,
+  accuracyPercentage,
+  accuracyClass,
+  handleAnswerSubmit,
+  reviewCourse,
+  goToCourses,
+  authStore,
+  adminMessage,
+  adminMessageType,
+  completeAllQuestions,
+  resetProgress,
+  reviewMode,
+  originalScore,
+  originalAnsweredCount,
+  reviewScore,
+  reviewAnsweredQuestions,
+  readyToEndCourse,
+  endCourse,
       showReviewComparison,
       reviewAccuracy,
       originalAccuracy,

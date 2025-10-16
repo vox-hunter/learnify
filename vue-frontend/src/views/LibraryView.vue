@@ -441,22 +441,28 @@ export default {
         }
 
         const cloneCourse = async (courseId) => {
-            cloning.value = { ...cloning.value, [courseId]: true }
+      if (cloning.value[courseId]) return; // Prevent double navigation
+      cloning.value = { ...cloning.value, [courseId]: true }
 
-            try {
-                const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
-                const response = await api.post(`/library/course/${courseId}/clone`, {}, { params })
+      try {
+        const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
+        const response = await api.post(`/library/course/${courseId}/clone`, {}, { params })
 
-                if (response.data.success) {
-                    showNotificationMessage('Course cloned successfully! You can find it in your courses.', 'success')
-                    router.push(`/course/${response.data.course_id}`)
-                }
-            } catch (error) {
-                console.error('Error cloning course:', error)
-                showNotificationMessage('Failed to clone course. Please try again.', 'error')
-            } finally {
-                cloning.value = { ...cloning.value, [courseId]: false }
+        if (response.data.success) {
+          showNotificationMessage('Course cloned successfully! You can find it in your courses.', 'success')
+          // Debounce navigation to prevent double reloads
+          setTimeout(() => {
+            if (router.currentRoute.value.path !== `/course/${response.data.course_id}`) {
+              router.push(`/course/${response.data.course_id}`)
             }
+          }, 300);
+        }
+      } catch (error) {
+        console.error('Error cloning course:', error)
+        showNotificationMessage('Failed to clone course. Please try again.', 'error')
+      } finally {
+        cloning.value = { ...cloning.value, [courseId]: false }
+      }
         }
 
         const showRatingModal = (course) => {
