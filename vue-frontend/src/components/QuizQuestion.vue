@@ -383,20 +383,11 @@ export default {
       validating.value = true
 
       try {
-        // Create timeout promise for 2 seconds
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Validation timeout')), 2000)
-        )
-        
-        const validationPromise = api.post('/quiz/validate-answer', {
+        const response = await api.post('/quiz/validate-answer', {
           question: props.question.question,
           user_answer: userAnswer.value,
           expected_answer: String(props.question.answer)
         })
-        
-        // Race between validation and timeout
-        const response = await Promise.race([validationPromise, timeoutPromise])
-
         const correct = response.data.is_correct
         explanation.value = response.data.explanation
         checkAnswer(userAnswer.value, correct)
