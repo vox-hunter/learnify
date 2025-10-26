@@ -136,6 +136,7 @@ class ChatSessionManager:
         """
         Create a FunctionDeclaration describing the `generate_course` function.
         The JSON schema uses Gemini's type system for compatibility with FunctionDeclaration validation.
+        Note: Removed additionalProperties as Gemini SDK doesn't support it in function declarations.
         """
         schema = {
             "type": "OBJECT",
@@ -156,7 +157,7 @@ class ChatSessionManager:
                                         "type": {"type": "STRING", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank|match"},
                                         "question": {"type": "STRING"},
                                         "options": {"type": "ARRAY", "items": {"type": "STRING"}},
-                                        "answer": {"type": "OBJECT", "additionalProperties": True}
+                                        "answer": {"type": "STRING", "description": "The correct answer (can be a string, boolean, or JSON-formatted answer)"}
                                     },
                                     "required": ["type", "question", "answer"]
                                 }
@@ -176,7 +177,7 @@ class ChatSessionManager:
                                                     "type": {"type": "STRING", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank|match"},
                                                     "question": {"type": "STRING"},
                                                     "options": {"type": "ARRAY", "items": {"type": "STRING"}},
-                                                    "answer": {"type": "OBJECT", "additionalProperties": True}
+                                                    "answer": {"type": "STRING", "description": "The correct answer (can be a string, boolean, or JSON-formatted answer)"}
                                                 },
                                                 "required": ["type", "question", "answer"]
                                             }
