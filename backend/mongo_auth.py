@@ -236,7 +236,7 @@ class MongoAuthManager:
             result = self.users_collection.update_one(
                 {"username": username},
                 {
-                    "$unset": {"google_id": ""},
+                    "$unset": {"google_id": 1},
                     "$set": {"google_linked": False}
                 }
             )
