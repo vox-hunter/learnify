@@ -386,6 +386,78 @@ export const useFlashcardStore = defineStore('flashcard', () => {
     console.log('[Flashcard Store] Cache cleared')
   }
 
+  // Match mode statistics functions
+  async function saveMatchModeStats(flashcardId, statsData) {
+    const authStore = useAuthStore()
+    
+    try {
+      // Only make API call if authenticated
+      if (authStore.isAuthenticated) {
+        await api.post(`/flashcard/${flashcardId}/match-stats`, statsData)
+      }
+      
+      // Always save to localStorage for persistence
+      const statsKey = `match_stats_${flashcardId}`
+      const existingStats = JSON.parse(localStorage.getItem(statsKey) || 'null')
+      
+      // Update local stats
+      const updatedStats = {
+        personal_best_time: existingStats?.personal_best_time 
+          ? Math.min(existingStats.personal_best_time, statsData.completion_time)
+          : statsData.completion_time,
+        best_moves: existingStats?.best_moves
+          ? Math.min(existingStats.best_moves, statsData.moves_count)
+          : statsData.moves_count,
+        games_played: (existingStats?.games_played || 0) + 1,
+        total_time: (existingStats?.total_time || 0) + statsData.completion_time,
+        total_moves: (existingStats?.total_moves || 0) + statsData.moves_count,
+        last_played: statsData.timestamp
+      }
+      
+      updatedStats.average_time = updatedStats.total_time / updatedStats.games_played
+      updatedStats.average_moves = updatedStats.total_moves / updatedStats.games_played
+      
+      localStorage.setItem(statsKey, JSON.stringify(updatedStats))
+      
+      return { success: true, stats: updatedStats }
+    } catch (err) {
+      console.error('[Flashcard Store] Error saving match stats:', err)
+      return { success: false, error: 'Failed to save match statistics' }
+    }
+  }
+
+  async function loadMatchModeStats(flashcardId) {
+    const authStore = useAuthStore()
+    
+    try {
+      // Only make API call if authenticated
+      if (authStore.isAuthenticated) {
+        const response = await api.get(`/flashcard/${flashcardId}/match-stats`)
+        return { success: true, stats: response.data }
+      }
+      
+      // For guests, load from localStorage only
+      const statsKey = `match_stats_${flashcardId}`
+      const savedStats = localStorage.getItem(statsKey)
+      
+      if (savedStats) {
+        return { success: true, stats: JSON.parse(savedStats) }
+      }
+      
+      return { success: false, stats: null }
+    } catch {
+      // Fallback to localStorage on API error
+      const statsKey = `match_stats_${flashcardId}`
+      const savedStats = localStorage.getItem(statsKey)
+      
+      if (savedStats) {
+        return { success: true, stats: JSON.parse(savedStats) }
+      }
+      
+      return { success: false, stats: null }
+    }
+  }
+
   return {
     flashcards,
     currentFlashcard,
@@ -403,6 +475,8 @@ export const useFlashcardStore = defineStore('flashcard', () => {
     updateFlashcardProgress,
     loadFlashcardProgress,
     invalidateFlashcard,
-    clearCache
+    clearCache,
+    saveMatchModeStats,
+    loadMatchModeStats
   }
 })

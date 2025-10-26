@@ -56,11 +56,11 @@
           </button>
           <button 
             :class="['mode-btn', { active: mode === 'match' }]"
-            :disabled="true"
-            :title="'Match mode coming soon!'"
+            :disabled="totalCards < 2"
+            :title="totalCards < 2 ? 'Need at least 2 cards for match mode' : 'Play match mode'"
             @click="switchMode('match')"
           >
-            Match 🔒
+            Match
           </button>
         </div>
       </div>
@@ -76,9 +76,28 @@
         </div>
       </div>
 
+      <!-- Match Mode Setup -->
+      <MatchModeSetup
+        v-else-if="mode === 'match' && !isMatchModeActive"
+        :total-cards="totalCards"
+        @start="startMatchMode"
+        @cancel="switchMode('study')"
+      />
+
+      <!-- Match Mode Game -->
+      <MatchMode
+        v-else-if="mode === 'match' && isMatchModeActive"
+        :cards="flashcard.cards"
+        :pair-count="matchModePairCount"
+        :personal-bests="matchModeStats"
+        @exit="exitMatchMode"
+        @complete="handleMatchComplete"
+        @play-again="restartMatchMode"
+      />
+
       <!-- Card Display Area -->
       <div
-        v-else-if="currentCard"
+        v-else-if="currentCard && mode !== 'match'"
         class="card-display"
       >
         <div
@@ -154,7 +173,7 @@
 
       <!-- Navigation Controls -->
       <div
-        v-if="totalCards > 0"
+        v-if="totalCards > 0 && mode !== 'match'"
         class="navigation-controls"
       >
         <button 
@@ -183,7 +202,7 @@
 
       <!-- Progress Bar -->
       <div
-        v-if="totalCards > 0"
+        v-if="totalCards > 0 && mode !== 'match'"
         class="progress-bar-container"
       >
         <div
@@ -194,7 +213,7 @@
 
       <!-- Stats Footer -->
       <div
-        v-if="totalCards > 0"
+        v-if="totalCards > 0 && mode !== 'match'"
         class="stats-footer"
       >
         <div class="stat-item">
@@ -219,7 +238,10 @@
       </div>
 
       <!-- Keyboard Shortcuts Hint -->
-      <div class="keyboard-hints">
+      <div
+        v-if="mode !== 'match'"
+        class="keyboard-hints"
+      >
         <span class="hint-item">Space: Flip</span>
         <span class="hint-item">← →: Navigate</span>
         <span class="hint-item">S: Shuffle</span>
@@ -233,6 +255,8 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFlashcardStore } from '@/stores/flashcard'
+import MatchModeSetup from '@/components/MatchModeSetup.vue'
+import MatchMode from '@/components/MatchMode.vue'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 
@@ -261,6 +285,11 @@ const totalAttempts = ref(0)
 const shuffledIndices = ref([])
 const loadedAccuracyRate = ref(null)
 let mathJaxTimer = null
+
+// Match mode state
+const isMatchModeActive = ref(false)
+const matchModePairCount = ref(0)
+const matchModeStats = ref(null)
 
 // Computed Properties
 const currentCard = computed(() => {
@@ -388,6 +417,57 @@ const shuffleCards = () => {
 const switchMode = (newMode) => {
   mode.value = newMode
   isFlipped.value = false
+  
+  // Load match mode stats when switching to match mode
+  if (newMode === 'match') {
+    loadMatchModeStatsData()
+  } else {
+    // Reset match mode when switching away
+    isMatchModeActive.value = false
+  }
+}
+
+// Match mode functions
+const loadMatchModeStatsData = async () => {
+  try {
+    const flashcardId = route.params.id
+    const { success, stats } = await flashcardStore.loadMatchModeStats(flashcardId)
+    if (success && stats) {
+      matchModeStats.value = stats
+    }
+  } catch (err) {
+    console.error('Error loading match mode stats:', err)
+  }
+}
+
+const startMatchMode = (pairCount) => {
+  matchModePairCount.value = pairCount
+  isMatchModeActive.value = true
+}
+
+const exitMatchMode = () => {
+  isMatchModeActive.value = false
+  switchMode('study')
+}
+
+const restartMatchMode = () => {
+  // Force re-render by toggling
+  isMatchModeActive.value = false
+  nextTick(() => {
+    isMatchModeActive.value = true
+  })
+}
+
+const handleMatchComplete = async (statsData) => {
+  try {
+    const flashcardId = route.params.id
+    const { success, stats } = await flashcardStore.saveMatchModeStats(flashcardId, statsData)
+    if (success && stats) {
+      matchModeStats.value = stats
+    }
+  } catch (err) {
+    console.error('Error saving match mode stats:', err)
+  }
 }
 
 const markAnswer = (isCorrect) => {

@@ -176,6 +176,12 @@ class GenerateFlashcardsRequest(BaseModel):
     difficulty: Optional[str] = None
     focus_areas: Optional[List[str]] = None
 
+class MatchModeStatsRequest(BaseModel):
+    completion_time: float  # seconds
+    moves_count: int  # number of card flips
+    card_count: int  # number of pairs played
+    timestamp: str  # ISO timestamp
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -1559,6 +1565,130 @@ async def delete_flashcard(flashcard_id: str, username: Optional[str] = None, se
         raise HTTPException(status_code=400, detail=error)
 
     return {"success": success}
+
+# Match mode statistics endpoints
+@app.post("/flashcard/{flashcard_id}/match-stats")
+async def save_match_stats(
+    flashcard_id: str, 
+    request: MatchModeStatsRequest,
+    username: Optional[str] = None, 
+    session_id: Optional[str] = None
+):
+    """Save match mode game statistics for a flashcard set
+    
+    Tracks completion time, moves count, and updates personal bests.
+    For guest users: stats are saved to session_id, for authenticated users to username.
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+    
+    # Get existing progress to update match stats
+    progress, error = flashcard_manager.get_flashcard_progress(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+    
+    if error and error != "Database connection error.":
+        # If error is connection error, we should fail
+        if "connection" in error.lower():
+            raise HTTPException(status_code=500, detail=error)
+        # Otherwise, start with empty progress
+        progress = {}
+    
+    if not progress:
+        progress = {}
+    
+    # Initialize match_mode_stats if it doesn't exist
+    if 'match_mode_stats' not in progress:
+        progress['match_mode_stats'] = {
+            'personal_best_time': None,
+            'games_played': 0,
+            'total_time': 0,
+            'best_moves': None,
+            'total_moves': 0,
+            'last_played': None
+        }
+    
+    match_stats = progress['match_mode_stats']
+    
+    # Update statistics
+    match_stats['games_played'] = match_stats.get('games_played', 0) + 1
+    match_stats['total_time'] = match_stats.get('total_time', 0) + request.completion_time
+    match_stats['total_moves'] = match_stats.get('total_moves', 0) + request.moves_count
+    match_stats['last_played'] = request.timestamp
+    
+    # Update personal bests
+    if match_stats['personal_best_time'] is None or request.completion_time < match_stats['personal_best_time']:
+        match_stats['personal_best_time'] = request.completion_time
+    
+    if match_stats['best_moves'] is None or request.moves_count < match_stats['best_moves']:
+        match_stats['best_moves'] = request.moves_count
+    
+    # Calculate averages
+    match_stats['average_time'] = match_stats['total_time'] / match_stats['games_played']
+    match_stats['average_moves'] = match_stats['total_moves'] / match_stats['games_played']
+    
+    # Save updated progress
+    success, error = flashcard_manager.save_flashcard_progress(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        progress_data=progress,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {
+        "success": True,
+        "stats": match_stats
+    }
+
+@app.get("/flashcard/{flashcard_id}/match-stats")
+async def get_match_stats(
+    flashcard_id: str,
+    username: Optional[str] = None,
+    session_id: Optional[str] = None
+):
+    """Get match mode statistics for a flashcard set
+    
+    Returns personal bests and aggregate statistics.
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+    
+    progress, error = flashcard_manager.get_flashcard_progress(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    # Return match stats or empty default
+    if progress and 'match_mode_stats' in progress:
+        return progress['match_mode_stats']
+    else:
+        return {
+            'personal_best_time': None,
+            'games_played': 0,
+            'average_time': None,
+            'best_moves': None,
+            'average_moves': None,
+            'last_played': None
+        }
 
 # Chat endpoints
 @app.post("/chat/message")
