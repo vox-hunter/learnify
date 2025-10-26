@@ -23,7 +23,8 @@ const router = createRouter({
     },
     {
       path: '/courses',
-      name: 'courses',
+      name: 'myspace',
+      alias: ['/my-space'],
       component: () => import('../views/CoursesView.vue')
     },
     {
@@ -36,6 +37,11 @@ const router = createRouter({
       path: '/course/:id',
       name: 'course',
       component: () => import('../views/CourseView.vue')
+    },
+    {
+      path: '/flashcard/:id',
+      name: 'flashcard',
+      component: () => import('../views/FlashcardView.vue')
     },
     {
       path: '/privacy',

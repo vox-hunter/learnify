@@ -113,6 +113,12 @@ class ChatSessionManager:
         
         if message:
             lower_msg = message.lower()
+            if any(keyword in lower_msg for keyword in ['flashcard', 'flash card', 'study cards', 'memorize']):
+                return {
+                    'type': 'generating_flashcard',
+                    'message': '🃏 Generating flashcards...',
+                    'action': 'flashcard_generation'
+                }
             if any(keyword in lower_msg for keyword in ['course', 'generate', 'create', 'make']):
                 return {
                     'type': 'generating_course',
@@ -201,6 +207,146 @@ class ChatSessionManager:
             "arguments": schema
         }
 
+    def _create_flashcard_generation_tool(self) -> dict:
+        """
+        Create a FunctionDeclaration describing the `generate_flashcard` function.
+        The JSON schema uses Gemini's type system for compatibility with FunctionDeclaration validation.
+        """
+        schema = {
+            "type": "OBJECT",
+            "properties": {
+                "flashcard_title": {
+                    "type": "STRING",
+                    "description": "The title of the flashcard set"
+                },
+                "cards": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "front": {
+                                "type": "STRING",
+                                "description": "Question or term (1-2 sentences)"
+                            },
+                            "back": {
+                                "type": "STRING",
+                                "description": "Answer or definition (2-4 sentences)"
+                            },
+                            "hint": {
+                                "type": "STRING",
+                                "description": "Optional hint to help learner recall"
+                            },
+                            "difficulty": {
+                                "type": "STRING",
+                                "description": "Optional difficulty level: easy|medium|hard"
+                            },
+                            "mastery_level": {
+                                "type": "NUMBER",
+                                "description": "Optional mastery level 0-5 for spaced repetition tracking"
+                            }
+                        },
+                        "required": ["front", "back"]
+                    }
+                },
+                "source_course_id": {
+                    "type": "STRING",
+                    "description": "Optional link to course ID if flashcards are generated from a course"
+                }
+            },
+            "required": ["flashcard_title", "cards"]
+        }
+
+        return {
+            "name": "generate_flashcard",
+            "description": "Generate a structured flashcard set with title and cards for spaced repetition learning. Optionally link to source course.",
+            "arguments": schema
+        }
+
+    def _process_function_call_result(self, chat, response, function_call, model_cls, type_label: str, session_id: str, activity_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Helper to process function call results (course or flashcard generation).
+        
+        Args:
+            chat: Chat session object
+            response: Initial AI response with function call
+            function_call: The function call object
+            model_cls: Pydantic model class for validation (ActualApiResponse or Flashcard)
+            type_label: Label for logging ('course' or 'flashcard')
+            session_id: Current session ID
+            activity_info: Activity metadata for frontend
+            
+        Returns:
+            Response dict if validation succeeds, None if it fails (falls back to legacy parsing)
+        """
+        tool_start = time.time()
+        name = getattr(function_call, 'name', None) or (function_call.get('name') if isinstance(function_call, dict) else None)
+        logger.info(f"[TOOL_CALL_START] function={name} session={session_id} user={self.username or 'guest'}")
+        
+        try:
+            final_resp, extracted_data = self._handle_function_call(chat, response, function_call)
+            tool_duration = time.time() - tool_start
+            logger.info(f"[TOOL_CALL_SUCCESS] function={name} duration={tool_duration:.2f}s session={session_id}")
+        except Exception as tool_error:
+            tool_duration = time.time() - tool_start
+            logger.error(f"[TOOL_CALL_FAILED] function={name} duration={tool_duration:.2f}s error={tool_error} session={session_id}")
+            raise
+        
+        # Build reply_text from final_resp
+        reply_text = ''
+        if final_resp and hasattr(final_resp, 'text') and final_resp.text is not None:
+            reply_text = final_resp.text
+        elif final_resp and hasattr(final_resp, 'candidates') and final_resp.candidates:
+            for p in getattr(final_resp.candidates[0].content, 'parts', []):
+                if hasattr(p, 'text') and p.text is not None:
+                    reply_text += p.text
+
+        # Validate extracted data using Pydantic model
+        is_valid = False
+        validated_data = None
+        validation_start = time.time()
+        
+        try:
+            # Deep validation using Pydantic models
+            validated_obj = model_cls.model_validate(extracted_data)
+            is_valid = True
+            validated_data = extracted_data
+            validation_time = time.time() - validation_start
+            title_key = 'course_title' if type_label == 'course' else 'flashcard_title'
+            logger.info(f"✓ Deep validation passed for function-call {type_label}: {extracted_data.get(title_key)} (took {validation_time:.2f}s)")
+        except Exception as validation_error:
+            validation_time = time.time() - validation_start
+            logger.warning(f"Function call {type_label} validation failed (took {validation_time:.2f}s): {validation_error}; falling back to legacy parsing")
+            return None  # Signal to fall through to legacy parsing
+            
+        if is_valid:
+            # Build response dict based on type
+            # For structured data (course/flashcard), provide clean reply instead of raw JSON
+            if type_label == 'course':
+                clean_reply = f"I've generated a course titled \"{validated_data.get('course_title', 'Untitled Course')}\" with {len(validated_data.get('sections', []))} sections."
+                return {
+                    'success': True,
+                    'reply': clean_reply,
+                    'session_id': session_id,
+                    'is_course': True,
+                    'course_data': validated_data,
+                    'course_detection_source': 'function_call',
+                    'activity_info': activity_info
+                }
+            else:  # flashcard
+                card_count = len(validated_data.get('cards', []))
+                clean_reply = f"I've generated {card_count} flashcard{'' if card_count == 1 else 's'} titled \"{validated_data.get('flashcard_title', 'Untitled Flashcard Set')}\"."
+                return {
+                    'success': True,
+                    'reply': clean_reply,
+                    'session_id': session_id,
+                    'is_flashcard': True,
+                    'flashcard_data': validated_data,
+                    'flashcard_detection_source': 'function_call',
+                    'activity_info': activity_info
+                }
+        
+        return None
+
     def create_session(self, system_instruction: Optional[str] = None) -> tuple[str, Any]:
         """
         Create a new chat session using Gemini SDK's chat.create()
@@ -224,10 +370,14 @@ class ChatSessionManager:
         quota_source = quota_metadata.get('quota_source', 'unknown')
         logger.info(f"Created chat session {session_id} using quota_source={quota_source}, user={self.username or 'anonymous'}")
         
-        # Configure chat with tools for URL context, Google Search and a function-calling tool for course generation
-        # This enables the AI to fetch web content, search, and explicitly call the `generate_course` function
+        # Configure chat with tools
+        # IMPORTANT: Gemini API does not support mixing URL context/Google Search with function calling
+        # So we use function calling tools ONLY (course and flashcard generation)
+        # URL/web search can be handled through prompting or separate sessions
         try:
             course_tool_dict = self._create_course_generation_tool()
+            flashcard_tool_dict = self._create_flashcard_generation_tool()
+            
             # Build proper FunctionDeclaration and wrap in Tool
             course_func_decl = types.FunctionDeclaration(
                 name=course_tool_dict["name"],
@@ -236,19 +386,22 @@ class ChatSessionManager:
             )
             course_tool = types.Tool(function_declarations=[course_func_decl])
             
-            # Use typed Tool entries for url_context and google_search
+            flashcard_func_decl = types.FunctionDeclaration(
+                name=flashcard_tool_dict["name"],
+                description=flashcard_tool_dict["description"],
+                parameters=flashcard_tool_dict["arguments"]
+            )
+            flashcard_tool = types.Tool(function_declarations=[flashcard_func_decl])
+            
+            # Use ONLY function calling tools (no URL context or Google Search due to API limitation)
             tools_list = [
-                types.Tool(url_context=types.UrlContext()),
-                types.Tool(google_search=types.GoogleSearch()),
-                course_tool
+                course_tool,
+                flashcard_tool
             ]
         except Exception as e:
-            # If building the tool fails for any reason, fall back to existing tools
-            logger.warning(f"Failed to create course generation tool: {e}; falling back to baseline tools")
-            tools_list = [
-                types.Tool(url_context=types.UrlContext()),
-                types.Tool(google_search=types.GoogleSearch())
-            ]
+            # If building the tools fails for any reason, use no tools (rely on JSON parsing)
+            logger.warning(f"Failed to create generation tools: {e}; falling back to no tools (JSON parsing only)")
+            tools_list = []
 
         config = types.GenerateContentConfig(
             system_instruction=system_instruction or self.system_instruction,
@@ -378,55 +531,26 @@ class ChatSessionManager:
                         if function_call:
                             name = getattr(function_call, 'name', None) or (function_call.get('name') if isinstance(function_call, dict) else None)
                             if name == 'generate_course':
-                                tool_start = time.time()
-                                logger.info(f"[TOOL_CALL_START] function={name} session={session_id} user={self.username or 'guest'}")
-                                
-                                try:
-                                    final_resp, extracted_course = self._handle_function_call(chat, response, function_call)
-                                    tool_duration = time.time() - tool_start
-                                    logger.info(f"[TOOL_CALL_SUCCESS] function={name} duration={tool_duration:.2f}s session={session_id}")
-                                except Exception as tool_error:
-                                    tool_duration = time.time() - tool_start
-                                    logger.error(f"[TOOL_CALL_FAILED] function={name} duration={tool_duration:.2f}s error={tool_error} session={session_id}")
-                                    raise
-                                # Build reply_text from final_resp
-                                reply_text = ''
-                                if final_resp and hasattr(final_resp, 'text') and final_resp.text is not None:
-                                    reply_text = final_resp.text
-                                elif final_resp and hasattr(final_resp, 'candidates') and final_resp.candidates:
-                                    for p in getattr(final_resp.candidates[0].content, 'parts', []):
-                                        if hasattr(p, 'text') and p.text is not None:
-                                            reply_text += p.text
-
-                                # Validate extracted_course using Pydantic models
-                                is_json = False
-                                course_data = None
-                                validation_start = time.time()
-                                
-                                try:
-                                    # Deep validation using Pydantic models
-                                    from local_backend import ActualApiResponse
-                                    validated_course = ActualApiResponse.model_validate(extracted_course)
-                                    is_json = True
-                                    course_data = extracted_course
-                                    validation_time = time.time() - validation_start
-                                    logger.info(f"✓ Deep validation passed for function-call course: {extracted_course.get('course_title')} (took {validation_time:.2f}s)")
-                                except Exception as validation_error:
-                                    validation_time = time.time() - validation_start
-                                    logger.warning(f"Function call validation failed (took {validation_time:.2f}s): {validation_error}; falling back to legacy parsing")
-                                    # Don't return early - let it fall through to legacy JSON parsing
-                                    
-                                if is_json:
-                                    # Return early with function-calling result
-                                    return {
-                                        'success': True,
-                                        'reply': reply_text,
-                                        'session_id': session_id,
-                                        'is_course': is_json,
-                                        'course_data': course_data,
-                                        'course_detection_source': 'function_call',
-                                        'activity_info': activity_info
-                                    }
+                                from local_backend import ActualApiResponse
+                                result = self._process_function_call_result(
+                                    chat, response, function_call, 
+                                    ActualApiResponse, 'course', 
+                                    session_id, activity_info
+                                )
+                                if result:
+                                    return result
+                                # If None returned, fall through to legacy parsing
+                            elif name == 'generate_flashcard':
+                                from local_backend import Flashcard
+                                result = self._process_function_call_result(
+                                    chat, response, function_call, 
+                                    Flashcard, 'flashcard', 
+                                    session_id, activity_info
+                                )
+                                if result:
+                                    logger.info(f"[DEBUG] Returning flashcard result: is_flashcard={result.get('is_flashcard')}, has_data={bool(result.get('flashcard_data'))}")
+                                    return result
+                                # If None returned, fall through to legacy parsing
             except Exception:
                 # If function-call handling fails, continue to legacy parsing below
                 logger.exception("Function-call handling failed; falling back to legacy parsing")
@@ -446,9 +570,11 @@ class ChatSessionManager:
                 logger.error("AI response did not return any text. reply_text is None or empty.")
                 reply_text = ""
 
-            # Try to extract JSON course payload from the reply (search anywhere)
+            # Try to extract JSON course or flashcard payload from the reply (search anywhere)
             is_json = False
             course_data = None
+            is_flashcard = False
+            flashcard_data = None
             json_text = None
 
             # 1) Look for fenced code blocks anywhere: ```json ... ``` or ``` ... ```
@@ -513,8 +639,23 @@ class ChatSessionManager:
                         formatted_json = json.dumps(parsed_json, indent=2, ensure_ascii=False)
                         logger.info(formatted_json)
                         logger.info("=" * 80)
+                    elif isinstance(parsed_json, dict) and 'flashcard_title' in parsed_json and 'cards' in parsed_json:
+                        # Flashcard JSON detected
+                        is_flashcard = True
+                        flashcard_data = parsed_json
+                        logger.info(f"✓ Detected flashcard JSON response: {parsed_json.get('flashcard_title')}")
+                        # Add detection source for logging
+                        flashcard_detection_source = 'json_parse'
+                        
+                        # Print the entire flashcard JSON for debugging
+                        logger.info("=" * 80)
+                        logger.info("FULL FLASHCARD JSON:")
+                        logger.info("=" * 80)
+                        formatted_json = json.dumps(parsed_json, indent=2, ensure_ascii=False)
+                        logger.info(formatted_json)
+                        logger.info("=" * 80)
                     else:
-                        logger.info("JSON parsed but missing course structure keys")
+                        logger.info("JSON parsed but missing course or flashcard structure keys")
                 except Exception as e:
                     logger.info(f"Candidate JSON parse failed: {str(e)[:200]}")
 
@@ -548,6 +689,9 @@ class ChatSessionManager:
                 'is_course': is_json,
                 'course_data': course_data,
                 'course_detection_source': locals().get('course_detection_source', 'none'),
+                'is_flashcard': is_flashcard,
+                'flashcard_data': flashcard_data,
+                'flashcard_detection_source': locals().get('flashcard_detection_source', 'none'),
                 'activity_info': activity_info
             }
             
@@ -639,6 +783,10 @@ class ChatSessionManager:
                     # Real execution would call _build_course_from_file() with context
                     tool_result = args_obj
                     logger.info(f"Function call generated course: {args_obj.get('course_title', 'Unknown')}")
+                elif name == 'generate_flashcard':
+                    # Use the model's structured output as the flashcard data
+                    tool_result = args_obj
+                    logger.info(f"Function call generated flashcard: {args_obj.get('flashcard_title', 'Unknown')}")
                 else:
                     tool_result = {"status": "executed", "function": name}
                 

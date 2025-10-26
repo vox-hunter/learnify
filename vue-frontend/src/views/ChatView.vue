@@ -226,6 +226,7 @@
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useCourseStore } from '../stores/course'
+import { useFlashcardStore } from '../stores/flashcard'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
 import MarkdownIt from 'markdown-it'
@@ -237,6 +238,7 @@ export default {
         const router = useRouter()
         const route = useRoute()
         const courseStore = useCourseStore()
+        const flashcardStore = useFlashcardStore()
         const authStore = useAuthStore()
 
         // State
@@ -544,6 +546,13 @@ export default {
                 const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                 console.log('Chat API response:', response)
 
+                // Development-only debug log for response structure
+                if (import.meta.env.DEV) {
+                    console.log('[DEV] Response data keys:', Object.keys(response.data))
+                    console.log('[DEV] is_course:', response.data.is_course, 'has course_data:', !!response.data.course_data)
+                    console.log('[DEV] is_flashcard:', response.data.is_flashcard, 'has flashcard_data:', !!response.data.flashcard_data)
+                }
+
                 // Update activity indicator with backend info if available
                 if (response.data.activity_info) {
                     aiActivity.value = {
@@ -566,6 +575,21 @@ export default {
                         setTimeout(() => router.push(`/course/${saveResult.courseId}`), 1200)
                     } else {
                         throw new Error(saveResult.error || 'Failed to save course')
+                    }
+                } else if (response.data.is_flashcard && response.data.flashcard_data) {
+                    // Handle flashcard generation
+                    const flashcardData = response.data.flashcard_data
+                    const saveResult = await flashcardStore.saveFlashcard(
+                        flashcardData.cards,
+                        flashcardData.flashcard_title,
+                        flashcardData.source_course_id || null
+                    )
+                    if (saveResult.success) {
+                        messages.value.push({ role: 'system', text: `🃏 Flashcard set "${flashcardData.flashcard_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                        scrollToBottom()
+                        setTimeout(() => router.push(`/flashcard/${saveResult.flashcardId}`), 1200)
+                    } else {
+                        throw new Error(saveResult.error || 'Failed to save flashcards')
                     }
                 } else {
                     if (response.data.reply && response.data.reply.trim()) {
@@ -599,6 +623,9 @@ export default {
             if (url) return 'searching_web'
             if (message) {
                 const lowerMsg = message.toLowerCase()
+                if (lowerMsg.includes('flashcard') || lowerMsg.includes('flash card') || lowerMsg.includes('study cards')) {
+                    return 'generating_flashcard'
+                }
                 if (lowerMsg.includes('course') || lowerMsg.includes('generate') || lowerMsg.includes('create')) {
                     return 'generating_course'
                 }
@@ -619,6 +646,9 @@ export default {
             if (url) return `🌐 Searching the web...`
             if (message) {
                 const lowerMsg = message.toLowerCase()
+                if (lowerMsg.includes('flashcard') || lowerMsg.includes('flash card') || lowerMsg.includes('study cards')) {
+                    return '🃏 Generating flashcards...'
+                }
                 if (lowerMsg.includes('course') || lowerMsg.includes('generate') || lowerMsg.includes('create')) {
                     return '🎓 Generating course content...'
                 }

@@ -69,6 +69,19 @@ class ActualApiResponse(BaseModel):
     course_title: str
     sections: List[Section]
 
+# Flashcard models for flashcard functionality
+class FlashcardItem(BaseModel):
+    front: str  # question/term
+    back: str  # answer/definition
+    hint: Optional[str] = None  # optional hint for the user
+    difficulty: Optional[Literal['easy', 'medium', 'hard']] = None  # difficulty level
+    mastery_level: Optional[int] = Field(default=0, ge=0, le=5)  # 0-5, for spaced repetition tracking
+
+class Flashcard(BaseModel):
+    flashcard_title: str  # title of the flashcard set
+    cards: List[FlashcardItem]  # list of individual flashcard items
+    source_course_id: Optional[str] = None  # link to course if generated from one
+
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG if DEBUG_MODE else logging.INFO,

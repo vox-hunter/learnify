@@ -29,9 +29,10 @@ backend_dir = Path(__file__).parent.parent / "backend"
 sys.path.insert(0, str(backend_dir))
 
 # Import backend modules
-from local_backend import validate_short_answer_with_ai
+from local_backend import validate_short_answer_with_ai, FlashcardItem
 from mongo_auth import MongoAuthManager
 from mongo_course_manager import MongoCourseManager, get_session_id
+from mongo_flashcard_manager import MongoFlashcardManager
 from file_security import validate_file_security
 from chat_manager import ChatSessionManager
 from google_oauth_fastapi import (
@@ -86,6 +87,7 @@ app.add_middleware(
 # Initialize managers
 auth_manager = None
 course_manager = None
+flashcard_manager = None
 # Note: chat_manager is NOT initialized globally - created per-request with user credentials
 
 # In-memory store for pending Google signups (short-lived)
@@ -105,10 +107,11 @@ def _cleanup_pending_signups(max_age_seconds: int = 600):
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global auth_manager, course_manager
+    global auth_manager, course_manager, flashcard_manager
     try:
         auth_manager = MongoAuthManager()
         course_manager = MongoCourseManager()
+        flashcard_manager = MongoFlashcardManager()
         # chat_manager is created per-request with user OAuth credentials
     except Exception as e:
         print(f"Warning: Could not initialize managers: {e}")
@@ -141,6 +144,17 @@ class UpdateProgressRequest(BaseModel):
     current_section_index: int
     answer_data: Optional[dict] = {}  # Dictionary mapping question keys to answer data
 
+class SaveFlashcardRequest(BaseModel):
+    flashcard_data: List[FlashcardItem]  # Use Pydantic validation for flashcard items
+    flashcard_title: str
+    source_course_id: Optional[str] = None
+
+class UpdateFlashcardProgressRequest(BaseModel):
+    studied_cards: List[int]  # List of card indices that have been studied
+    mastery_levels: Dict[str, int]  # Dictionary mapping card index (as string) to mastery level (0-5)
+    last_studied: str  # ISO timestamp of last study session
+    accuracy_rate: Optional[float] = None  # Optional accuracy rate (0.0-1.0)
+
 class SendVerificationRequest(BaseModel):
     email: EmailStr
 
@@ -157,6 +171,11 @@ class GoogleAuthUrlRequest(BaseModel):
     redirect_uri: str
     state: str
 
+class GenerateFlashcardsRequest(BaseModel):
+    card_count: Optional[int] = 10
+    difficulty: Optional[str] = None
+    focus_areas: Optional[List[str]] = None
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -172,7 +191,8 @@ async def health_check():
     return {
         "status": "healthy",
         "auth_available": auth_manager is not None,
-        "course_manager_available": course_manager is not None
+        "course_manager_available": course_manager is not None,
+        "flashcard_manager_available": flashcard_manager is not None
     }
 
 # Authentication endpoints
@@ -1164,6 +1184,382 @@ async def delete_course(course_id: str, username: Optional[str] = None):
 
     return {"success": success}
 
+# Generate flashcards from course content
+@app.post("/course/{course_id}/generate-flashcards")
+async def generate_flashcards_from_course(
+    course_id: str,
+    request: GenerateFlashcardsRequest = GenerateFlashcardsRequest(),
+    username: Optional[str] = None
+):
+    """Generate flashcards from course content using AI
+    
+    Loads the course, formats content into a prompt, and uses the chat manager
+    to generate flashcards via Gemini AI. Automatically links flashcards to the
+    source course via source_course_id.
+    """
+    if not course_manager:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    
+    logger.info(f"Generating flashcards from course {course_id} for user {username or 'guest'}")
+    
+    try:
+        # Load the course
+        course, error = course_manager.get_course(course_id=course_id)
+        
+        if error or not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        # Check if course has content
+        if not course.get('sections') or len(course['sections']) == 0:
+            raise HTTPException(status_code=400, detail="Course has no content to generate flashcards from")
+        
+        # Format course content into a structured prompt
+        course_title = course.get('course_title', 'Untitled Course')
+        sections = course.get('sections', [])
+        
+        # Build prompt with course content
+        prompt_parts = [
+            f"Generate {request.card_count} flashcards from this course content:",
+            f"Course Title: {course_title}",
+            "",
+            "Key concepts and topics:"
+        ]
+        
+        # Extract key concepts from each section
+        for i, section in enumerate(sections[:10]):  # Limit to first 10 sections to avoid token limits
+            section_title = section.get('section_title', f'Section {i+1}')
+            explanation = section.get('explanation', '')
+            
+            # Truncate long explanations
+            if len(explanation) > 500:
+                explanation = explanation[:500] + "..."
+            
+            prompt_parts.append(f"\n{section_title}:")
+            # Comment 4: Skip empty explanation line if missing
+            if explanation and explanation.strip():
+                prompt_parts.append(explanation)
+            
+            # Include sample quiz questions if available
+            quiz = section.get('quiz', [])
+            # Comment 4: Trim sample questions when explanation is empty to reduce prompt bloat
+            max_questions = 3 if explanation and explanation.strip() else 2
+            if quiz and len(quiz) > 0:
+                if explanation and explanation.strip():
+                    prompt_parts.append("Sample questions:")
+                for q in quiz[:max_questions]:
+                    question_text = q.get('question', '')
+                    if question_text:
+                        prompt_parts.append(f"- {question_text}")
+            
+            # Include subsections if available
+            subsections = section.get('subsections') or section.get('subpoints', [])
+            if subsections:
+                for sub in subsections[:3]:  # Limit subsections
+                    sub_title = sub.get('section_title', sub.get('title', ''))
+                    if sub_title:
+                        prompt_parts.append(f"  • {sub_title}")
+        
+        # Add explicit instructions for flashcard generation
+        prompt_parts.extend([
+            "",
+            f"Create {request.card_count} flashcards with concise front (question/term) and back (answer/definition) pairs.",
+            "Include hints where helpful. Vary difficulty levels (easy, medium, hard).",
+            "Focus on key concepts, definitions, and important facts from the course."
+        ])
+        
+        if request.difficulty:
+            prompt_parts.append(f"Focus on {request.difficulty} difficulty questions.")
+        
+        if request.focus_areas:
+            prompt_parts.append(f"Focus on these topics: {', '.join(request.focus_areas)}")
+        
+        formatted_prompt = "\n".join(prompt_parts)
+        
+        logger.info(f"Formatted prompt length: {len(formatted_prompt)} characters")
+        
+        # Get user credentials for chat manager if available
+        user_credentials = None
+        if username and auth_manager:
+            try:
+                user = auth_manager.get_user_by_username(username)
+                if user and user.get('oauth_credentials'):
+                    user_credentials = user['oauth_credentials']
+            except Exception as e:
+                logger.warning(f"Could not load user credentials for chat manager: {e}")
+        
+        # Initialize chat manager with user credentials
+        chat_manager = ChatSessionManager(
+            user_credentials=user_credentials,
+            username=username or (user_identifier if is_guest else username)
+        )
+        
+        # Send message to AI for flashcard generation
+        response = chat_manager.send_message(
+            session_id=None,
+            message=formatted_prompt,
+            file_data=None,
+            file_mime_type=None,
+            url=None
+        )
+        
+        # Check if flashcards were generated
+        if response.get('is_flashcard') and response.get('flashcard_data'):
+            flashcard_data = response['flashcard_data']
+            
+            # Add source_course_id to link flashcards to this course
+            flashcard_data['source_course_id'] = course_id
+            
+            logger.info(f"Successfully generated {len(flashcard_data.get('cards', []))} flashcards from course {course_id}")
+            
+            return {
+                "success": True,
+                "flashcard_data": flashcard_data,
+                "source_course_id": course_id,
+                "reply": response.get('reply', '')
+            }
+        else:
+            logger.warning(f"AI did not generate flashcards for course {course_id}")
+            return {
+                "success": False,
+                "error": "Failed to generate flashcards from course content. The AI may have determined the content is not suitable for flashcard generation."
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating flashcards from course: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
+
+# Flashcard management endpoints
+@app.post("/flashcard/save")
+async def save_flashcard(request: SaveFlashcardRequest, username: Optional[str] = None, session_id: Optional[str] = None):
+    """Save a flashcard set to the database
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated.
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    # Use provided session_id for guests, or generate new one if not provided
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    
+    # Serialize Pydantic FlashcardItem objects to dicts
+    flashcard_data_dicts = [item.model_dump(mode='json') for item in request.flashcard_data]
+    
+    flashcard_id, error = flashcard_manager.save_flashcard(
+        flashcard_data=flashcard_data_dicts,
+        flashcard_title=request.flashcard_title,
+        creator=username or session_id,
+        is_guest=is_guest,
+        session_id=session_id if is_guest else None,
+        source_course_id=request.source_course_id
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {
+        "success": True,
+        "flashcard_id": flashcard_id,
+        "session_id": session_id if is_guest else None  # Return session_id for frontend persistence
+    }
+
+@app.get("/flashcard/{flashcard_id}")
+async def get_flashcard(flashcard_id: str):
+    """Get a flashcard set by ID"""
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    flashcard, error = flashcard_manager.get_flashcard(flashcard_id)
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    # Convert ObjectId to string
+    if '_id' in flashcard:
+        flashcard['_id'] = str(flashcard['_id'])
+    if 'flashcard_id' in flashcard:
+        flashcard['flashcard_id'] = str(flashcard['flashcard_id'])
+    
+    return flashcard
+
+@app.get("/flashcards")
+async def list_flashcards(username: Optional[str] = None, session_id: Optional[str] = None):
+    """List all flashcards for a user
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated (resulting in empty list).
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    if username:
+        flashcards, error = flashcard_manager.get_user_flashcards(username, is_guest=False)
+    else:
+        # Use provided session_id or generate new one
+        if not session_id:
+            session_id = get_session_id()
+        flashcards, error = flashcard_manager.get_user_flashcards(session_id, is_guest=True, session_id=session_id)
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    # Ensure flashcards is a list and convert ObjectId to string
+    if flashcards is None:
+        flashcards = []
+    
+    for flashcard in flashcards:
+        if '_id' in flashcard:
+            flashcard['_id'] = str(flashcard['_id'])
+        if 'flashcard_id' in flashcard:
+            flashcard['flashcard_id'] = str(flashcard['flashcard_id'])
+    
+    return {"flashcards": flashcards}
+
+@app.get("/flashcards/by-course/{course_id}")
+async def get_flashcards_by_course(course_id: str, username: Optional[str] = None, session_id: Optional[str] = None):
+    """Get flashcards linked to a specific course
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated (resulting in empty list).
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    # Use provided session_id for guests, or generate new one if not provided
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+    
+    flashcards, error = flashcard_manager.get_flashcards_by_course(
+        course_id=course_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    # Ensure flashcards is a list and convert ObjectId to string
+    if flashcards is None:
+        flashcards = []
+    
+    for flashcard in flashcards:
+        if '_id' in flashcard:
+            flashcard['_id'] = str(flashcard['_id'])
+        if 'flashcard_id' in flashcard:
+            flashcard['flashcard_id'] = str(flashcard['flashcard_id'])
+    
+    return {"flashcards": flashcards}
+
+@app.post("/flashcard/{flashcard_id}/progress")
+async def update_flashcard_progress(flashcard_id: str, request: UpdateFlashcardProgressRequest, username: Optional[str] = None, session_id: Optional[str] = None):
+    """Update user progress on a flashcard set
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated.
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    # Use provided session_id for guests, or generate new one if not provided
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+    
+    # Validate mastery_levels values are within 0-5 range
+    for card_idx, level in request.mastery_levels.items():
+        if level < 0 or level > 5:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Mastery level for card {card_idx} must be between 0 and 5 (got {level})"
+            )
+    
+    # Build progress data structure from request
+    progress_data = {
+        "studied_cards": request.studied_cards,
+        "mastery_levels": request.mastery_levels,  # Already has string keys from request model
+        "last_studied": request.last_studied,
+        "accuracy_rate": request.accuracy_rate
+    }
+    
+    success, error = flashcard_manager.save_flashcard_progress(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        progress_data=progress_data,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return {"success": success}
+
+@app.get("/flashcard/{flashcard_id}/progress")
+async def get_flashcard_progress(flashcard_id: str, username: Optional[str] = None, session_id: Optional[str] = None):
+    """Get user progress on a flashcard set
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated (resulting in no progress).
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+    
+    is_guest = username is None
+    # Use provided session_id for guests, or generate new one if not provided
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+    
+    progress, error = flashcard_manager.get_flashcard_progress(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+    
+    if error:
+        raise HTTPException(status_code=500, detail=error)
+    
+    return progress or {
+        "studied_cards": [],
+        "mastery_levels": {},
+        "last_studied": None,
+        "accuracy_rate": None
+    }
+
+@app.delete("/flashcard/{flashcard_id}")
+async def delete_flashcard(flashcard_id: str, username: Optional[str] = None, session_id: Optional[str] = None):
+    """Delete a flashcard set owned by the user
+    
+    For guest users: frontend must persist and send session_id for session continuity.
+    If session_id is not provided for guests, a new one will be generated.
+    """
+    if not flashcard_manager:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+
+    is_guest = username is None
+    # Use provided session_id for guests, or generate new one if not provided
+    if is_guest and not session_id:
+        session_id = get_session_id()
+    user_identifier = username or session_id
+
+    success, error = flashcard_manager.delete_flashcard(
+        flashcard_id=flashcard_id,
+        user_identifier=user_identifier,
+        is_guest=is_guest
+    )
+
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"success": success}
+
 # Chat endpoints
 @app.post("/chat/message")
 async def chat_message(
@@ -1210,7 +1606,8 @@ async def chat_message(
                 "success": True,
                 "reply": GUEST_FAKE_REPLY,
                 "session_id": "",
-                "is_course": False
+                "is_course": False,
+                "is_flashcard": False
             }
 
         # Retrieve user's Gemini OAuth credentials if authenticated
@@ -1239,7 +1636,8 @@ async def chat_message(
                         "success": True,
                         "reply": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
                         "session_id": "",
-                        "is_course": False
+                        "is_course": False,
+                        "is_flashcard": False
                     }
                 # Increment usage and allow request to proceed
                 # Update the module-level counter safely
@@ -1299,13 +1697,22 @@ async def chat_message(
         if result.get('is_course'):
             logger.info(f"Course detected for user={username or 'guest'} session={result.get('session_id')} (source={result.get('course_detection_source','function_or_json')})")
 
-        # Return enhanced response with course detection
+        # Optional debug log when a flashcard set was detected
+        if result.get('is_flashcard'):
+            logger.info(f"Flashcard set detected for user={username or 'guest'} session={result.get('session_id')}")
+
+        # Return enhanced response with course and flashcard detection
         return {
             "success": True,
             "reply": result['reply'],
             "session_id": result['session_id'],
             "is_course": result.get('is_course', False),
-            "course_data": result.get('course_data')
+            "course_data": result.get('course_data'),
+            "is_flashcard": result.get('is_flashcard', False),
+            "flashcard_data": result.get('flashcard_data'),
+            "course_detection_source": result.get('course_detection_source'),
+            "flashcard_detection_source": result.get('flashcard_detection_source'),
+            "activity_info": result.get('activity_info')
         }
         
     except HTTPException:

@@ -8,6 +8,7 @@ Learnify is an AI-powered course and quiz generator that converts PDF documents 
 - **Backend:** FastAPI (Python) with MongoDB for persistence
 - **AI:** Google Gemini 2.0 Flash for course generation and answer validation
 - **Deployment:** Render (separate frontend static site + backend web service)
+- **CRITICAL** Streamlit is NOT used in this project and it is DEPRECATED.
 
 ## Architecture
 

@@ -1,9 +1,3 @@
-    const readyToEndCourse = ref(false); // Show End Course button when ready
-
-    // End Course handler
-    function endCourse() {
-      endedEarly.value = true;
-    }
 <template>
   <div class="course-view">
     <div class="container">
@@ -109,11 +103,24 @@
                 🔄 Start from Beginning
               </button>
               <button
+                class="btn btn-secondary"
+                :disabled="generatingFlashcards"
+                @click="generateFlashcardsFromCourse"
+              >
+                {{ generatingFlashcards ? '⏳ Generating...' : '🃏 Generate Flashcards' }}
+              </button>
+              <button
                 class="btn btn-primary"
                 @click="startCourse"
               >
                 {{ hasProgress ? "▶️ Continue" : "🚀 Start Course" }}
               </button>
+            </div>
+            <div
+              v-if="generatingFlashcards"
+              class="flashcard-generation-status"
+            >
+              ✨ Creating flashcards from course content...
             </div>
           </div>
         </div>
@@ -799,6 +806,8 @@ import { ref, computed, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCourseStore } from "../stores/course";
 import { useAuthStore } from "../stores/auth";
+import { useFlashcardStore } from "../stores/flashcard";
+import api from "../services/api";
 import QuizQuestion from "../components/QuizQuestion.vue";
 import { achievements } from "../config/achievements";
 import MarkdownIt from 'markdown-it';
@@ -825,6 +834,7 @@ export default {
     const router = useRouter();
     const courseStore = useCourseStore();
     const authStore = useAuthStore();
+    const flashcardStore = useFlashcardStore();
 
     const loading = ref(false);
     const error = ref(null);
@@ -848,6 +858,8 @@ export default {
     const initialStepIndex = ref(0); // For resuming from saved progress
     const currentStepIndex = ref(0); // Current step in the flow
     const showContinueHint = ref(false); // Show hint to press enter
+    const generatingFlashcards = ref(false); // Track flashcard generation loading state
+    const flashcardGenerationError = ref(null); // Store flashcard generation errors
     const stepFlowContainer = ref(null); // Ref for step flow container
     const reviewQuestionOrder = ref([]); // Store shuffled question order for review mode
 
@@ -1910,6 +1922,92 @@ export default {
         adminMessage.value = "";
       }, 3000);
     };
+    
+    // Generate flashcards from course content
+    const generateFlashcardsFromCourse = async () => {
+      try {
+        generatingFlashcards.value = true;
+        flashcardGenerationError.value = null;
+        
+        const courseId = route.params.id;
+        
+        // Call backend endpoint to generate flashcards
+        const response = await api.post(
+          `/course/${courseId}/generate-flashcards`,
+          {},
+          {
+            params: { username: authStore.user?.username }
+          }
+        );
+        
+        if (response.data.success && response.data.flashcard_data) {
+          const flashcardData = response.data.flashcard_data;
+          const sourceCourseId = response.data.source_course_id;
+          
+          // Save flashcard using the store
+          const saveResult = await flashcardStore.saveFlashcard(
+            flashcardData.cards,
+            flashcardData.flashcard_title,
+            sourceCourseId
+          );
+          
+          if (saveResult.requiresLogin) {
+            // Guest user reached limit
+            showNotification('Please log in to save more flashcards', 'warning');
+            router.push({
+              path: '/login',
+              query: { redirect: route.fullPath }
+            });
+            return;
+          }
+          
+          if (saveResult.success) {
+            const flashcardId = saveResult.flashcardId;
+            showNotification('✅ Flashcards generated successfully!', 'success');
+            
+            // Redirect to the flashcard view to start studying
+            router.push(`/flashcard/${flashcardId}`);
+          } else {
+            throw new Error(saveResult.error || 'Failed to save flashcards');
+          }
+        } else {
+          throw new Error(response.data.error || 'Failed to generate flashcards');
+        }
+      } catch (err) {
+        console.error('Error generating flashcards:', err);
+        flashcardGenerationError.value = err.message || 'Failed to generate flashcards';
+        showNotification('Failed to generate flashcards. Please try again.', 'error');
+      } finally {
+        generatingFlashcards.value = false;
+      }
+    };
+    
+    // Simple notification helper
+    const showNotification = (message, type = 'info') => {
+      // Create a simple toast notification
+      const notification = document.createElement('div');
+      notification.className = `notification notification-${type}`;
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    };
 
     const saveProgress = async () => {
       const courseId = route.params.id;
@@ -2225,6 +2323,9 @@ export default {
       renderMarkdown,
       getSectionNumber,
       getSubsections,
+      generatingFlashcards,
+      flashcardGenerationError,
+      generateFlashcardsFromCourse,
     };
   },
 };
@@ -3684,8 +3785,43 @@ export default {
   }
 
   50% {
-    transform: scale(1.05);
+    transform: scale(1.03);
     box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
+  }
+}
+
+/* Flashcard Generation Status */
+.flashcard-generation-status {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  text-align: center;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Notification animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
   }
 }
 </style>

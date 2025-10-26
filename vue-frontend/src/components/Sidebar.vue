@@ -89,14 +89,14 @@
         <router-link
           to="/courses"
           class="nav-item"
-          :title="isCollapsed ? 'Courses' : ''"
+          :title="isCollapsed ? 'My Space' : ''"
           @click="closeMobile"
         >
           <span class="nav-icon">📚</span>
           <span
             v-if="!isCollapsed"
             class="nav-label"
-          >Courses</span>
+          >My Space</span>
         </router-link>
 
         <router-link

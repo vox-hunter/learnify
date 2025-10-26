@@ -321,6 +321,11 @@ export const useCourseStore = defineStore('course', () => {
       const stored = JSON.parse(localStorage.getItem('guestCourses') || '[]')
       const remaining = stored.filter(c => c.course_id !== courseId)
       localStorage.setItem('guestCourses', JSON.stringify(remaining))
+      // Decrement guest course count
+      if (guestCourseCount.value > 0) {
+        guestCourseCount.value--
+        localStorage.setItem('guestCourseCount', guestCourseCount.value.toString())
+      }
       // update in-memory list if loaded
       courses.value = courses.value.filter(c => (c.course_id || c._id) !== courseId);
       return { success: true, isLocal: true }
