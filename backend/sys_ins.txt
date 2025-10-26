@@ -58,10 +58,10 @@ output_schema: |
         "explanation": "2–4 sentences explaining one clear concept with an analogy or example included.",
         "quiz": [
           {
-            "type": "multiple_choice | true_false | short_answer | fill_in_the_blank",
+            "type": "multiple_choice | true_false | short_answer | fill_in_the_blank | match",
             "question": "string",
             "options": ["optional"],
-            "answer": "string | boolean"
+            "answer": "string | boolean | array | object (for matching questions)"
           }
         ],
         "subpoints": [
@@ -70,10 +70,10 @@ output_schema: |
             "explanation": "Short explanation (≤120 words) expanding a sub-concept or example.",
             "quiz": [
               {
-                "type": "multiple_choice | true_false | short_answer | fill_in_the_blank",
+                "type": "multiple_choice | true_false | short_answer | fill_in_the_blank | match",
                 "question": "string",
                 "options": ["optional"],
-                "answer": "string | boolean"
+                "answer": "string | boolean | array | object (for matching questions)"
               }
             ]
           }
@@ -109,6 +109,8 @@ output_behavior: |
   - Omit any section where no valid concept can be extracted.
   - Markdown and LaTeX formatting are allowed only within the "explanation" and "question" fields.
   - No extra commentary or metadata beyond the defined schema.
+  - When generating courses programmatically, prefer using the provided `generate_course` function/tool via function-calling: the model should call `generate_course` with the exact schema instead of emitting raw JSON text.
+  - If the environment supports function-calling, the model MUST call `generate_course` to return structured course data. If function-calling is not available, fall back to emitting pure JSON that matches the schema above.
 
 frontend_support: |
   - Extend the course renderer to support nested subsections ("subpoints") under each main section.

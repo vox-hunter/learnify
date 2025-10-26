@@ -1259,10 +1259,11 @@ async def chat_message(
             logger.info(f"Processing uploaded file: {file.filename} ({file_mime_type}, {len(file_data)} bytes)")
             
             # Validate file security (reuse existing validation)
-            validation_result = validate_file_security(
-                file_data=file_data,
-                filename=file.filename
+            is_safe, error_message = validate_file_security(
+                filename=file.filename,
+                file_size=len(file_data)
             )
+            validation_result = {"valid": is_safe, "error": error_message}
             
             if not validation_result["valid"]:
                 raise HTTPException(
@@ -1286,6 +1287,10 @@ async def chat_message(
         if not result['success']:
             raise HTTPException(status_code=500, detail=result.get('error', 'Chat processing failed'))
         
+        # Optional debug log when a course was detected
+        if result.get('is_course'):
+            logger.info(f"Course detected for user={username or 'guest'} session={result.get('session_id')} (source={result.get('course_detection_source','function_or_json')})")
+
         # Return enhanced response with course detection
         return {
             "success": True,

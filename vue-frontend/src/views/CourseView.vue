@@ -832,6 +832,9 @@ export default {
     const score = ref(0);
     const answeredQuestions = ref(new Set());
     const answerData = ref({}); // Store actual answer data for each question
+    const loadedCourseId = ref(null); // Comment 1: Track loaded course ID for reload guard
+    const pendingLoad = ref(false); // Comment 1: Flag for in-progress fetch
+    const progressLoadedForId = ref(null); // Comment 5: Guard to ensure progress loads once per courseId
     const reviewMode = ref(false);
     const originalScore = ref(0);
     const originalAnsweredCount = ref(0);
@@ -886,6 +889,14 @@ export default {
 
     onMounted(() => {
       mathjaxTypesetNextTick();
+    });
+
+    // Comment 1: Watch route params for course ID changes and guard against reloads
+    watch(() => route.params.id, async (newId) => {
+      if (!newId) return;
+      if (loadedCourseId.value === newId) return;
+      await loadCourse();
+      await loadSavedProgress();
     });
 
     const currentSection = computed(() => {
@@ -1183,7 +1194,14 @@ export default {
         return;
       }
 
+      // Comment 1: Guard against reload if already loaded or fetch in progress
+      if (loadedCourseId.value === courseId || pendingLoad.value) {
+        console.log("[CourseView] Skipping load - already loaded or fetch in progress");
+        return;
+      }
+
       loading.value = true;
+      pendingLoad.value = true;
       error.value = null;
 
       console.log("[CourseView] Calling courseStore.loadCourse");
@@ -1205,9 +1223,12 @@ export default {
         }
       } else {
         console.log("[CourseView] Course loaded successfully");
+        // Comment 1: Set loadedCourseId after successful load to prevent re-fetching
+        loadedCourseId.value = courseId;
       }
 
       loading.value = false;
+      pendingLoad.value = false;
     };
 
     const startCourse = () => {
@@ -1245,42 +1266,11 @@ export default {
         initialStepIndex.value = currentStepIndex.value;
         saveProgress();
 
-        // Scroll to newly revealed step and refocus
-        // Use nextTick to ensure DOM has updated before scrolling
+        // Comment 4: Simplify scroll - call scrollToStep once after nextTick
         nextTick(() => {
-          const upcoming = courseSteps.value[currentStepIndex.value];
-          console.log('[CourseView][nextStep] Triggered for step', currentStepIndex.value, 'type:', upcoming?.type);
-          if (upcoming && upcoming.type === 'explanation') {
-            let attempts = 0;
-            const maxAttempts = 8;
-            const scrollExplanationStep = () => {
-              attempts++;
-              console.log(`[CourseView][nextStep] Explanation scroll attempt ${attempts} for step ${currentStepIndex.value}`);
-              scrollToStep(currentStepIndex.value);
-              if (attempts < maxAttempts) {
-                setTimeout(scrollExplanationStep, 120);
-              } else {
-                // Final focus and show hint
-                if (stepFlowContainer.value) {
-                  stepFlowContainer.value.focus();
-                  console.log('[CourseView][nextStep] Focused stepFlowContainer after explanation scroll');
-                }
-                setTimeout(() => {
-                  showContinueHint.value = true;
-                  console.log('[CourseView][nextStep] Showed continue hint for explanation step');
-                }, 1000);
-              }
-            };
-            setTimeout(scrollExplanationStep, 400);
-          } else {
-            setTimeout(() => {
-              console.log('[CourseView][nextStep] Non-explanation scroll for step', currentStepIndex.value);
-              scrollToStep(currentStepIndex.value);
-              if (stepFlowContainer.value) {
-                stepFlowContainer.value.focus();
-                console.log('[CourseView][nextStep] Focused stepFlowContainer after non-explanation scroll');
-              }
-            }, 150);
+          scrollToStep(currentStepIndex.value);
+          if (stepFlowContainer.value) {
+            stepFlowContainer.value.focus();
           }
         });
       }
@@ -1338,7 +1328,7 @@ export default {
         console.warn(`[CourseView][scrollToStep] Element step-${index} not found.`);
         return;
       }
-      // Choose alignment depending on step type: explanations align to top (but below sticky header), questions center
+      // Comment 4: Simplified scroll logic for explanation steps
       const step = courseSteps.value[index];
       const isExplanation = step && step.type === "explanation";
       const headerEl = document.querySelector(".progress-bar-top");
@@ -1346,47 +1336,14 @@ export default {
       console.log(`[CourseView][scrollToStep] Scrolling to step-${index}, type: ${step?.type}, headerHeight: ${headerHeight}`);
 
       if (isExplanation) {
-        // Wait for layout to settle (use rAF) then compute exact top to position
-        const maxFrames = 12;
-        let lastTop = null;
-        let frames = 0;
-        const tryScroll = () => {
-          frames++;
-          const rect = el.getBoundingClientRect();
-          const currentTop = rect.top;
-          // consider layout settled when the change in top is small or we've tried enough frames
-          if (lastTop !== null && Math.abs(currentTop - lastTop) < 2) {
-            // Compute exact document Y to place the element just below the sticky header
-            const target = window.scrollY + currentTop - headerHeight - 12;
-            window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
-            setTimeout(() => {
-              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              setTimeout(() => {
-                const parent = el.parentElement;
-                if (parent && parent.scrollTop !== undefined) {
-                  parent.scrollTop = el.offsetTop - headerHeight - 12;
-                }
-              }, 300);
-            }, 300);
-            return;
-          }
-          lastTop = currentTop;
-          if (frames < maxFrames) {
-            requestAnimationFrame(tryScroll);
-          } else {
-            // Timeout fallback: scrollIntoView then nudge
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            setTimeout(() => {
-              try {
-                window.scrollBy({ top: -Math.max(0, headerHeight + 12), behavior: 'smooth' });
-              } catch {
-                window.scrollTo({ top: Math.max(0, window.scrollY - (headerHeight + 12)) });
-              }
-            }, 120);
-          }
-        };
-        // Kick off the waiting loop
-        requestAnimationFrame(tryScroll);
+        // Comment 4: Simplify explanation scroll - wait for layout, compute once, scroll once
+        nextTick().then(() => {
+          requestAnimationFrame(() => {
+            const rect = el.getBoundingClientRect();
+            const targetTop = window.scrollY + rect.top - headerHeight - 12;
+            window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+          });
+        });
       } else {
         // For questions, center in viewport
         el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1860,8 +1817,10 @@ export default {
         // Prevent double reload: only load if not already loaded for this ID
         if (!course.value || course.value.course_id !== route.params.id) {
           await loadCourse();
-          // Load saved progress after course is loaded
-          await loadSavedProgress();
+          // Comment 5: Load progress only after course is verified to be loaded
+          if (course.value && course.value.sections) {
+            await loadSavedProgress();
+          }
         }
       } else if (!course.value) {
         error.value = "No course data available";
@@ -1924,8 +1883,16 @@ export default {
         addAllQuestions(course.value.sections);
       }
 
-      adminMessage.value = `✅ Completed all ${totalQuestions.value} questions!`;
+      // Save progress after completing all questions
+      saveProgress();
+
+      // Trigger conclusion page by setting endedEarly flag
+      endedEarly.value = true;
+
+      adminMessage.value = `✅ Completed all ${totalQuestions.value} questions! Redirecting to conclusion...`;
       adminMessageType.value = "success";
+      
+      // Clear message after conclusion is shown
       setTimeout(() => {
         adminMessage.value = "";
       }, 3000);
@@ -1970,6 +1937,17 @@ export default {
     const loadSavedProgress = async () => {
       const courseId = route.params.id;
       if (!courseId) return;
+
+      // Comment 5: Early return if progress already loaded for this courseId
+      if (progressLoadedForId.value === courseId) return;
+
+      // Comment 5: Verify course data exists before loading progress
+      if (!course.value || !Array.isArray(course.value.sections) || course.value.sections.length === 0) {
+        console.warn('[CourseView] Cannot load progress - course data incomplete');
+        return;
+      }
+
+      progressLoadedForId.value = courseId;
 
       const result = await courseStore.loadProgress(courseId);
 
@@ -2255,6 +2233,7 @@ export default {
       scrollToContent,
       renderMarkdown,
       getSectionNumber,
+      getSubsections,
     };
   },
 };

@@ -94,10 +94,24 @@
             </span>
           </div>
           <div class="message-content">
-            <div class="typing-indicator">
-              <span />
-              <span />
-              <span />
+            <div class="activity-indicator">
+              <div class="typing-indicator">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div
+                v-if="aiActivity.isActive"
+                class="activity-message"
+              >
+                {{ aiActivity.message }}
+              </div>
+              <div
+                v-else
+                class="activity-message"
+              >
+                Thinking...
+              </div>
             </div>
           </div>
         </div>
@@ -236,6 +250,11 @@ export default {
         const error = ref(null)
         const showUrlInput = ref(false)
         const sessionId = ref(null)
+        const aiActivity = ref({
+            isActive: false,
+            type: '',
+            message: ''
+        })
 
         const examplePrompts = [
             'Create a course about Python basics',
@@ -497,6 +516,13 @@ export default {
             error.value = null
             isLoading.value = true
 
+            // Set initial activity indicator based on content (will be updated by backend response)
+            aiActivity.value = {
+                isActive: true,
+                type: determineActivityType(userMessage, file, url),
+                message: getActivityMessage(userMessage, file, url)
+            }
+
             scrollToBottom()
 
             try {
@@ -517,6 +543,15 @@ export default {
 
                 const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                 console.log('Chat API response:', response)
+
+                // Update activity indicator with backend info if available
+                if (response.data.activity_info) {
+                    aiActivity.value = {
+                        isActive: true,
+                        type: response.data.activity_info.type,
+                        message: response.data.activity_info.message
+                    }
+                }
 
                 if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
 
@@ -549,7 +584,49 @@ export default {
                 scrollToBottom()
             } finally {
                 isLoading.value = false
+                aiActivity.value = { isActive: false, type: '', message: '' }
             }
+        }
+
+        // Activity indicator helper functions
+        const determineActivityType = (message, file, url) => {
+            if (file) {
+                if (message && (message.toLowerCase().includes('course') || message.toLowerCase().includes('generate'))) {
+                    return 'generating_course'
+                }
+                return 'processing_file'
+            }
+            if (url) return 'searching_web'
+            if (message) {
+                const lowerMsg = message.toLowerCase()
+                if (lowerMsg.includes('course') || lowerMsg.includes('generate') || lowerMsg.includes('create')) {
+                    return 'generating_course'
+                }
+                if (lowerMsg.includes('search') || lowerMsg.includes('find')) {
+                    return 'searching_web'
+                }
+            }
+            return 'thinking'
+        }
+
+        const getActivityMessage = (message, file, url) => {
+            if (file) {
+                if (message && (message.toLowerCase().includes('course') || message.toLowerCase().includes('generate'))) {
+                    return `🎓 Generating course from ${file.name}...`
+                }
+                return `📄 Processing ${file.name}...`
+            }
+            if (url) return `🌐 Searching the web...`
+            if (message) {
+                const lowerMsg = message.toLowerCase()
+                if (lowerMsg.includes('course') || lowerMsg.includes('generate') || lowerMsg.includes('create')) {
+                    return '🎓 Generating course content...'
+                }
+                if (lowerMsg.includes('search') || lowerMsg.includes('find')) {
+                    return '🔍 Searching for information...'
+                }
+            }
+            return '🧠 Thinking...'
         }
 
         // Save and load chat messages from localStorage
@@ -634,7 +711,8 @@ export default {
             sendMessage,
             showGoogleLinkButton,
             linkGoogleAccount,
-            reachedNgLimit
+            reachedNgLimit,
+            aiActivity
         }
     }
 }
@@ -942,6 +1020,33 @@ export default {
     30% {
         transform: translateY(-8px);
         opacity: 1;
+    }
+}
+
+/* Activity Indicator */
+.activity-indicator {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.activity-message {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+    font-style: italic;
+    padding: 0 1rem;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 0.8;
+        transform: translateY(0);
     }
 }
 

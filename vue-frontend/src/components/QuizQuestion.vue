@@ -114,9 +114,10 @@
         rows="4"
         @keydown.shift.enter.prevent="submitShortAnswer"
       />
+      <!-- Comment 6: Show hint only on non-touch devices with v-if binding -->
       <div
-        v-if="!isAnswered && isShortAnswer"
-        class="shortcut-label desktop-only"
+        v-if="!isTouchOrMobile && !isAnswered && isShortAnswer"
+        class="shortcut-label"
       >
         {{ osShortcutLabel }}
       </div>
@@ -238,6 +239,9 @@ export default {
   },
   emits: ['answer-submitted'],
   setup(props, { emit }) {
+      // Comment 6: Add reactive flag for touch/mobile detection
+      const isTouchOrMobile = ref(false);
+
       // Feedback ref for auto-scroll
       const feedbackSection = ref(null);
       
@@ -266,6 +270,11 @@ export default {
         if (platform.includes('mac')) osType.value = 'mac';
         else if (platform.includes('linux')) osType.value = 'linux';
         else osType.value = 'win';
+        
+        // Detect touch device based on touch capabilities only
+        isTouchOrMobile.value = ('ontouchstart' in window) || 
+                                 navigator.maxTouchPoints > 0;
+        
         // MathJax typeset on mount
         typesetMathJax();
       });
@@ -501,10 +510,9 @@ export default {
       setTimeout(() => {
         if (window.MathJax && window.MathJax.typesetPromise) {
           // Typeset question, feedback, correct answer, option text and matching keys
-          // Note: HTML inside native <option> elements is not fully supported by browsers,
-          // but we include matching-select in the selector so visible rendered nodes are typeset.
+          // Target only elements that can contain MathJax content
           const elements = document.querySelectorAll(
-            '.question-text, .feedback-text, .correct-answer, .option-text, .matching-key, .matching-select'
+            '.question-text, .feedback-text, .correct-answer, .option-text, .matching-key'
           );
           try {
             window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
@@ -551,7 +559,8 @@ export default {
       isTrueFalse,
       isFillInBlank,
       isShortAnswer,
-    osShortcutLabel,
+      isTouchOrMobile,
+      osShortcutLabel,
       isMatching,
       matchingKeys,
       matchingValues,

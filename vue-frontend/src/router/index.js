@@ -7,7 +7,8 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('../views/ChatView.vue')
+      component: () => import('../views/ChatView.vue'),
+      meta: { public: true }
     },
     {
       path: '/old-home',
@@ -17,7 +18,8 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: () => import('../views/LoginView.vue')
+      component: () => import('../views/LoginView.vue'),
+      meta: { public: true }
     },
     {
       path: '/courses',
@@ -27,7 +29,8 @@ const router = createRouter({
     {
       path: '/library',
       name: 'library',
-      component: () => import('../views/LibraryView.vue')
+      component: () => import('../views/LibraryView.vue'),
+      meta: { public: true }
     },
     {
       path: '/course/:id',
@@ -37,12 +40,14 @@ const router = createRouter({
     {
       path: '/privacy',
       name: 'privacy',
-      component: () => import('../views/PrivacyView.vue')
+      component: () => import('../views/PrivacyView.vue'),
+      meta: { public: true }
     },
     {
       path: '/terms',
       name: 'terms',
-      component: () => import('../views/TermsView.vue')
+      component: () => import('../views/TermsView.vue'),
+      meta: { public: true }
     },
     {
       path: '/account',
@@ -52,12 +57,14 @@ const router = createRouter({
     {
       path: '/auth/google/callback',
       name: 'google-callback',
-      component: () => import('../views/GoogleCallbackView.vue')
+      component: () => import('../views/GoogleCallbackView.vue'),
+      meta: { public: true }
     },
     {
       path: '/auth/google/username',
       name: 'google-username',
-      component: () => import('../views/GoogleUsernameView.vue')
+      component: () => import('../views/GoogleUsernameView.vue'),
+      meta: { public: true }
     }
   ]
 })
@@ -65,24 +72,30 @@ const router = createRouter({
 // Navigation guard for authentication
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const publicPages = ['/', '/login', '/privacy', '/terms', '/auth/google/callback', '/auth/google/username', '/library']
-  // Allow guests to view courses (they have localStorage courses)
-  const isCoursePage = to.path.startsWith('/course/')
-  const authRequired = !publicPages.includes(to.path) && !isCoursePage
+  // Use meta.public for public route detection
+  const isPublicRoute = to.meta?.public === true
+  const authRequired = !isPublicRoute
 
-  console.log('[Router] Navigation to:', to.path)
-  console.log('[Router] Is authenticated:', authStore.isAuthenticated)
-  console.log('[Router] Auth required:', authRequired)
+  // Comment 7: Wrap debug logs with import.meta.env.DEV to disable in production
+  if (import.meta.env.DEV) {
+    console.log('[Router] Navigation to:', to.path, 'name:', to.name)
+    console.log('[Router] Is authenticated:', authStore.isAuthenticated)
+    console.log('[Router] Auth required:', authRequired)
+  }
 
   if (authRequired && !authStore.isAuthenticated) {
-    console.log('[Router] ❌ Redirecting to login - auth required but not authenticated')
+    if (import.meta.env.DEV) {
+      console.log('[Router] ❌ Redirecting to login - auth required but not authenticated')
+    }
     // Redirect to login with return path
     next({
       path: '/login',
       query: { redirect: to.fullPath }
     })
   } else {
-    console.log('[Router] ✅ Allowing navigation')
+    if (import.meta.env.DEV) {
+      console.log('[Router] ✅ Allowing navigation')
+    }
     next()
   }
 })

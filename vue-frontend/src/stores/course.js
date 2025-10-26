@@ -95,6 +95,7 @@ export const useCourseStore = defineStore('course', () => {
       // Check if AI detected and generated a course
       if (response.data.is_course && response.data.course_data) {
         currentCourse.value = response.data.course_data
+        // Cache invalidation handled in saveCourse() where course_id is available
         return { success: true, course: response.data.course_data }
       } else {
         // AI didn't generate a course - maybe not suitable content
@@ -107,6 +108,12 @@ export const useCourseStore = defineStore('course', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  // Comment 2: Cache invalidation method
+  function invalidateCourse(courseId) {
+    courseCache.value.delete(courseId);
+    console.log(`[Course Store] Invalidated cache for course ${courseId}`);
   }
 
   // URL-based course generation removed
@@ -154,6 +161,14 @@ export const useCourseStore = defineStore('course', () => {
       }, {
         params: { username: authStore.user?.username }
       })
+      // Comment 2: Cache the newly saved course
+      if (response.data.course_id && courseData) {
+        courseCache.value.set(response.data.course_id, {
+          course_id: response.data.course_id,
+          course_title: courseTitle,
+          sections: courseData
+        });
+      }
       return { success: true, courseId: response.data.course_id }
     } catch (err) {
       return { 
@@ -334,13 +349,14 @@ export const useCourseStore = defineStore('course', () => {
     guestCourseCount,
     canGenerateCourse,
     remainingGuestCourses,
-  generateCourse,
+    generateCourse,
     saveCourse,
     loadCourses,
     loadCourse,
     updateProgress,
     loadProgress,
     deleteCourse,
+    invalidateCourse,
     clearCache
   };
 });

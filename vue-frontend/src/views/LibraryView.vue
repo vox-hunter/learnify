@@ -202,7 +202,8 @@
           <div class="course-card-footer">
             <button
               class="btn btn-secondary btn-sm"
-              @click="viewCourse(course.course_id)"
+              :disabled="cloning[course.course_id]"
+              @click="!cloning[course.course_id] && viewCourse(course.course_id)"
             >
               View Course
             </button>
@@ -322,6 +323,7 @@ export default {
         const currentPage = ref(0)
         const hasMore = ref(true)
         const cloning = ref({})
+        const navigatingToCourseId = ref(null) // Comment 3: Track pending navigation
 
         // Rating modal state
         const showRating = ref(false)
@@ -450,9 +452,13 @@ export default {
 
         if (response.data.success) {
           showNotificationMessage('Course cloned successfully! You can find it in your courses.', 'success')
+          // Comment 3: Set navigatingToCourseId before setTimeout
+          navigatingToCourseId.value = response.data.course_id
           // Debounce navigation to prevent double reloads
           setTimeout(() => {
-            if (router.currentRoute.value.path !== `/course/${response.data.course_id}`) {
+            // Comment 3: Only navigate if both conditions are met
+            if (router.currentRoute.value.params.id !== response.data.course_id &&
+                navigatingToCourseId.value === response.data.course_id) {
               router.push(`/course/${response.data.course_id}`)
             }
           }, 300);
@@ -583,6 +589,7 @@ export default {
             sortBy,
             hasMore,
             cloning,
+            navigatingToCourseId,
             showRating,
             ratingCourse,
             selectedRating,

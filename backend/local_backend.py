@@ -13,8 +13,6 @@ import PyPDF2
 import pdfplumber
 from file_security import validate_file_security, get_mime_type, MAX_FILE_SIZE, MAX_CONTENT_WORDS
 from document_converter import convert_to_pdf, should_convert_to_pdf, get_conversion_info
-from file_converter import convert_to_pdf
-from document_converter import convert_to_pdf, should_convert_to_pdf
 from gemini_client_factory import create_gemini_client, get_default_client
 
 try:
@@ -25,31 +23,7 @@ except ImportError:
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() in ("true", "1", "yes")  # Load debug mode from environment
 
-def should_convert_to_pdf(filename: str) -> bool:
-    """
-    Determine if a file should be converted to PDF for optimal Gemini processing.
-    Based on Gemini documentation, PDF is the preferred format for document understanding.
-    """
-    if not filename:
-        return False
-    
-    file_ext = os.path.splitext(filename.lower())[1]
-    
-    # Don't convert if already PDF
-    if file_ext == '.pdf':
-        return False
-    
-    # Convert document formats that benefit from PDF conversion
-    convertible_formats = {
-        '.docx', '.doc',        # Word documents
-        '.pptx', '.ppt',        # PowerPoint presentations  
-        '.xlsx', '.xls',        # Excel spreadsheets
-        '.txt', '.md',          # Text and Markdown
-        '.html', '.htm',        # HTML files
-        '.rtf',                 # Rich Text Format
-    }
-    
-    return file_ext in convertible_formats
+# should_convert_to_pdf is imported from document_converter - removed duplicate definition
 
 # Define a Pydantic model for arbitrary key-value mappings
 class ArbitraryMapping(BaseModel):
@@ -645,6 +619,20 @@ There was an issue processing your file. This usually happens with unsupported o
             error_message = "Request timed out. The PDF may be too complex or the service is busy."
 
         return None, f"Error generating course: {error_message}"
+
+
+def _build_course_from_file(file_bytes, mime_type=None, filename=None, user_credentials=None, username=None, status_callback=None):
+    """
+    Optional helper wrapper that delegates to `generate_course` for a simple programmatic interface.
+    Returns (course_data, error_message) to match the existing `generate_course` signature.
+    """
+    try:
+        course, err = generate_course(file_content=file_bytes, filename=filename, status_callback=status_callback, user_credentials=user_credentials, username=username)
+        return course, err
+    except Exception as e:
+        logger.exception(f"_build_course_from_file failed: {e}")
+        return None, str(e)
+
 
 def extract_text_from_pdf(pdf_bytes):
     """Extract text from PDF bytes using multiple methods for reliability"""

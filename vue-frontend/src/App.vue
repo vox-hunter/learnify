@@ -14,8 +14,9 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
+import { useCourseStore } from './stores/course'
 import Sidebar from './components/Sidebar.vue'
 
 export default {
@@ -25,12 +26,19 @@ export default {
   },
   setup() {
     const authStore = useAuthStore()
+    const courseStore = useCourseStore()
     const sidebarCollapsed = ref(true) // Start collapsed (hover to expand)
 
     // Initialize auth on app mount (restore from cookies/localStorage)
     onMounted(() => {
       authStore.initialize()
     })
+
+    // Comment 2: Watch for auth state changes and clear course cache
+    watch(() => authStore.isAuthenticated, (newAuthState) => {
+      console.log('[App] Auth state changed to:', newAuthState);
+      courseStore.clearCache();
+    });
 
     const handleSidebarToggle = (collapsed) => {
       sidebarCollapsed.value = collapsed
@@ -57,8 +65,7 @@ export default {
   flex: 1;
   margin-left: 260px;
   transition: margin-left 0.3s ease;
-  overflow-y: auto;
-  height: 100vh;
+  /* Comment 8: Review overflow and height - removed overflow-y: auto and height: 100vh as they can conflict with nested scroll containers */
 }
 
 /* Remove padding for chat view when active */
