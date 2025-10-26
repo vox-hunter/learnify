@@ -135,62 +135,48 @@ class ChatSessionManager:
     def _create_course_generation_tool(self) -> dict:
         """
         Create a FunctionDeclaration describing the `generate_course` function.
-        The JSON schema mirrors the `output_schema` in sys_ins.txt and the Pydantic models in local_backend.py.
+        The JSON schema uses Gemini's type system for compatibility with FunctionDeclaration validation.
         """
         schema = {
-            "type": "object",
+            "type": "OBJECT",
             "properties": {
-                "course_title": {"type": "string", "description": "The title of the generated course"},
+                "course_title": {"type": "STRING", "description": "The title of the generated course"},
                 "sections": {
-                    "type": "array",
+                    "type": "ARRAY",
                     "items": {
-                        "type": "object",
+                        "type": "OBJECT",
                         "properties": {
-                            "section_title": {"type": "string"},
-                            "explanation": {"type": "string"},
+                            "section_title": {"type": "STRING"},
+                            "explanation": {"type": "STRING"},
                             "quiz": {
-                                "type": "array",
+                                "type": "ARRAY",
                                 "items": {
-                                    "type": "object",
+                                    "type": "OBJECT",
                                     "properties": {
-                                        "type": {"type": "string", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank"},
-                                        "question": {"type": "string"},
-                                        "options": {"type": ["array", "null"], "items": {"type": "string"}},
-                                        "answer": {
-                                            "oneOf": [
-                                                {"type": "string"},
-                                                {"type": "boolean"},
-                                                {"type": "array", "items": {"type": "string"}},
-                                                {"type": "object", "additionalProperties": {"type": "string"}}
-                                            ]
-                                        }
+                                        "type": {"type": "STRING", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank|match"},
+                                        "question": {"type": "STRING"},
+                                        "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                        "answer": {"type": "OBJECT", "additionalProperties": True}
                                     },
                                     "required": ["type", "question", "answer"]
                                 }
                             },
                             "subpoints": {
-                                "type": ["array", "null"],
+                                "type": "ARRAY",
                                 "items": {
-                                    "type": "object",
+                                    "type": "OBJECT",
                                     "properties": {
-                                        "section_title": {"type": "string"},
-                                        "explanation": {"type": "string"},
+                                        "section_title": {"type": "STRING"},
+                                        "explanation": {"type": "STRING"},
                                         "quiz": {
-                                            "type": "array",
+                                            "type": "ARRAY",
                                             "items": {
-                                                "type": "object",
+                                                "type": "OBJECT",
                                                 "properties": {
-                                                    "type": {"type": "string", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank"},
-                                                    "question": {"type": "string"},
-                                                    "options": {"type": ["array", "null"], "items": {"type": "string"}},
-                                                    "answer": {
-                                                        "oneOf": [
-                                                            {"type": "string"},
-                                                            {"type": "boolean"},
-                                                            {"type": "array", "items": {"type": "string"}},
-                                                            {"type": "object", "additionalProperties": {"type": "string"}}
-                                                        ]
-                                                    }
+                                                    "type": {"type": "STRING", "description": "multiple_choice|true_false|short_answer|fill_in_the_blank|match"},
+                                                    "question": {"type": "STRING"},
+                                                    "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                                    "answer": {"type": "OBJECT", "additionalProperties": True}
                                                 },
                                                 "required": ["type", "question", "answer"]
                                             }
@@ -207,8 +193,7 @@ class ChatSessionManager:
             "required": ["course_title", "sections"]
         }
 
-        # Some SDKs accept a raw JSON schema dict as the arguments field; pass the schema directly for compatibility.
-        # Return a plain dict declaration to maximize compatibility across SDK variations
+        # Return plain dict declaration for compatibility with Gemini's FunctionDeclaration
         return {
             "name": "generate_course",
             "description": "Generate a structured course with title, sections, explanations, and quiz questions.",

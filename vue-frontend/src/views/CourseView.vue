@@ -1211,16 +1211,7 @@ export default {
       if (!result.success) {
         console.error("[CourseView] Load failed:", result.error);
         error.value = result.error;
-
-        // If guest user and course not found, redirect to login
-        if (!authStore.isAuthenticated) {
-          console.log(
-            "[CourseView] Guest user with failed load - redirecting to login",
-          );
-          setTimeout(() => {
-            router.push("/login");
-          }, 2000);
-        }
+        // Removed automatic redirect to login - guests can still view public library courses
       } else {
         console.log("[CourseView] Course loaded successfully");
         // Comment 1: Set loadedCourseId after successful load to prevent re-fetching

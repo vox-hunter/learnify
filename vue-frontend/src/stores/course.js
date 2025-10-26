@@ -236,9 +236,10 @@ export const useCourseStore = defineStore('course', () => {
           }
           // Cache the loaded course
           courseCache.value.set(courseId, currentCourse.value)
+          loading.value = false
           return { success: true, course: currentCourse.value }
         } else {
-          console.log('[Course Store] Course NOT found in localStorage')
+          console.log('[Course Store] Course NOT found in localStorage - will try to load from API (library course)')
         }
       }
       

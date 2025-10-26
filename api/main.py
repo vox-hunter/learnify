@@ -70,6 +70,7 @@ else:
         "https://alpha-ai-loom-frontend.onrender.com",
         "https://ai-loom-frontend.onrender.com",
         "https://ailoom.me",
+        "https://g157jfrt-3000.asse.devtunnels.ms",
     ]
 
 print(f"CORS allowed origins: {_allowed_origins}")
@@ -510,24 +511,29 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
             # Link Google account if not already linked
             if not google_id:
                 try:
-                    auth_manager.users.update_one(
-                        {"email": validated_user["email"]},
-                        {"$set": {
+                    # Update user details with google_id and picture
+                    success, error = auth_manager.update_user_details(
+                        existing_user["username"],
+                        {
                             "google_id": validated_user.get("google_id"),
-                            "picture": validated_user.get("picture")
-                        }}
+                            "picture": validated_user.get("picture"),
+                            "google_linked": True
+                        }
                     )
-                    google_id = validated_user.get("google_id")
-                    print(f"[OAuth Callback] Linked Google account, google_id after: {google_id}")
+                    if success:
+                        google_id = validated_user.get("google_id")
+                        print(f"[OAuth Callback] Linked Google account, google_id after: {google_id}")
+                    else:
+                        print(f"Warning: Failed to link Google account: {error}")
                 except Exception as e:
                     print(f"Warning: Failed to link Google account: {e}")
             
             # Update profile picture if available
             if validated_user.get("picture") and not existing_user.get("picture"):
                 try:
-                    auth_manager.users.update_one(
-                        {"email": validated_user["email"]},
-                        {"$set": {"picture": validated_user["picture"]}}
+                    auth_manager.update_user_details(
+                        existing_user["username"],
+                        {"picture": validated_user["picture"]}
                     )
                 except Exception as e:
                     print(f"Warning: Failed to update profile picture: {e}")
@@ -840,15 +846,17 @@ async def unlink_google_account(request: UnlinkGoogleRequest):
     
     # Remove Google ID and picture
     try:
-        auth_manager.users.update_one(
-            {"username": request.username},
-            {"$unset": {"google_id": "", "picture": ""}}
-        )
+        success, error = auth_manager.unlink_google_account(request.username)
+        
+        if not success:
+            raise HTTPException(status_code=400, detail=error or "Failed to unlink Google account")
         
         return {
             "success": True,
             "message": "Google account unlinked successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to unlink Google account: {str(e)}")
 
