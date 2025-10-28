@@ -68,26 +68,29 @@ echo.
 echo [OK] Dependencies installed
 echo.
 
-REM Start backend in new window
-echo [INFO] Starting FastAPI backend with New Relic agent...
-start "Learnify Backend" cmd /k "cd api && ..\venv\Scripts\activate.bat && set NEW_RELIC_CONFIG_FILE=../newrelic.ini && ..\venv\Scripts\newrelic-admin.exe run-program python main.py"
+REM Start backend in new window - exposed to network on 0.0.0.0:8000
+echo [INFO] Starting FastAPI backend with New Relic agent (exposed to network on 0.0.0.0:8000)...
+start "Learnify Backend" cmd /k "cd api && ..\venv\Scripts\activate.bat && set NEW_RELIC_CONFIG_FILE=../newrelic.ini && ..\venv\Scripts\newrelic-admin.exe run-program python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 REM Wait a bit for backend to start
 timeout /t 3 /nobreak >nul
 
-REM Start frontend in new window
-echo [INFO] Starting Vue.js frontend...
-start "Learnify Frontend" cmd /k "cd vue-frontend && npm run dev"
+REM Start frontend in new window - exposed to network on 0.0.0.0:3000
+echo [INFO] Starting Vue.js frontend (exposed to network on 0.0.0.0:3000)...
+start "Learnify Frontend" cmd /k "cd vue-frontend && npm run dev -- --host 0.0.0.0"
 
 echo.
 echo ========================================
 echo   Learnify is starting!
 echo ========================================
 echo.
-echo Frontend: http://localhost:3000
-echo Backend:  http://localhost:8000
-echo API Docs: http://localhost:8000/docs
+echo Frontend: http://0.0.0.0:3000 (or use your IP address)
+echo Backend:  http://0.0.0.0:8000 (or use your IP address)
+echo API Docs: http://0.0.0.0:8000/docs (or use your IP address)
 echo.
 echo Check the new windows for server output
 echo Close those windows to stop the servers
+echo.
+echo Network Access: Find your machine IP with 'ipconfig' command
+echo Example: http://[YOUR_IP]:3000 and http://[YOUR_IP]:8000
 echo.
 pause

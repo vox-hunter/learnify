@@ -1,0 +1,83 @@
+# Python virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Python bytecode and artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+.streamlit/secrets.toml
+
+# Version control and IDE
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Frontend and Node.js (not needed for backend container)
+vue-frontend/
+node_modules/
+package.json
+package-lock.json
+tsconfig.json
+
+# Documentation and development files
+README.md
+*.md
+docs/
+documentation/
+*.log
+logs/
+*.sh
+*.bat
+
+# Test files
+test_*.py
+*_test.py
+tests/
+run_main_test.py
+test_import_main.py
+
+# Render and deployment
+render.yaml
+.dockerignore
+docker-compose.yml
+
+# Miscellaneous
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+*.cache
+newrelic.ini

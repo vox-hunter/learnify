@@ -36,6 +36,7 @@ MONGODB_URI = None
 DB_NAME = "learnify_courses"
 FLASHCARDS_COLLECTION = "flashcards"
 USER_FLASHCARDS_COLLECTION = "user_flashcards"
+FLASHCARD_RATINGS_COLLECTION = "flashcard_ratings"
 
 # Try Streamlit secrets first
 if STREAMLIT_AVAILABLE:
@@ -65,6 +66,7 @@ class MongoFlashcardManager:
             self.db = self.client[DB_NAME]
             self.flashcards_collection = self.db[FLASHCARDS_COLLECTION]
             self.user_flashcards_collection = self.db[USER_FLASHCARDS_COLLECTION]
+            self.flashcard_ratings_collection = self.db[FLASHCARD_RATINGS_COLLECTION]
             # Test connection
             self.client.admin.command('ping')
             # Create indexes for better performance
@@ -76,6 +78,7 @@ class MongoFlashcardManager:
             self.db = None
             self.flashcards_collection = None
             self.user_flashcards_collection = None
+            self.flashcard_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -87,6 +90,7 @@ class MongoFlashcardManager:
             self.db = None
             self.flashcards_collection = None
             self.user_flashcards_collection = None
+            self.flashcard_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -98,6 +102,7 @@ class MongoFlashcardManager:
             self.db = None
             self.flashcards_collection = None
             self.user_flashcards_collection = None
+            self.flashcard_ratings_collection = None
             if STREAMLIT_AVAILABLE:
                 st.stop()
             else:
@@ -124,9 +129,20 @@ class MongoFlashcardManager:
                 self.flashcards_collection.create_index("session_id")
                 self.flashcards_collection.create_index("source_course_id")
                 self.flashcards_collection.create_index("created_at")
+                self.flashcards_collection.create_index("is_public")
+                self.flashcards_collection.create_index("rating")
+                self.flashcards_collection.create_index("popularity_score")
+                self.flashcards_collection.create_index([
+                    ("title", "text"),
+                    ("cards.front", "text"),
+                    ("cards.back", "text")
+                ])
             
             if self.user_flashcards_collection is not None:
                 self.user_flashcards_collection.create_index([("user_identifier", 1), ("flashcard_id", 1)], unique=True)
+            if self.flashcard_ratings_collection is not None:
+                self.flashcard_ratings_collection.create_index([("flashcard_id", 1), ("user_identifier", 1)], unique=True)
+                self.flashcard_ratings_collection.create_index("flashcard_id")
         except Exception:
             pass
 
@@ -188,6 +204,20 @@ class MongoFlashcardManager:
                         serializable_flashcard_data.append(item)
 
             flashcard_id = self.generate_flashcard_id()
+
+            subject_value = None
+            if source_course_id:
+                try:
+                    courses_collection = self.db.get_collection("courses") if self.db is not None else None
+                    if courses_collection is not None:
+                        course_doc = courses_collection.find_one(
+                            {"course_id": source_course_id},
+                            {"subject": 1}
+                        )
+                        if course_doc:
+                            subject_value = course_doc.get("subject")
+                except Exception:
+                    subject_value = None
             
             flashcard_document = {
                 "flashcard_id": flashcard_id,
@@ -197,6 +227,11 @@ class MongoFlashcardManager:
                 "is_guest": is_guest,
                 "session_id": session_id if is_guest else None,
                 "source_course_id": source_course_id,
+                "subject": subject_value,
+                "is_public": True,
+                "rating": 0.0,
+                "total_ratings": 0,
+                "popularity_score": 0.0,
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
                 "total_cards": self._count_cards(serializable_flashcard_data)
@@ -299,10 +334,11 @@ class MongoFlashcardManager:
                 self.flashcards_collection.delete_one(query)
                 
                 # Remove from user_flashcards collection
-                self.user_flashcards_collection.delete_one({
-                    "user_identifier": user_identifier,
-                    "flashcard_id": flashcard_id
-                })
+                if self.user_flashcards_collection is not None:
+                    self.user_flashcards_collection.delete_one({
+                        "user_identifier": user_identifier,
+                        "flashcard_id": flashcard_id
+                    })
                 
                 return True, None
             else:
@@ -443,6 +479,281 @@ class MongoFlashcardManager:
             return None, f"Database error: {e}"
         except Exception as e:
             _log_error(f"Unexpected error retrieving flashcards by course: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def get_public_flashcards(self, page: int = 0, limit: int = 20, sort_by: str = 'created_at',
+                              sort_order: int = -1) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Get paginated list of public flashcards"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+
+        sort_field_map = {
+            'created_at': 'created_at',
+            'rating': 'rating',
+            'popularity_score': 'popularity_score',
+            'title': 'title'
+        }
+        sort_field = sort_field_map.get(sort_by, 'created_at')
+
+        try:
+            if self.flashcards_collection is not None:
+                skip = page * limit
+                projection = {
+                    "_id": 0,
+                    "cards": {'$slice': 3},
+                    "flashcard_id": 1,
+                    "title": 1,
+                    "creator": 1,
+                    "created_at": 1,
+                    "rating": 1,
+                    "total_ratings": 1,
+                    "total_cards": 1,
+                    "popularity_score": 1,
+                    "source_course_id": 1,
+                    "subject": 1
+                }
+
+                flashcards = list(self.flashcards_collection.find(
+                    {"is_public": True},
+                    projection
+                ).sort(sort_field, sort_order).skip(skip).limit(limit))
+
+                for flashcard in flashcards:
+                    if 'title' in flashcard:
+                        flashcard['flashcard_title'] = flashcard.pop('title')
+
+                return flashcards, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving public flashcards: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving public flashcards: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def search_public_flashcards(self, query: str, page: int = 0, limit: int = 20) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Search public flashcards by text query"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+
+        try:
+            if self.flashcards_collection is not None:
+                skip = page * limit
+                projection = {
+                    "_id": 0,
+                    "cards": {'$slice': 3},
+                    "flashcard_id": 1,
+                    "title": 1,
+                    "creator": 1,
+                    "created_at": 1,
+                    "rating": 1,
+                    "total_ratings": 1,
+                    "total_cards": 1,
+                    "popularity_score": 1,
+                    "source_course_id": 1,
+                    "subject": 1,
+                    "score": {"$meta": "textScore"}
+                }
+
+                flashcards = list(self.flashcards_collection.find(
+                    {"is_public": True, "$text": {"$search": query}},
+                    projection
+                ).sort([("score", {"$meta": "textScore"})]).skip(skip).limit(limit))
+
+                for flashcard in flashcards:
+                    flashcard.pop('score', None)
+                    if 'title' in flashcard:
+                        flashcard['flashcard_title'] = flashcard.pop('title')
+
+                return flashcards, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error searching public flashcards: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error searching public flashcards: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def get_public_flashcards_by_subject(self, subject: str, page: int = 0, limit: int = 20) -> Tuple[Optional[List[Dict]], Optional[str]]:
+        """Get public flashcards filtered by subject label"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+
+        try:
+            if self.flashcards_collection is not None:
+                skip = page * limit
+                projection = {
+                    "_id": 0,
+                    "cards": {'$slice': 3},
+                    "flashcard_id": 1,
+                    "title": 1,
+                    "creator": 1,
+                    "created_at": 1,
+                    "rating": 1,
+                    "total_ratings": 1,
+                    "total_cards": 1,
+                    "popularity_score": 1,
+                    "source_course_id": 1,
+                    "subject": 1
+                }
+
+                flashcards = list(self.flashcards_collection.find(
+                    {
+                        "is_public": True,
+                        "$or": [
+                            {"subject": {"$regex": subject, "$options": "i"}},
+                            {"tags": {"$regex": subject, "$options": "i"}}
+                        ]
+                    },
+                    projection
+                ).sort("created_at", -1).skip(skip).limit(limit))
+
+                for flashcard in flashcards:
+                    if 'title' in flashcard:
+                        flashcard['flashcard_title'] = flashcard.pop('title')
+
+                return flashcards, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving public flashcards by subject: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving public flashcards by subject: {e}")
+            return None, f"An unexpected error occurred: {e}"
+
+    def get_public_flashcard_course_map(self, course_ids: List[str]) -> Dict[str, int]:
+        """Return mapping of course_id to count of public flashcard sets"""
+        if not course_ids:
+            return {}
+
+        try:
+            if self.flashcards_collection is not None:
+                pipeline = [
+                    {"$match": {"source_course_id": {"$in": course_ids}, "is_public": True}},
+                    {"$group": {"_id": "$source_course_id", "total": {"$sum": 1}}}
+                ]
+                results = list(self.flashcards_collection.aggregate(pipeline))
+                return {result['_id']: result.get('total', 0) for result in results if result.get('_id')}
+        except Exception:
+            pass
+        return {}
+
+    def rate_flashcard(self, flashcard_id: str, user_identifier: str, rating: int) -> Tuple[bool, Optional[str]]:
+        """Rate a flashcard set (1-5 stars)"""
+        if not self._ensure_connection():
+            return False, "Database connection error."
+
+        if rating < 1 or rating > 5:
+            return False, "Rating must be between 1 and 5"
+
+        try:
+            if self.flashcard_ratings_collection is not None and self.flashcards_collection is not None:
+                self.flashcard_ratings_collection.update_one(
+                    {"flashcard_id": flashcard_id, "user_identifier": user_identifier},
+                    {
+                        "$set": {
+                            "flashcard_id": flashcard_id,
+                            "user_identifier": user_identifier,
+                            "rating": rating,
+                            "created_at": datetime.now(timezone.utc)
+                        }
+                    },
+                    upsert=True
+                )
+
+                self._update_flashcard_rating(flashcard_id)
+                return True, None
+            else:
+                return False, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error rating flashcard: {e}")
+            return False, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error rating flashcard: {e}")
+            return False, f"An unexpected error occurred: {e}"
+
+    def _update_flashcard_rating(self, flashcard_id: str):
+        """Update average rating metadata for a flashcard set"""
+        try:
+            if self.flashcard_ratings_collection is not None and self.flashcards_collection is not None:
+                pipeline = [
+                    {"$match": {"flashcard_id": flashcard_id}},
+                    {"$group": {
+                        "_id": "$flashcard_id",
+                        "avg_rating": {"$avg": "$rating"},
+                        "total_ratings": {"$sum": 1}
+                    }}
+                ]
+
+                result = list(self.flashcard_ratings_collection.aggregate(pipeline))
+
+                if result:
+                    avg_rating = round(result[0]['avg_rating'], 2)
+                    total_ratings = result[0]['total_ratings']
+                    popularity_score = avg_rating * total_ratings
+
+                    self.flashcards_collection.update_one(
+                        {"flashcard_id": flashcard_id},
+                        {
+                            "$set": {
+                                "rating": avg_rating,
+                                "total_ratings": total_ratings,
+                                "popularity_score": popularity_score
+                            }
+                        }
+                    )
+        except Exception:
+            pass
+
+    def clone_flashcard(self, flashcard_id: str, new_creator: str, is_guest: bool = False,
+                        session_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+        """Clone a public flashcard set for a user"""
+        if not self._ensure_connection():
+            return None, "Database connection error."
+
+        try:
+            if self.flashcards_collection is not None:
+                original = self.flashcards_collection.find_one({"flashcard_id": flashcard_id, "is_public": True})
+
+                if not original:
+                    return None, "Flashcard set not found or not public"
+
+                new_flashcard_id = self.generate_flashcard_id()
+                cloned_document = {
+                    "flashcard_id": new_flashcard_id,
+                    "title": f"Copy of {original.get('title', 'Untitled Flashcards')}",
+                    "cards": original.get('cards', []),
+                    "creator": new_creator,
+                    "is_guest": is_guest,
+                    "session_id": session_id if is_guest else None,
+                    "source_course_id": original.get('source_course_id'),
+                    "subject": original.get('subject'),
+                    "is_public": True,
+                    "rating": 0.0,
+                    "total_ratings": 0,
+                    "popularity_score": 0.0,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                    "total_cards": original.get('total_cards', self._count_cards(original.get('cards', [])))
+                }
+
+                self.flashcards_collection.insert_one(cloned_document)
+
+                user_identifier = session_id if is_guest else new_creator
+                if user_identifier:
+                    self._add_to_user_flashcards(user_identifier, new_flashcard_id, is_guest)
+
+                return new_flashcard_id, None
+            else:
+                return None, "Database connection error."
+        except pymongo.errors.PyMongoError as e:
+            _log_error(f"MongoDB error cloning flashcard: {e}")
+            return None, f"Database error: {e}"
+        except Exception as e:
+            _log_error(f"Unexpected error cloning flashcard: {e}")
             return None, f"An unexpected error occurred: {e}"
 
     def transfer_guest_flashcards(self, session_id: str, new_user_identifier: str) -> Tuple[int, Optional[str]]:

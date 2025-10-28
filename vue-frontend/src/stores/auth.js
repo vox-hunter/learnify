@@ -44,6 +44,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!user.value)
 
+  const needsOnboarding = computed(() => isAuthenticated.value && user.value && !user.value.onboarding_completed)
+
   async function login(username, password, rememberMe = false) {
     try {
       const response = await api.post('/auth/login', { username, password })
@@ -205,13 +207,32 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Mark onboarding as complete and update storage
+  function markOnboardingComplete() {
+    if (user.value) {
+      user.value.onboarding_completed = true
+      
+      // Update localStorage
+      const userData = JSON.stringify(user.value)
+      localStorage.setItem('userData', userData)
+      
+      // Update sessionStorage if it exists
+      const sessionUserData = sessionStorage.getItem('userData')
+      if (sessionUserData) {
+        sessionStorage.setItem('userData', userData)
+      }
+    }
+  }
+
   return {
     user,
     token,
     isAuthenticated,
+    needsOnboarding,
     login,
     register,
     logout,
-    initialize
+    initialize,
+    markOnboardingComplete
   }
 })

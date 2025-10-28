@@ -462,9 +462,19 @@ export default {
       loading.value = false
 
       if (result.success) {
-        // Redirect to the original page or home
-        const redirect = route.query.redirect || '/'
-        router.push(redirect)
+        // Check if user needs to complete onboarding
+        if (authStore.needsOnboarding) {
+          const redirect = route.query.redirect || '/'
+          router.push({
+            path: '/onboarding',
+            query: { redirect },
+            replace: true  // Comment 14: Prevent back button from returning to login
+          })
+        } else {
+          // Redirect to the original page or home
+          const redirect = route.query.redirect || '/'
+          router.push(redirect)
+        }
       } else {
         error.value = result.error
       }
@@ -516,7 +526,7 @@ export default {
           const result = await authStore.register(registerForm.value)
 
           if (result.success) {
-            success.value = 'Account created successfully! You can now login.'
+            success.value = 'Account created successfully! Redirecting to setup...'
             // Clear form
             registerForm.value = {
               username: '',
@@ -528,11 +538,13 @@ export default {
             verificationCode.value = ''
             showVerification.value = false
             
-            // Switch to login tab after 2 seconds
+            // Redirect to login with onboarding destination after 1 second
             setTimeout(() => {
-              activeTab.value = 'login'
-              success.value = null
-            }, 2000)
+              router.push({
+                path: '/login',
+                query: { redirect: '/onboarding' }
+              })
+            }, 1000)
           } else {
             error.value = result.error
           }

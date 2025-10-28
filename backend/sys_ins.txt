@@ -107,6 +107,7 @@ flashcard_generation: |
   - Focused: each card tests one specific concept or fact
   - Clear: avoid ambiguity in questions and answers
   - Progressive: difficulty can increase across cards in a set
+  - For the back of each card, do NOT begin the explanation by repeating or restating the topic or term from the front. Instead, start with a direct explanation (e.g., "This allows...", "It enables...", "They are used to...") rather than "Hexadecimal system can..." or similar.
 
 pedagogical_rules: |
   1. Each section must focus on one atomic idea.

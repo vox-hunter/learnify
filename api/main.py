@@ -3,16 +3,21 @@ FastAPI Main Application
 This is the entry point for the FastAPI backend that replaces the Streamlit backend.
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, status
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, status, Request, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel, EmailStr, Field, constr, ValidationError
+from typing import Optional, List, Dict, Any, Literal
+from datetime import date
 import sys
 import os
 import logging
 import time
 import uuid
+import json
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -35,6 +40,9 @@ from mongo_course_manager import MongoCourseManager, get_session_id
 from mongo_flashcard_manager import MongoFlashcardManager
 from file_security import validate_file_security
 from chat_manager import ChatSessionManager
+from gemini_client_factory import create_gemini_client
+from google import genai
+from google.genai import types
 from google_oauth_fastapi import (
     get_google_auth_url,
     exchange_code_for_token,
@@ -54,12 +62,19 @@ app = FastAPI(
 # Allow configuring CORS origins from an environment variable for deployed environments.
 # Set ALLOWED_ORIGINS as a comma-separated list (example: https://alpha-ai-loom-frontend.onrender.com,https://app.ailoom.me)
 _allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-if _allowed_origins_env:
+_is_local = os.getenv("ENV", "").lower() == "local" or os.getenv("LOCAL_DEV", "").lower() in ("true", "1", "yes")
+
+if _is_local:
+    # When running locally, allow requests from any URL
+    _allowed_origins = ["*"]
+    print("CORS: Running in LOCAL mode - allowing requests from ANY origin")
+elif _allowed_origins_env:
     # support '*' as a special value to allow all origins
     if _allowed_origins_env.strip() == "*":
         _allowed_origins = ["*"]
     else:
         _allowed_origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
+    print(f"CORS allowed origins from environment: {_allowed_origins}")
 else:
     _allowed_origins = [
         "http://localhost:3000",
@@ -73,8 +88,7 @@ else:
         "https://ailoom.me",
         "https://g157jfrt-3000.asse.devtunnels.ms",
     ]
-
-print(f"CORS allowed origins: {_allowed_origins}")
+    print(f"CORS allowed origins (default): {_allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,6 +103,38 @@ auth_manager = None
 course_manager = None
 flashcard_manager = None
 # Note: chat_manager is NOT initialized globally - created per-request with user credentials
+
+# Comment 25: In-memory cache for AI suggestions with TTL
+_AI_SUGGESTIONS_CACHE = {}  # Key: (suggestion_type, normalized_context, max_suggestions), Value: {"suggestions": [], "timestamp": float}
+_AI_SUGGESTIONS_CACHE_TTL = 86400  # 24 hours in seconds
+
+def _normalize_context_for_cache(context: Dict[str, Any]) -> str:
+    """Normalize context dict to a stable cache key by sorting keys"""
+    sorted_items = sorted(context.items())
+    return json.dumps(sorted_items, sort_keys=True)
+
+def _get_cached_suggestions(suggestion_type: str, context: Dict[str, Any], max_suggestions: int) -> Optional[List[Dict]]:
+    """Retrieve cached suggestions if valid"""
+    cache_key = (suggestion_type, _normalize_context_for_cache(context), max_suggestions)
+    cached = _AI_SUGGESTIONS_CACHE.get(cache_key)
+    if cached:
+        # Check TTL
+        if time.time() - cached.get("timestamp", 0) < _AI_SUGGESTIONS_CACHE_TTL:
+            logger.info(f"Cache hit for AI suggestions: {suggestion_type}")
+            return cached.get("suggestions")
+        else:
+            # Expired, remove from cache
+            del _AI_SUGGESTIONS_CACHE[cache_key]
+    return None
+
+def _cache_suggestions(suggestion_type: str, context: Dict[str, Any], max_suggestions: int, suggestions: List[Dict]):
+    """Store suggestions in cache with timestamp"""
+    cache_key = (suggestion_type, _normalize_context_for_cache(context), max_suggestions)
+    _AI_SUGGESTIONS_CACHE[cache_key] = {
+        "suggestions": suggestions,
+        "timestamp": time.time()
+    }
+    logger.info(f"Cached AI suggestions for: {suggestion_type} (cache size: {len(_AI_SUGGESTIONS_CACHE)})")
 
 # In-memory store for pending Google signups (short-lived)
 # signup_token -> { 'token_response': {...}, 'user_info': {...}, 'ts': epoch_seconds }
@@ -115,6 +161,18 @@ async def startup_event():
         # chat_manager is created per-request with user OAuth credentials
     except Exception as e:
         print(f"Warning: Could not initialize managers: {e}")
+
+# Custom exception handler for Pydantic validation errors for better debugging
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom handler for Pydantic validation errors to provide detailed feedback"""
+    logger.error(f"Validation error for request to {request.url.path}: {exc.errors()}")
+    logger.error(f"Request body was: {await request.body()}")
+    return {
+        "success": False,
+        "detail": "Request validation failed",
+        "errors": [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
+    }
 
 # Pydantic models for request/response
 class UserRegister(BaseModel):
@@ -182,6 +240,52 @@ class MatchModeStatsRequest(BaseModel):
     card_count: int  # number of pairs played
     timestamp: str  # ISO timestamp
 
+class AISuggestionsRequest(BaseModel):
+    suggestion_type: Literal["exam_boards", "subjects", "courses", "institutions"]
+    context: Dict[str, Any]
+    max_suggestions: Optional[int] = 10
+
+# Onboarding Profile Models
+class StudentProfile(BaseModel):
+    year_level: Optional[str] = None
+    study_stage: Optional[str] = None
+    course_name: Optional[str] = None
+    institution_name: Optional[str] = None
+    exam_board: Optional[str] = None
+    subjects: List[str] = Field(default_factory=list)
+    learning_goals: List[str] = Field(default_factory=list)
+    learning_style: Optional[str] = None
+
+class EducatorProfile(BaseModel):
+    subjects_taught: List[str] = Field(default_factory=list)
+    stages_covered: List[str] = Field(default_factory=list)
+    exam_boards_covered: List[str] = Field(default_factory=list)
+    use_cases: List[str] = Field(default_factory=list)
+    institution_name: Optional[str] = None
+    class_size: Optional[int] = None
+
+class OnboardingProfileRequest(BaseModel):
+    date_of_birth: date
+    user_type: Literal["student", "educator"]
+    timezone: constr(min_length=1, max_length=50)
+    language_preference: constr(min_length=2, max_length=10)
+    student_profile: Optional[StudentProfile] = None
+    educator_profile: Optional[EducatorProfile] = None
+    user_intent: Optional[str] = None
+    tech_comfort_level: Optional[Literal["novice", "intermediate", "advanced"]] = None
+    ai_familiarity: Optional[Literal["beginner", "intermediate", "expert"]] = None
+
+class UpdateOnboardingProfileRequest(BaseModel):
+    date_of_birth: Optional[date] = None
+    user_type: Optional[Literal["student", "educator"]] = None
+    timezone: Optional[constr(min_length=1, max_length=50)] = None
+    language_preference: Optional[constr(min_length=2, max_length=10)] = None
+    student_profile: Optional[StudentProfile] = None
+    educator_profile: Optional[EducatorProfile] = None
+    user_intent: Optional[str] = None
+    tech_comfort_level: Optional[Literal["novice", "intermediate", "advanced"]] = None
+    ai_familiarity: Optional[Literal["beginner", "intermediate", "expert"]] = None
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -222,7 +326,8 @@ async def register(user: UserRegister):
     return {
         "success": True,
         "message": "User registered successfully",
-        "user_id": str(user_id)
+        "user_id": str(user_id),
+        "onboarding_completed": False
     }
 
 @app.post("/auth/login")
@@ -242,6 +347,10 @@ async def login(credentials: UserLogin):
     is_google_user = bool(user.get("google_id"))
     has_password = bool(user.get("password"))
     
+    # Get onboarding status
+    onboarding_profile = auth_manager.get_onboarding_profile(credentials.username)
+    onboarding_completed = onboarding_profile is not None and onboarding_profile.get("onboarding_completed", False)
+    
     return {
         "success": True,
         "username": user["username"],
@@ -250,7 +359,8 @@ async def login(credentials: UserLogin):
         "picture": user.get("picture"),
         "isAdmin": is_admin,
         "isGoogleUser": is_google_user,
-        "hasPassword": has_password
+        "hasPassword": has_password,
+        "onboarding_completed": onboarding_completed
     }
 
 # Email verification endpoints
@@ -567,6 +677,10 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
             # Check if user is admin
             is_admin = existing_user.get("email") == "vidyutsanthosh4@gmail.com"
             
+            # Get onboarding status
+            onboarding_profile = auth_manager.get_onboarding_profile(existing_user["username"])
+            onboarding_completed = onboarding_profile is not None and onboarding_profile.get("onboarding_completed", False)
+            
             print(f"[OAuth Callback] Returning isGoogleUser: {bool(google_id)} (google_id={google_id})")
             
             return {
@@ -578,7 +692,8 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
                 "isAdmin": is_admin,
                 "is_new_user": False,
                 "isGoogleUser": bool(google_id),
-                "hasPassword": has_password
+                "hasPassword": has_password,
+                "onboarding_completed": onboarding_completed
             }
         else:
             # New user - stash token_response temporarily and return token + user info for username selection
@@ -608,7 +723,8 @@ async def google_oauth_callback(fastapi_request: Request, request: Optional[Goog
                     "name": validated_user["name"],
                     "google_id": validated_user.get("google_id"),
                     "picture": validated_user.get("picture")
-                }
+                },
+                "onboarding_completed": False
             }
     
     except HTTPException:
@@ -660,7 +776,9 @@ async def check_username(username: str):
     if len(username) < 3:
         return {"available": False, "message": "Username must be at least 3 characters"}
     
-    existing_user = auth_manager.find_user_by_username(username)
+    # Query directly by username only, not by email
+    # This prevents false positives where another user's email matches the username
+    existing_user = auth_manager.users_collection.find_one({"username": username})
     return {"available": existing_user is None}
 
 
@@ -748,6 +866,9 @@ async def complete_google_signup(request: GoogleCompleteRequest):
         # Check if user is admin
         is_admin = validated_user["email"] == "vidyutsanthosh4@gmail.com"
         
+        # New users haven't completed onboarding yet
+        onboarding_completed = False
+        
         return {
             "success": True,
             "username": final_username,
@@ -757,7 +878,8 @@ async def complete_google_signup(request: GoogleCompleteRequest):
             "isAdmin": is_admin,
             "is_new_user": True,
             "isGoogleUser": True,
-            "hasPassword": False
+            "hasPassword": False,
+            "onboarding_completed": onboarding_completed
         }
     
     except HTTPException:
@@ -772,6 +894,10 @@ class UpdateProfileRequest(BaseModel):
     username: str
     name: str
     email: EmailStr
+
+class UpdateUsernameRequest(BaseModel):
+    old_username: str
+    new_username: str
 
 class ChangePasswordRequest(BaseModel):
     username: str
@@ -792,20 +918,16 @@ async def update_profile(request: UpdateProfileRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Prepare updates
+    # Prepare updates - only allow name updates
     updates = {"name": request.name}
     
-    # Only allow email change if user is not a Google user
-    if user.get("google_id"):
-        # Google user - don't allow email change
-        if request.email != user.get("email"):
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot change email for Google accounts. Please unlink your Google account first if you have a password."
-            )
-    else:
-        # Traditional user - allow email change
-        updates["email"] = request.email
+    # CRITICAL: Disable email changes for ALL logged-in users (both Google and traditional)
+    # Email should never be changeable through the profile update endpoint
+    if request.email != user.get("email"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Email cannot be changed. Contact support if you need to update your email."
+        )
     
     # Update user details
     success, error = auth_manager.update_user_details(
@@ -819,6 +941,32 @@ async def update_profile(request: UpdateProfileRequest):
     return {
         "success": True,
         "message": "Profile updated successfully"
+    }
+
+@app.put("/account/username")
+async def update_username(request: UpdateUsernameRequest):
+    """Update user's username"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    # Verify old username exists
+    user = auth_manager.find_user_by_username(request.old_username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update username
+    success, error, new_username = auth_manager.update_username(
+        old_username=request.old_username,
+        new_username=request.new_username
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error or "Failed to update username")
+    
+    return {
+        "success": True,
+        "message": "Username updated successfully",
+        "new_username": new_username
     }
 
 @app.put("/account/password")
@@ -905,6 +1053,587 @@ async def delete_account(request: DeleteAccountRequest):
         "success": True,
         "message": "Account deleted successfully"
     }
+
+# Onboarding profile endpoints
+@app.post("/onboarding/profile")
+async def store_onboarding_profile(request: OnboardingProfileRequest, username: Optional[str] = None):
+    """Store onboarding profile for a user. Raises 409 Conflict if profile already exists."""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username required")
+    
+    # Verify user exists
+    user = auth_manager.find_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if profile already exists
+    existing_profile = auth_manager.get_onboarding_profile(username)
+    if existing_profile is not None:
+        raise HTTPException(status_code=409, detail="Onboarding profile already exists. Use PUT to update.")
+    
+    # Validate conditional logic: student_type requires student_profile, educator requires educator_profile
+    if request.user_type == "student" and not request.student_profile:
+        raise HTTPException(status_code=400, detail="student_profile is required for student user type")
+    
+    if request.user_type == "educator" and not request.educator_profile:
+        raise HTTPException(status_code=400, detail="educator_profile is required for educator user type")
+    
+    # Convert Pydantic model to dict and add onboarding_completed flag
+    profile_data = request.model_dump(exclude_none=True)
+    profile_data["onboarding_completed"] = True
+    
+    # Comment 3: Convert date_of_birth to ISO string if present
+    if "date_of_birth" in profile_data:
+        dob_value = profile_data["date_of_birth"]
+        if isinstance(dob_value, date):
+            profile_data["date_of_birth"] = dob_value.isoformat()
+    
+    # Normalize inputs: convert empty strings to None for optional fields
+    if "student_profile" in profile_data:
+        sp = profile_data["student_profile"]
+        for field in ['course_name', 'institution_name', 'exam_board']:
+            if field in sp and isinstance(sp[field], str) and not sp[field].strip():
+                sp[field] = None
+    
+    if "educator_profile" in profile_data:
+        ep = profile_data["educator_profile"]
+        if 'institution_name' in ep and isinstance(ep['institution_name'], str) and not ep['institution_name'].strip():
+            ep['institution_name'] = None
+    
+    # Handle "Other" custom values - they should already be replaced in frontend
+    # but validate here for safety
+    if "student_profile" in profile_data:
+        sp = profile_data["student_profile"]
+        if sp.get('study_stage') == 'Other' or sp.get('exam_board') == 'Other':
+            logger.warning(f"User {username} submitted Other value in onboarding without custom replacement")
+    
+    # Log sanitized payload (exclude PII like DOB)
+    sanitized_log = {k: v for k, v in profile_data.items() if k != 'date_of_birth'}
+    logger.info(f"Storing onboarding profile for {username}: {json.dumps(sanitized_log, default=str)}")
+    
+    # Store profile
+    success, error = auth_manager.store_onboarding_profile(username, profile_data)
+    
+    if not success:
+        logger.error(f"Failed to store onboarding profile for {username}: {error}")
+        raise HTTPException(status_code=500, detail=f"Failed to store onboarding profile: {error or 'Unknown error'}")
+    
+    return {
+        "success": True,
+        "message": "Onboarding profile saved successfully"
+    }
+
+@app.get("/onboarding/profile")
+async def get_onboarding_profile(username: Optional[str] = None):
+    """Get onboarding profile for a user"""
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username required")
+    
+    # Retrieve profile
+    profile = auth_manager.get_onboarding_profile(username)
+    
+    if profile is None:
+        return {
+            "profile": None,
+            "onboarding_completed": False
+        }
+    
+    return {
+        "profile": profile,
+        "onboarding_completed": profile.get("onboarding_completed", False)
+    }
+
+@app.put("/onboarding/profile")
+async def update_onboarding_profile(request: UpdateOnboardingProfileRequest, username: Optional[str] = None):
+    """
+    Update onboarding profile for a user.
+    
+    SECURITY NOTE (Comment 11): The username parameter is currently passed as a query parameter
+    without server-side session validation. In a production environment, this should be replaced
+    with session-based authentication (JWT tokens, session cookies, etc.) to prevent users from
+    modifying other users' profiles by changing the username parameter.
+    
+    TODO: Implement proper session-based authentication and verify username against session token.
+    """
+    if not auth_manager:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username required")
+    
+    # Verify user exists
+    user = auth_manager.find_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert request to dict excluding None values (for partial updates)
+    profile_updates = request.model_dump(exclude_none=True)
+    
+    if not profile_updates:
+        raise HTTPException(status_code=400, detail="No fields provided for update")
+    
+    # Comment 17: Disallow user_type changes for security
+    if "user_type" in profile_updates:
+        raise HTTPException(status_code=403, detail="Changing user_type is not allowed. Contact support if you need to change your role.")
+    
+    # Get current profile to determine target user_type
+    current_profile = auth_manager.get_onboarding_profile(username)
+    if not current_profile:
+        raise HTTPException(status_code=404, detail="No onboarding profile found. Use POST to create one.")
+    
+    target_user_type = current_profile.get("user_type")
+    
+    # Comment 1: Validate that profile updates match the user_type
+    if target_user_type == "student":
+        # If updating student_profile, ensure minimal required fields are present
+        if "student_profile" in profile_updates:
+            student_prof = profile_updates["student_profile"]
+            # Check for minimal required keys
+            if isinstance(student_prof, dict):
+                # Reject empty arrays/strings for critical fields
+                year_level = student_prof.get("year_level", current_profile.get("student_profile", {}).get("year_level"))
+                study_stage = student_prof.get("study_stage", current_profile.get("student_profile", {}).get("study_stage"))
+                if not year_level or (isinstance(year_level, str) and not year_level.strip()):
+                    raise HTTPException(status_code=400, detail="student_profile.year_level cannot be empty")
+                if not study_stage or (isinstance(study_stage, str) and not study_stage.strip()):
+                    raise HTTPException(status_code=400, detail="student_profile.study_stage cannot be empty")
+    elif target_user_type == "educator":
+        # If updating educator_profile, ensure minimal required fields are present
+        if "educator_profile" in profile_updates:
+            educator_prof = profile_updates["educator_profile"]
+            if isinstance(educator_prof, dict):
+                # Reject empty arrays for critical fields
+                subjects_taught = educator_prof.get("subjects_taught", current_profile.get("educator_profile", {}).get("subjects_taught"))
+                if not subjects_taught or (isinstance(subjects_taught, list) and len(subjects_taught) == 0):
+                    raise HTTPException(status_code=400, detail="educator_profile.subjects_taught cannot be empty")
+    
+    # Comment 3: Convert date_of_birth to ISO string if present
+    if "date_of_birth" in profile_updates:
+        dob_value = profile_updates["date_of_birth"]
+        if isinstance(dob_value, date):
+            profile_updates["date_of_birth"] = dob_value.isoformat()
+    
+    # Normalize inputs: convert empty strings to None for optional fields
+    if "student_profile" in profile_updates and isinstance(profile_updates["student_profile"], dict):
+        sp = profile_updates["student_profile"]
+        for field in ['course_name', 'institution_name', 'exam_board']:
+            if field in sp and isinstance(sp[field], str) and not sp[field].strip():
+                sp[field] = None
+    
+    if "educator_profile" in profile_updates and isinstance(profile_updates["educator_profile"], dict):
+        ep = profile_updates["educator_profile"]
+        if 'institution_name' in ep and isinstance(ep['institution_name'], str) and not ep['institution_name'].strip():
+            ep['institution_name'] = None
+    
+    # Comment 4: Determine if onboarding is complete based on required fields
+    # Compute onboarding_completed based on target_user_type and required fields
+    onboarding_completed = False
+    if target_user_type == "student":
+        # After updates, check if student has minimal required fields
+        merged_student = current_profile.get("student_profile", {})
+        if "student_profile" in profile_updates and isinstance(profile_updates["student_profile"], dict):
+            merged_student = {**merged_student, **profile_updates["student_profile"]}
+        if merged_student.get("year_level") and merged_student.get("study_stage"):
+            onboarding_completed = True
+    elif target_user_type == "educator":
+        # After updates, check if educator has minimal required fields
+        merged_educator = current_profile.get("educator_profile", {})
+        if "educator_profile" in profile_updates and isinstance(profile_updates["educator_profile"], dict):
+            merged_educator = {**merged_educator, **profile_updates["educator_profile"]}
+        if merged_educator.get("subjects_taught") and len(merged_educator.get("subjects_taught", [])) > 0:
+            onboarding_completed = True
+    
+    # Set onboarding_completed in updates
+    profile_updates["onboarding_completed"] = onboarding_completed
+    
+    # Log sanitized payload (exclude PII like DOB)
+    sanitized_log = {k: v for k, v in profile_updates.items() if k != 'date_of_birth'}
+    logger.info(f"Updating onboarding profile for {username}: {json.dumps(sanitized_log, default=str)}")
+    
+    # Update profile
+    success, error = auth_manager.update_onboarding_profile(username, profile_updates)
+    
+    if not success:
+        logger.error(f"Failed to update onboarding profile for {username}: {error}")
+        raise HTTPException(status_code=500, detail=f"Failed to update onboarding profile: {error or 'Unknown error'}")
+    
+    return {
+        "success": True,
+        "message": "Onboarding profile updated successfully"
+    }
+
+@app.post("/onboarding/ai-suggestions")
+async def get_ai_suggestions(request: AISuggestionsRequest, username: Optional[str] = None):
+    """
+    Get AI-powered suggestions for onboarding fields based on context and suggestion type.
+    Supports suggestions for exam boards, subjects, courses, and institutions.
+    """
+    try:
+        # Comment 5: Sanitize and validate inputs
+        suggestion_type = request.suggestion_type
+        max_suggestions = min(max(1, request.max_suggestions or 10), 20)  # Clamp between 1-20
+        
+        # Sanitize context values: trim to 120 chars, strip HTML tags
+        sanitized_context = {}
+        for key, value in request.context.items():
+            if isinstance(value, str):
+                # Strip basic HTML tags
+                clean_val = re.sub(r'<[^>]+>', '', value)
+                # Trim to 120 chars
+                clean_val = clean_val[:120].strip()
+                sanitized_context[key] = clean_val
+            else:
+                sanitized_context[key] = value
+        
+        context = sanitized_context
+        
+        # Whitelist known stage values if present
+        if 'stage' in context:
+            known_stages = ['KS3', 'IGCSE', 'A-Level', 'IB', 'AP', 'College', 'University', 'secondary school', 'university']
+            if context['stage'] not in known_stages:
+                # Fallback to generic if unknown
+                context['stage'] = 'secondary school'
+        
+        # Comment 25: Check cache first
+        cached_suggestions = _get_cached_suggestions(suggestion_type, context, max_suggestions)
+        if cached_suggestions:
+            return {
+                "success": True,
+                "suggestion_type": suggestion_type,
+                "suggestions": cached_suggestions,
+                "count": len(cached_suggestions),
+                "cached": True
+            }
+        
+        # Retrieve user's Gemini OAuth credentials if authenticated
+        user_credentials = None
+        if username and auth_manager:
+            oauth_data = auth_manager.get_gemini_oauth(username)
+            if oauth_data:
+                # Comment 6: Use consistent keys matching create_gemini_client expectations
+                user_credentials = {
+                    'token': oauth_data.get('access_token'),  # Use 'token' key for consistency
+                    'refresh_token': oauth_data.get('refresh_token'),
+                    'token_uri': oauth_data.get('token_uri'),
+                    'client_id': oauth_data.get('client_id'),
+                    'client_secret': oauth_data.get('client_secret'),
+                    'expiry': oauth_data.get('expiry')
+                }
+                # Comment 18: Avoid logging full OAuth data (PII reduction)
+                logger.info(f"Using Gemini OAuth for user: {username}")
+        
+        # Build context-aware prompt based on suggestion type
+        if suggestion_type == "exam_boards":
+            stage = context.get('stage', 'secondary school')
+            country = context.get('country', 'worldwide')
+            prompt = f"""You are an educational expert. The user is studying {stage} in {country}.
+            
+Suggest exactly {max_suggestions} relevant exam boards and curricula that would be appropriate for this stage and location.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Board/Curriculum Name", "description": "Brief description", "regions": ["region1", "region2"]}}
+    ]
+}}
+
+Include only well-known, legitimate exam boards. Prioritize the most popular options in the specified region."""
+        
+        elif suggestion_type == "subjects":
+            stage = context.get('stage', 'secondary school')
+            exam_board = context.get('exam_board', 'any')
+            year_level = context.get('year_level', 'general')
+            prompt = f"""You are an educational expert. Suggest {max_suggestions} common subjects for {stage} students following {exam_board} curriculum at {year_level}.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Subject Name", "category": "Science/Humanities/Languages/etc", "description": "Brief description"}}
+    ]
+}}
+
+Include only real subjects commonly offered at this level. Prioritize popular and foundational subjects."""
+        
+        elif suggestion_type == "courses":
+            stage = context.get('stage', 'university')
+            prompt = f"""You are an educational expert. Suggest {max_suggestions} common courses, programs, or degree programs for {stage} level education.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Course/Program Name", "field": "Engineering/Business/Arts/etc", "description": "Brief description"}}
+    ]
+}}
+
+Include only real, legitimate degree programs and courses. Prioritize popular programs across major fields."""
+        
+        elif suggestion_type == "institutions":
+            country = context.get('country', 'worldwide')
+            stage = context.get('stage', 'university')
+            course_name = context.get('course_name', '')
+            
+            if course_name:
+                prompt = f"""You are an educational expert. Suggest {max_suggestions} well-known institutions in {country} that offer strong programs in {course_name} at the {stage} level.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Institution Name", "location": "City, Country", "type": "University/College/etc"}}
+    ]
+}}
+
+Include only accredited, well-established institutions."""
+            else:
+                prompt = f"""You are an educational expert. Suggest {max_suggestions} well-known institutions in {country} offering {stage} level education.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Institution Name", "location": "City, Country", "type": "University/College/etc"}}
+    ]
+}}
+
+Include only accredited, well-established institutions. Prioritize the most prestigious options."""
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid suggestion_type: {suggestion_type}")
+        
+        # Create Gemini client and make API call
+        client, metadata = create_gemini_client(
+            user_credentials=user_credentials,
+            username=username
+        )
+        
+        # Comment 18: Reduce verbosity in production logs
+        logger.info(f"AI suggestions: type={suggestion_type}, quota={metadata['quota_source']}")
+        
+        # Use stable model ID from environment
+        model_id = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+        
+        response = client.models.generate_content(
+            model=model_id,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.7
+            ),
+            contents=[prompt]
+        )
+        
+        if not response.text:
+            logger.warning(f"Empty AI response for {suggestion_type}")
+            raise HTTPException(status_code=500, detail="Failed to generate AI suggestions - empty response")
+        
+        # Parse and validate response
+        try:
+            suggestions_data = json.loads(response.text)
+            suggestions = suggestions_data.get("suggestions", [])
+            
+            if not isinstance(suggestions, list):
+                logger.warning(f"Invalid AI response format for {suggestion_type}")
+                raise HTTPException(status_code=500, detail="Failed to parse AI response - invalid format")
+            
+            # Validate suggestion items based on type and enforce max_suggestions limit
+            required_keys = {
+                "exam_boards": ["name", "description", "regions"],
+                "subjects": ["name", "category", "description"],
+                "courses": ["name", "field", "description"],
+                "institutions": ["name", "location", "type"]
+            }
+            
+            required_keys_for_type = required_keys.get(suggestion_type, [])
+            validated_suggestions = []
+            
+            for suggestion in suggestions:
+                if not isinstance(suggestion, dict):
+                    continue
+                
+                # Check if suggestion has all required keys
+                missing_keys = [key for key in required_keys_for_type if key not in suggestion]
+                if missing_keys:
+                    continue
+                
+                validated_suggestions.append(suggestion)
+            
+            # Enforce max_suggestions limit
+            validated_suggestions = validated_suggestions[:max_suggestions]
+            
+            # Comment 25: Cache the validated suggestions
+            _cache_suggestions(suggestion_type, context, max_suggestions, validated_suggestions)
+            
+            logger.info(f"AI suggestions generated: {len(validated_suggestions)} items")
+            
+            return {
+                "success": True,
+                "suggestion_type": suggestion_type,
+                "suggestions": validated_suggestions,
+                "count": len(validated_suggestions)
+            }
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error in AI suggestions: {e}")
+            raise HTTPException(status_code=500, detail="Failed to parse AI response - invalid JSON")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in AI suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI suggestion generation failed: {str(e)}")
+        
+        if suggestion_type == "exam_boards":
+            stage = context.get('stage', 'secondary school')
+            country = context.get('country', 'worldwide')
+            prompt = f"""You are an educational expert. The user is studying {stage} in {country}.
+            
+Suggest exactly {max_suggestions} relevant exam boards and curricula that would be appropriate for this stage and location.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Board/Curriculum Name", "description": "Brief description", "regions": ["region1", "region2"]}}
+    ]
+}}
+
+Include only well-known, legitimate exam boards. Prioritize the most popular options in the specified region."""
+        
+        elif suggestion_type == "subjects":
+            stage = context.get('stage', 'secondary school')
+            exam_board = context.get('exam_board', 'any')
+            year_level = context.get('year_level', 'general')
+            prompt = f"""You are an educational expert. Suggest {max_suggestions} common subjects for {stage} students following {exam_board} curriculum at {year_level}.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Subject Name", "category": "Science/Humanities/Languages/etc", "description": "Brief description"}}
+    ]
+}}
+
+Include only real subjects commonly offered at this level. Prioritize popular and foundational subjects."""
+        
+        elif suggestion_type == "courses":
+            stage = context.get('stage', 'university')
+            prompt = f"""You are an educational expert. Suggest {max_suggestions} common courses, programs, or degree programs for {stage} level education.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Course/Program Name", "field": "Engineering/Business/Arts/etc", "description": "Brief description"}}
+    ]
+}}
+
+Include only real, legitimate degree programs and courses. Prioritize popular programs across major fields."""
+        
+        elif suggestion_type == "institutions":
+            country = context.get('country', 'worldwide')
+            stage = context.get('stage', 'university')
+            course_name = context.get('course_name', '')
+            
+            if course_name:
+                prompt = f"""You are an educational expert. Suggest {max_suggestions} well-known institutions in {country} that offer strong programs in {course_name} at the {stage} level.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Institution Name", "location": "City, Country", "type": "University/College/etc"}}
+    ]
+}}
+
+Include only accredited, well-established institutions."""
+            else:
+                prompt = f"""You are an educational expert. Suggest {max_suggestions} well-known institutions in {country} offering {stage} level education.
+
+Return a JSON object with this structure:
+{{
+    "suggestions": [
+        {{"name": "Institution Name", "location": "City, Country", "type": "University/College/etc"}}
+    ]
+}}
+
+Include only accredited, well-established institutions. Prioritize the most prestigious options."""
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid suggestion_type: {suggestion_type}")
+        
+        # Create Gemini client and make API call
+        client, metadata = create_gemini_client(
+            user_credentials=user_credentials,
+            username=username
+        )
+        
+        logger.info(f"Getting AI suggestions for {suggestion_type} using quota_source={metadata['quota_source']}, user={username or 'guest'}")
+        
+        # Read model ID from environment to stay consistent with ChatSessionManager
+        model_id = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+        
+        response = client.models.generate_content(
+            model=model_id,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.7
+            ),
+            contents=[prompt]
+        )
+        
+        if not response.text:
+            logger.warning(f"Empty response from AI suggestions for {suggestion_type}")
+            raise HTTPException(status_code=500, detail="Failed to generate AI suggestions - empty response")
+        
+        # Parse and validate response
+        try:
+            suggestions_data = json.loads(response.text)
+            suggestions = suggestions_data.get("suggestions", [])
+            
+            if not isinstance(suggestions, list):
+                logger.warning(f"AI suggestions response does not contain valid suggestions array")
+                raise HTTPException(status_code=500, detail="Failed to parse AI response - invalid format")
+            
+            # Validate suggestion items based on type and enforce max_suggestions limit
+            required_keys = {
+                "exam_boards": ["name", "description", "regions"],
+                "subjects": ["name", "category", "description"],
+                "courses": ["name", "field", "description"],
+                "institutions": ["name", "location", "type"]
+            }
+            
+            required_keys_for_type = required_keys.get(suggestion_type, [])
+            validated_suggestions = []
+            
+            for suggestion in suggestions:
+                if not isinstance(suggestion, dict):
+                    logger.warning(f"Skipping non-dict suggestion in {suggestion_type}")
+                    continue
+                
+                # Check if suggestion has all required keys
+                missing_keys = [key for key in required_keys_for_type if key not in suggestion]
+                if missing_keys:
+                    logger.warning(f"Suggestion in {suggestion_type} missing keys {missing_keys}: {suggestion}")
+                    continue
+                
+                validated_suggestions.append(suggestion)
+            
+            # Enforce max_suggestions limit
+            validated_suggestions = validated_suggestions[:max_suggestions]
+            
+            logger.info(f"AI generated {len(validated_suggestions)} validated suggestions for {suggestion_type} (quota_source={metadata['quota_source']})")
+            
+            return {
+                "success": True,
+                "suggestion_type": suggestion_type,
+                "suggestions": validated_suggestions,
+                "count": len(validated_suggestions)
+            }
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI suggestions response as JSON: {e}")
+            raise HTTPException(status_code=500, detail="Failed to parse AI response - invalid JSON")
+    
+    except Exception as e:
+        logger.error(f"Error generating AI suggestions for {request.suggestion_type}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI suggestion generation failed: {str(e)}")
 
 # Quiz validation endpoints
 @app.post("/quiz/validate-answer")
@@ -1069,6 +1798,66 @@ async def get_progress(course_id: str, username: Optional[str] = None):
     return progress or {"answered_questions": [], "score": 0, "current_section_index": 0, "answer_data": {}}
 
 
+# Public Library endpoints
+@app.get("/library/content")
+async def get_library_content(
+    content_type: str = Query("both", pattern="^(courses|flashcards|both)$"),
+    page: int = 0,
+    limit: int = 20,
+    sort_by: str = 'created_at',
+    sort_order: int = -1,
+    q: Optional[str] = None,
+    subject: Optional[str] = None
+):
+    """Unified endpoint returning public courses and flashcards"""
+    include_courses = content_type in {"courses", "both"}
+    include_flashcards = content_type in {"flashcards", "both"}
+
+    if include_courses and course_manager is None:
+        raise HTTPException(status_code=503, detail="Course manager unavailable")
+    if include_flashcards and flashcard_manager is None:
+        raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+
+    courses: List[Dict[str, Any]] = []
+    flashcards: List[Dict[str, Any]] = []
+    has_more = {"courses": False, "flashcards": False}
+
+    if include_courses:
+        cm: MongoCourseManager = course_manager  # type: ignore[assignment]
+        if q:
+            courses, error = cm.search_public_courses(q, page, limit)
+        elif subject:
+            courses, error = cm.get_courses_by_subject(subject, page, limit)
+        else:
+            courses, error = cm.get_public_courses(page, limit, sort_by, sort_order)
+
+        if error:
+            raise HTTPException(status_code=500, detail=error)
+
+        courses = courses or []
+        has_more["courses"] = len(courses) == limit
+
+    if include_flashcards:
+        fm: MongoFlashcardManager = flashcard_manager  # type: ignore[assignment]
+        if q:
+            flashcards, error = fm.search_public_flashcards(q, page, limit)
+        elif subject:
+            flashcards, error = fm.get_public_flashcards_by_subject(subject, page, limit)
+        else:
+            flashcards, error = fm.get_public_flashcards(page, limit, sort_by, sort_order)
+
+        if error:
+            raise HTTPException(status_code=500, detail=error)
+
+        flashcards = flashcards or []
+        has_more["flashcards"] = len(flashcards) == limit
+
+    return {
+        "courses": courses,
+        "flashcards": flashcards,
+        "has_more": has_more
+    }
+
 # Public Course Library endpoints
 @app.get("/library/courses")
 async def get_public_courses(
@@ -1123,6 +1912,71 @@ async def get_courses_by_subject(
         raise HTTPException(status_code=500, detail=error)
     
     return {"courses": courses or []}
+
+
+    @app.get("/library/flashcards")
+    async def get_public_flashcards(
+        page: int = 0,
+        limit: int = 20,
+        sort_by: str = 'created_at',
+        sort_order: int = -1
+    ):
+        """Get paginated list of public flashcards"""
+        if not flashcard_manager:
+            raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+
+        fm: MongoFlashcardManager = flashcard_manager  # type: ignore[assignment]
+        flashcards, error = fm.get_public_flashcards(page, limit, sort_by, sort_order)
+
+        if error:
+            raise HTTPException(status_code=500, detail=error)
+
+        return {"flashcards": flashcards or []}
+
+
+    @app.post("/library/flashcard/{flashcard_id}/rate")
+    async def rate_flashcard(flashcard_id: str, request: RateCourseRequest, username: Optional[str] = None):
+        """Rate a public flashcard set (1-5 stars)"""
+        if not flashcard_manager:
+            raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+
+        user_identifier = username or get_session_id()
+        fm: MongoFlashcardManager = flashcard_manager  # type: ignore[assignment]
+
+        success, error = fm.rate_flashcard(flashcard_id, user_identifier, request.rating)
+
+        if error:
+            raise HTTPException(status_code=400, detail=error)
+
+        return {"success": success}
+
+
+    @app.post("/library/flashcard/{flashcard_id}/clone")
+    async def clone_flashcard(flashcard_id: str, username: Optional[str] = None):
+        """Clone a public flashcard set to the user's account"""
+        if not flashcard_manager:
+            raise HTTPException(status_code=503, detail="Flashcard manager unavailable")
+
+        is_guest = username is None
+        user_identifier = username or get_session_id()
+        session_id = get_session_id() if is_guest else None
+
+        fm: MongoFlashcardManager = flashcard_manager  # type: ignore[assignment]
+        new_flashcard_id, error = fm.clone_flashcard(
+            flashcard_id=flashcard_id,
+            new_creator=user_identifier,
+            is_guest=is_guest,
+            session_id=session_id
+        )
+
+        if error:
+            raise HTTPException(status_code=400, detail=error)
+
+        return {
+            "success": True,
+            "flashcard_id": new_flashcard_id,
+            "message": "Flashcard set cloned successfully"
+        }
 
 
 @app.post("/library/course/{course_id}/rate")
@@ -1296,7 +2150,7 @@ async def generate_flashcards_from_course(
         # Initialize chat manager with user credentials
         chat_manager = ChatSessionManager(
             user_credentials=user_credentials,
-            username=username or (user_identifier if is_guest else username)
+            username=username
         )
         
         # Send message to AI for flashcard generation
@@ -1729,6 +2583,11 @@ async def chat_message(
         if '_NON_OAUTH_CHAT_USAGE' not in globals():
             _NON_OAUTH_CHAT_USAGE = {}
 
+        # Whitelist of emails with unlimited chat access (bypass rate limiting)
+        UNLIMITED_CHAT_ACCESS_EMAILS = {
+            'vidyutsanthosh4@gmail.com'
+        }
+        
         # If no username provided -> guest behavior
         if not username:
             # Return a fake AI reply so frontend can render it naturally
@@ -1758,29 +2617,49 @@ async def chat_message(
                 logger.info(f"Retrieved Gemini OAuth credentials for chat user: {username}")
             else:
                 # User is logged in but does not have Gemini/Google OAuth linked.
-                # Enforce 10-request free limit.
-                current = globals().get('_NON_OAUTH_CHAT_USAGE', {}).get(username, 0)
-                if current >= 10:
-                    # Return polite assistant-style reply forcing Google login
-                    return {
-                        "success": True,
-                        "reply": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
-                        "session_id": "",
-                        "is_course": False,
-                        "is_flashcard": False
-                    }
-                # Increment usage and allow request to proceed
-                # Update the module-level counter safely
-                usage = globals().get('_NON_OAUTH_CHAT_USAGE', {})
-                usage[username] = current + 1
-                globals()['_NON_OAUTH_CHAT_USAGE'] = usage
-                logger.info(f"Non-OAuth chat usage for {username}: {usage[username]}")
+                # Comment 7: Fetch user email for whitelist comparison instead of username
+                user_email = None
+                if auth_manager:
+                    user_doc = auth_manager.find_user_by_username(username)
+                    if user_doc:
+                        user_email = user_doc.get('email')
+                
+                # Check if user email is whitelisted for unlimited access
+                if user_email and user_email in UNLIMITED_CHAT_ACCESS_EMAILS:
+                    logger.info(f"User {username} ({user_email}) has unlimited chat access (whitelisted)")
+                else:
+                    # Enforce 10-request free limit for non-whitelisted users
+                    current = globals().get('_NON_OAUTH_CHAT_USAGE', {}).get(username, 0)
+                    if current >= 10:
+                        # Return polite assistant-style reply forcing Google login
+                        return {
+                            "success": True,
+                            "reply": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
+                            "session_id": "",
+                            "is_course": False,
+                            "is_flashcard": False
+                        }
+                    # Increment usage and allow request to proceed
+                    usage = globals().get('_NON_OAUTH_CHAT_USAGE', {})
+                    usage[username] = current + 1
+                    globals()['_NON_OAUTH_CHAT_USAGE'] = usage
+                    logger.info(f"Non-OAuth chat usage for {username}: {usage[username]}")
         
-        # Create chat manager with user credentials
+        # Fetch user onboarding profile for personalization
+        user_profile = None
+        if username and auth_manager:
+            user_profile = auth_manager.get_onboarding_profile(username)
+            if user_profile:
+                logger.info(f"Retrieved onboarding profile for user: {username}")
+            else:
+                logger.info(f"No onboarding profile found for user: {username}")
+        
+        # Create chat manager with user credentials and profile
         chat_manager = ChatSessionManager(
             user_credentials=user_credentials,
             username=username,
-            quota_project_id=quota_project_id
+            quota_project_id=quota_project_id,
+            user_profile=user_profile
         )
         
         file_data = None
@@ -1851,6 +2730,231 @@ async def chat_message(
         logger.error(f"Error in chat_message: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/chat/message/stream")
+async def chat_message_stream(
+    request: Request,
+    message: str,
+    session_id: Optional[str] = None,
+    url: Optional[str] = None,
+    username: Optional[str] = None
+):
+    """
+    Stream chat messages using Server-Sent Events (SSE).
+    
+    Note: File uploads are not supported in GET/SSE requests. 
+    Upload files via POST /chat/message first, then use streaming for follow-up messages.
+    
+    Args:
+        request: FastAPI Request object for disconnect detection
+        message: User's text message (query parameter)
+        session_id: Optional existing session ID to continue conversation
+        url: Optional URL for AI to fetch and analyze
+        username: Optional username for OAuth credentials
+        
+    Returns:
+        EventSource stream with events:
+        - status: Activity indicators (thinking, searching, generating)
+        - chunk: Text content chunks
+        - course: Course data when detected
+        - flashcard: Flashcard data when detected
+        - complete: Final event with session_id
+        - error: Error information
+    """
+    async def event_generator(request: Request):
+        """Generate SSE events from chat stream"""
+        try:
+            # --- Access control rules (same as POST endpoint) ---
+            GUEST_FAKE_REPLY = "You need to be logged in to use AI features, if you want to try AI Generated course, checkout \"library\" for community generated courses."
+            
+            # Log streaming start
+            logger.info(f"Starting SSE stream for user={username}, session={session_id}, message_preview={message[:50] if message else 'N/A'}...")
+            
+            # Whitelist of emails with unlimited chat access (bypass rate limiting)
+            UNLIMITED_CHAT_ACCESS_EMAILS = {
+                'vidyutsanthosh4@gmail.com'
+            }
+            
+            # Initialize non-OAuth usage counter if needed
+            if '_NON_OAUTH_CHAT_USAGE' not in globals():
+                globals()['_NON_OAUTH_CHAT_USAGE'] = {}
+            
+            # Guest user check
+            if not username:
+                yield {
+                    "event": "chunk",
+                    "data": GUEST_FAKE_REPLY,
+                    "id": str(uuid.uuid4())
+                }
+                yield {
+                    "event": "complete",
+                    "data": json.dumps({"session_id": ""}),
+                    "id": str(uuid.uuid4())
+                }
+                return
+            
+            # Retrieve user's Gemini OAuth credentials
+            user_credentials = None
+            quota_project_id = None
+            if username and auth_manager:
+                oauth_data = auth_manager.get_gemini_oauth(username)
+                if oauth_data:
+                    user_credentials = {
+                        'token': oauth_data.get('access_token'),
+                        'refresh_token': oauth_data.get('refresh_token'),
+                        'token_uri': oauth_data.get('token_uri'),
+                        'client_id': oauth_data.get('client_id'),
+                        'client_secret': oauth_data.get('client_secret'),
+                        'expiry': oauth_data.get('expiry')
+                    }
+                    quota_project_id = oauth_data.get('quota_project_id')
+                    logger.info(f"Retrieved Gemini OAuth credentials for streaming chat user: {username}")
+                else:
+                    # Check if user is whitelisted for unlimited access
+                    if username not in UNLIMITED_CHAT_ACCESS_EMAILS:
+                        # 10-request free limit for non-OAuth users
+                        current = globals().get('_NON_OAUTH_CHAT_USAGE', {}).get(username, 0)
+                        if current >= 10:
+                            yield {
+                                "event": "chunk",
+                                "data": "You've reached the 10 free chat requests. Please login with Google to continue using AI features.",
+                                "id": str(uuid.uuid4())
+                            }
+                            yield {
+                                "event": "complete",
+                                "data": json.dumps({"session_id": ""}),
+                                "id": str(uuid.uuid4())
+                            }
+                            return
+                        # Increment usage counter
+                        usage = globals().get('_NON_OAUTH_CHAT_USAGE', {})
+                        usage[username] = current + 1
+                        globals()['_NON_OAUTH_CHAT_USAGE'] = usage
+                        logger.info(f"Non-OAuth streaming chat usage for {username}: {usage[username]}")
+                    else:
+                        # User is whitelisted for unlimited access, skip rate limiting
+                        logger.info(f"User {username} has unlimited chat access (whitelisted)")
+            
+            # Fetch user onboarding profile for personalization
+            user_profile = None
+            if username and auth_manager:
+                user_profile = auth_manager.get_onboarding_profile(username)
+                if user_profile:
+                    logger.info(f"Retrieved onboarding profile for streaming user: {username}")
+                else:
+                    logger.info(f"No onboarding profile found for streaming user: {username}")
+            
+            # Create chat manager with user credentials and profile
+            chat_manager = ChatSessionManager(
+                user_credentials=user_credentials,
+                username=username,
+                quota_project_id=quota_project_id,
+                user_profile=user_profile
+            )
+            
+            # Stream messages from chat manager
+            for event in chat_manager.send_message_stream(
+                session_id=session_id,
+                message=message,
+                file_data=None,  # Not supported in GET requests
+                file_mime_type=None,
+                url=url
+            ):
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected from streaming session: user={username}, session={session_id}")
+                    break
+                
+                # Yield SSE event
+                event_type = event.get('type', 'chunk')
+                event_id = str(uuid.uuid4())
+                
+                if event_type == 'status':
+                    yield {
+                        "event": "status",
+                        "data": json.dumps({
+                            "type": event.get('activity_type'),
+                            "message": event.get('message'),
+                            "action": event.get('action')
+                        }),
+                        "id": event_id,
+                        "retry": 3000
+                    }
+                elif event_type == 'chunk':
+                    yield {
+                        "event": "chunk",
+                        "data": json.dumps({
+                            "text": event.get('text', ''),
+                            "seq": event.get('seq', 0)
+                        }),
+                        "id": event_id
+                    }
+                elif event_type == 'course':
+                    yield {
+                        "event": "course",
+                        "data": json.dumps({
+                            "data": event.get('data'),
+                            "idempotency_id": event.get('idempotency_id')
+                        }),
+                        "id": event_id
+                    }
+                elif event_type == 'flashcard':
+                    yield {
+                        "event": "flashcard",
+                        "data": json.dumps({
+                            "data": event.get('data'),
+                            "idempotency_id": event.get('idempotency_id')
+                        }),
+                        "id": event_id
+                    }
+                elif event_type == 'complete':
+                    yield {
+                        "event": "complete",
+                        "data": json.dumps({"session_id": event.get('session_id')}),
+                        "id": event_id
+                    }
+                elif event_type == 'error':
+                    error_type = event.get('error_type', 'internal_error')
+                    retriable = event.get('retriable', True)
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({
+                            "error": event.get('error'),
+                            "error_type": error_type,
+                            "retriable": retriable
+                        }),
+                        "id": event_id
+                    }
+        
+        except HTTPException as http_exc:
+            logger.error(f"HTTP error in streaming for user={username}, session={session_id}: {http_exc.detail}")
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "error": http_exc.detail,
+                    "error_type": "http_error",
+                    "retriable": False
+                }),
+                "id": str(uuid.uuid4())
+            }
+        except Exception as e:
+            logger.error(f"Error in chat_message_stream for user={username}, session={session_id}: {str(e)}", exc_info=True)
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "error": str(e),
+                    "error_type": "internal_error",
+                    "retriable": True
+                }),
+                "id": str(uuid.uuid4())
+            }
+    
+    return EventSourceResponse(
+        event_generator(request),
+        headers={"Cache-Control": "no-cache"},
+        ping=10,
+        send_timeout=60
+    )
+
 @app.get("/chat/history/{session_id}")
 async def get_chat_history(
     session_id: str,
@@ -1858,6 +2962,15 @@ async def get_chat_history(
 ):
     """
     Get conversation history for a chat session.
+    
+    SECURITY NOTE (Comment 24): This endpoint does not verify session ownership.
+    A user could potentially access another user's chat history by providing a
+    different session_id. In production, implement session ownership verification:
+    1. Store username/user_id with each session when created
+    2. Verify the requesting username matches the session owner
+    3. Return 403 Forbidden if ownership check fails
+    
+    TODO: Add session ownership validation before returning history.
     
     Args:
         session_id: The chat session identifier

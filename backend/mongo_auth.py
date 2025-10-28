@@ -141,7 +141,8 @@ class MongoAuthManager:
                 "created_at": datetime.utcnow().isoformat(),
                 "google_id": google_id,  # Store Google ID for linking
                 "google_linked": google_linked,  # Flag to indicate if account is linked to Google
-                "gemini_oauth": None  # Placeholder for Gemini OAuth credentials (to be set separately)
+                "gemini_oauth": None,  # Placeholder for Gemini OAuth credentials (to be set separately)
+                "onboarding_profile": None  # Placeholder for onboarding profile (to be set separately)
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None
@@ -290,7 +291,8 @@ class MongoAuthManager:
                 "marketing_consent": marketing_consent,
                 "created_at": datetime.utcnow().isoformat(),
                 "google_id": google_id,
-                "google_linked": True
+                "google_linked": True,
+                "onboarding_profile": None  # Placeholder for onboarding profile (to be set separately)
             }
             result = self.users_collection.insert_one(user_data)
             return result.inserted_id, None, final_username
@@ -365,17 +367,16 @@ class MongoAuthManager:
         if "password" in updates:
             return False, "Password updates should be done via update_user_password."
         
+        # Prevent email updates through this method - emails should never be changeable
+        if "email" in updates:
+            return False, "Email cannot be changed."
+        
         # If username is being updated, check if the new username already exists
+        # Make sure to only check the username field, not email
         if "username" in updates:
             existing_user = self.users_collection.find_one({"username": updates["username"]})
-            if existing_user and existing_user["username"] != username:
+            if existing_user and existing_user.get("username") != username:
                 return False, "Username already taken, Please choose another one"
-        
-        # If email is being updated, check if the new email already exists for another user
-        if "email" in updates:
-            existing_user = self.users_collection.find_one({"email": updates["email"]})
-            if existing_user and existing_user["username"] != username:
-                return False, "Email already registered by another user."
 
         try:
             result = self.users_collection.update_one(
@@ -394,6 +395,58 @@ class MongoAuthManager:
         except Exception as e:
             _log_error(f"Unexpected error updating user details: {e}")
             return False, f"An unexpected error occurred: {e}"
+
+    def update_username(self, old_username, new_username):
+        """
+        Update user's username with uniqueness validation.
+        Email cannot be changed through this method.
+        
+        Args:
+            old_username: Current username
+            new_username: Desired new username
+        
+        Returns:
+            tuple: (success: bool, error_message: str or None, new_username: str or None)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error.", None
+        
+        # Validate new username
+        if not new_username or not isinstance(new_username, str):
+            return False, "Username must be a non-empty string.", None
+        
+        if len(new_username) < 3:
+            return False, "Username must be at least 3 characters long.", None
+        
+        if new_username == old_username:
+            return False, "New username must be different from current username.", None
+        
+        # Check if new username already exists
+        existing_user = self.users_collection.find_one({"username": new_username})
+        if existing_user:
+            return False, "This username is already taken. Please choose another one.", None
+        
+        # Find current user
+        current_user = self.users_collection.find_one({"username": old_username})
+        if not current_user:
+            return False, "User not found.", None
+        
+        try:
+            result = self.users_collection.update_one(
+                {"username": old_username},
+                {"$set": {"username": new_username}}
+            )
+            
+            if result.modified_count > 0:
+                return True, None, new_username
+            else:
+                return False, "Failed to update username.", None
+        except pymongo_errors.PyMongoError as e:
+            _log_error(f"MongoDB error updating username: {e}")
+            return False, f"Database error: {e}", None
+        except Exception as e:
+            _log_error(f"Unexpected error updating username: {e}")
+            return False, f"An unexpected error occurred: {e}", None
 
     # --- Config loading/saving methods (adapted from original 2_🔐_Login.py) ---
     # These methods were originally in 2_🔐_Login.py and are related to 'authenticate.yaml'
@@ -545,6 +598,158 @@ class MongoAuthManager:
         except Exception as e:
             _log_error(f"Error marking email as verified: {e}")
             return False, f"Database error: {e}"
+
+    def store_onboarding_profile(self, username, profile_data):
+        """
+        Store onboarding profile for a user.
+        
+        Args:
+            username: Username to store profile for
+            profile_data: Dictionary containing:
+                - date_of_birth: ISO date format string
+                - user_type: "student" or "educator"
+                - timezone: Timezone string (e.g., "America/New_York")
+                - language_preference: Language code (e.g., "en", "es")
+                - onboarding_completed: Boolean flag
+                - student_profile: Optional nested StudentProfile object (if user_type is "student")
+                - educator_profile: Optional nested EducatorProfile object (if user_type is "educator")
+                - user_intent: Optional string
+                - tech_comfort_level: Optional string ("novice", "intermediate", "advanced")
+                - ai_familiarity: Optional string ("beginner", "intermediate", "expert")
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            # Locate the user using the shared helper to support username or email identifiers
+            user = self.find_user_by_username(username)
+            if not user:
+                _log_error(f"store_onboarding_profile: no user found for identifier {username}")
+            if not user:
+                return False, "User not found."
+
+            # Wrap the $set operation with detailed error handling
+            try:
+                result = self.users_collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"onboarding_profile": profile_data}}
+                )
+            except Exception as set_error:
+                # Log exact exception details for BSON type errors and other $set failures
+                error_type = type(set_error).__name__
+                error_msg = str(set_error)
+                _log_error(f"$set operation failed in store_onboarding_profile: {error_type} - {error_msg}")
+                _log_error(f"Profile data keys: {list(profile_data.keys()) if profile_data else 'None'}")
+                raise
+            
+            if result.modified_count > 0 or result.matched_count > 0:
+                return True, None
+            else:
+                return False, "User not found."
+        except pymongo_errors.PyMongoError as e:
+            error_details = f"{type(e).__name__}: {str(e)}"
+            _log_error(f"MongoDB error storing onboarding profile - {error_details}")
+            return False, f"Database error: {error_details}"
+        except Exception as e:
+            error_details = f"{type(e).__name__}: {str(e)}"
+            _log_error(f"Unexpected error storing onboarding profile - {error_details}")
+            return False, f"An unexpected error occurred: {error_details}"
+
+    def get_onboarding_profile(self, username):
+        """
+        Retrieve onboarding profile for a user.
+        
+        Args:
+            username: Username to retrieve profile for
+        
+        Returns:
+            dict: Onboarding profile data or None if not found
+        """
+        if not self._ensure_connection():
+            return None
+        
+        try:
+            user = self.users_collection.find_one({"username": username})
+            if user:
+                return user.get("onboarding_profile")
+            return None
+        except pymongo_errors.PyMongoError as e:
+            _log_error(f"MongoDB error retrieving onboarding profile: {e}")
+            return None
+        except Exception as e:
+            _log_error(f"Unexpected error retrieving onboarding profile: {e}")
+            return None
+
+    def update_onboarding_profile(self, username, profile_updates):
+        """
+        Update onboarding profile fields for a user with deep merge support.
+        
+        For nested dicts like student_profile or educator_profile, this method
+        performs a deep merge by setting individual nested keys rather than
+        replacing the entire nested object.
+        
+        Args:
+            username: Username to update
+            profile_updates: Dictionary with partial or full profile data to update
+        
+        Returns:
+            tuple: (success: bool, error_message: str)
+        """
+        if not self._ensure_connection():
+            return False, "Database connection error."
+        
+        try:
+            # Locate the user using the shared helper to support username or email identifiers
+            user = self.find_user_by_username(username)
+            if not user:
+                _log_error(f"update_onboarding_profile: no user found for identifier {username}")
+            if not user:
+                return False, "User not found."
+
+            # Comment 2: Detect dict values for student_profile/educator_profile and deep merge
+            update_dict = {}
+            for key, value in profile_updates.items():
+                # Deep merge for nested profile objects
+                if key in ["student_profile", "educator_profile"] and isinstance(value, dict):
+                    # Iterate inner keys and set individually for deep merge
+                    for field_key, field_value in value.items():
+                        update_dict[f"onboarding_profile.{key}.{field_key}"] = field_value
+                else:
+                    # For non-dict values and top-level keys, overwrite behavior
+                    update_dict[f"onboarding_profile.{key}"] = value
+            
+            # Wrap the $set operation with detailed error handling
+            try:
+                result = self.users_collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": update_dict}
+                )
+            except Exception as set_error:
+                # Log exact exception details for BSON type errors and other $set failures
+                error_type = type(set_error).__name__
+                error_msg = str(set_error)
+                _log_error(f"$set operation failed in update_onboarding_profile: {error_type} - {error_msg}")
+                _log_error(f"Update dict keys: {list(update_dict.keys()) if update_dict else 'None'}")
+                raise
+            
+            if result.modified_count > 0:
+                return True, None
+            elif result.matched_count > 0:
+                # Matched but no changes made
+                return True, None
+            else:
+                return False, "User not found."
+        except pymongo_errors.PyMongoError as e:
+            error_details = f"{type(e).__name__}: {str(e)}"
+            _log_error(f"MongoDB error updating onboarding profile - {error_details}")
+            return False, f"Database error: {error_details}"
+        except Exception as e:
+            error_details = f"{type(e).__name__}: {str(e)}"
+            _log_error(f"Unexpected error updating onboarding profile - {error_details}")
+            return False, f"An unexpected error occurred: {error_details}"
     
     def cleanup_expired_codes(self):
         """Remove expired verification codes"""

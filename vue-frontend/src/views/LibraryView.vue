@@ -1,7 +1,6 @@
 <template>
   <div class="library-view">
     <div class="container">
-      <!-- In-app notification (shows success / error messages) -->
       <div
         v-if="showNotification"
         :class="['app-notification', notificationType]"
@@ -10,33 +9,47 @@
       </div>
       <div class="library-header">
         <h1 class="page-title">
-          Course Library
+          Library
         </h1>
         <p class="page-subtitle">
-          Explore and learn from courses created by the community
+          Explore and learn from courses and flashcards created by the community
         </p>
 
-        <!-- Search Bar -->
         <div class="search-section">
           <div class="search-bar">
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search courses by title, topic, or keyword..."
+              placeholder="Search the library by title, topic, or keyword..."
               class="search-input"
-              @keyup.enter="searchCourses"
+              @keyup.enter="searchLibrary"
             >
             <button
               class="search-btn"
               :disabled="loading"
-              @click="searchCourses"
+              @click="searchLibrary"
             >
               🔍
             </button>
           </div>
 
-          <!-- Subject Filter -->
           <div class="filter-section">
+            <select
+              v-model="contentType"
+              class="type-filter"
+              @change="onContentTypeChange"
+            >
+              <option value="both">
+                Courses & Flashcards
+              </option>
+              <option value="courses">
+                Courses Only
+              </option>
+              <option value="flashcards">
+                Flashcards Only
+              </option>
+            </select>
+
             <select
               v-model="selectedSubject"
               class="subject-filter"
@@ -80,7 +93,7 @@
             <select
               v-model="sortBy"
               class="sort-filter"
-              @change="loadCourses"
+              @change="onSortChange"
             >
               <option value="created_at">
                 Newest First
@@ -99,32 +112,30 @@
         </div>
       </div>
 
-      <!-- Loading State -->
       <div
         v-if="loading"
         class="loading-state"
       >
         <div class="spinner" />
-        <p>Loading courses...</p>
+        <p>Loading library items...</p>
       </div>
 
-      <!-- Empty State -->
       <div
-        v-else-if="courses.length === 0"
+        v-else-if="libraryItems.length === 0"
         class="empty-state card"
       >
         <div class="empty-icon">
           📚
         </div>
-        <h2>No courses found</h2>
+        <h2>No items found</h2>
         <p v-if="searchQuery">
-          Try searching with different keywords or browse all courses.
+          Try different keywords or browse all items.
         </p>
         <p v-else>
-          No public courses available yet. Be the first to create one!
+          No community items available yet. Be the first to share one!
         </p>
         <button
-          v-if="searchQuery || selectedSubject"
+          v-if="searchQuery || selectedSubject || contentType !== 'both'"
           class="btn btn-secondary"
           @click="clearFilters"
         >
@@ -132,104 +143,192 @@
         </button>
       </div>
 
-      <!-- Courses Grid -->
       <div
         v-else
-        class="courses-grid"
+        class="library-grid"
       >
         <div
-          v-for="course in courses"
-          :key="course.course_id"
-          class="course-card card"
+          v-for="item in libraryItems"
+          :key="`${item.type}-${item.id}`"
+          :class="['card', item.type === 'course' ? 'course-card' : 'flashcard-card']"
         >
-          <div class="course-card-header">
-            <h3 class="course-card-title">
-              <div v-html="renderMarkdown(course.course_title || 'Untitled Course')" />
-            </h3>
-            <div
-              v-if="course.rating > 0"
-              class="course-rating"
-            >
-              <span class="stars">
-                {{ getStarRating(course.rating) }}
-              </span>
-              <span class="rating-text">{{ course.rating.toFixed(1) }}</span>
-              <span class="rating-count">({{ course.total_ratings || 0 }})</span>
+          <template v-if="item.type === 'course'">
+            <div class="course-card-header">
+              <h3 class="library-card-title">
+                <div v-html="renderMarkdown(item.raw.course_title || 'Untitled Course')" />
+              </h3>
+              <div
+                v-if="item.rating > 0"
+                class="course-rating"
+              >
+                <span class="stars">
+                  {{ getStarRating(item.rating) }}
+                </span>
+                <span class="rating-text">{{ item.rating.toFixed(1) }}</span>
+                <span class="rating-count">({{ item.totalRatings }})</span>
+              </div>
             </div>
-          </div>
 
-          <div
-            v-if="course.description"
-            class="course-description"
-          >
-            <div v-html="renderMarkdown(course.description)" />
-          </div>
+            <div
+              v-if="item.raw.description"
+              class="course-description"
+            >
+              <div v-html="renderMarkdown(item.raw.description)" />
+            </div>
 
-          <div class="course-card-meta">
-            <span class="meta-badge">
-              📚 {{ course.total_sections || 0 }} Sections
-            </span>
-            <span class="meta-badge">
-              ❓ {{ course.total_questions || 0 }} Questions
-            </span>
-            <span
-              v-if="course.subject"
-              class="meta-badge"
-            >
-              🏷️ {{ course.subject }}
-            </span>
-            <span class="meta-badge">
-              👤 {{ course.creator || 'Anonymous' }}
-            </span>
-            <span class="meta-badge">
-              📅 {{ formatDate(course.created_at) }}
-            </span>
-          </div>
+            <div class="course-card-meta">
+              <span class="meta-badge">
+                📚 {{ item.raw.total_sections || 0 }} Sections
+              </span>
+              <span class="meta-badge">
+                ❓ {{ item.raw.total_questions || 0 }} Questions
+              </span>
+              <span
+                v-if="item.raw.subject"
+                class="meta-badge"
+              >
+                🏷️ {{ item.raw.subject }}
+              </span>
+              <span class="meta-badge">
+                👤 {{ item.raw.creator || 'Anonymous' }}
+              </span>
+              <span class="meta-badge">
+                📅 {{ formatDate(item.raw.created_at) }}
+              </span>
+              <span
+                v-if="item.hasFlashcards"
+                class="status-badge"
+              >
+                Flashcards Available
+              </span>
+            </div>
 
-          <div
-            v-if="course.tags && course.tags.length > 0"
-            class="course-tags"
-          >
-            <span
-              v-for="tag in course.tags.slice(0, 3)"
-              :key="tag"
-              class="tag"
+            <div
+              v-if="item.raw.tags && item.raw.tags.length > 0"
+              class="course-tags"
             >
-              {{ tag }}
-            </span>
-          </div>
+              <span
+                v-for="tag in item.raw.tags.slice(0, 3)"
+                :key="tag"
+                class="tag"
+              >
+                {{ tag }}
+              </span>
+            </div>
 
-          <div class="course-card-footer">
-            <button
-              class="btn btn-secondary btn-sm"
-              :disabled="cloning[course.course_id]"
-              @click="!cloning[course.course_id] && viewCourse(course.course_id)"
+            <div class="course-card-footer">
+              <button
+                class="btn btn-secondary btn-sm"
+                :disabled="isCloning('course', item.id)"
+                @click="!isCloning('course', item.id) && viewCourse(item.id)"
+              >
+                View Course
+              </button>
+              <button
+                class="btn btn-primary btn-sm"
+                :disabled="isCloning('course', item.id)"
+                @click="cloneCourse(item.id)"
+              >
+                <span v-if="!isCloning('course', item.id)">Clone & Edit</span>
+                <span v-else>Cloning...</span>
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                :disabled="hasUserRated(item.id, 'course')"
+                :title="hasUserRated(item.id, 'course') ? 'You have already rated this course' : 'Rate this course'"
+                @click="showRatingModal(item)"
+              >
+                {{ hasUserRated(item.id, 'course') ? 'Rated' : 'Rate' }}
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="course-card-header">
+              <h3 class="library-card-title">
+                <div v-html="renderMarkdown(item.raw.flashcard_title || 'Untitled Flashcards')" />
+              </h3>
+              <div
+                v-if="item.rating > 0"
+                class="course-rating"
+              >
+                <span class="stars">
+                  {{ getStarRating(item.rating) }}
+                </span>
+                <span class="rating-text">{{ item.rating.toFixed(1) }}</span>
+                <span class="rating-count">({{ item.totalRatings }})</span>
+              </div>
+            </div>
+
+            <div
+              v-if="item.previewCards.length"
+              class="flashcard-preview"
             >
-              View Course
-            </button>
-            <button
-              class="btn btn-primary btn-sm"
-              :disabled="cloning[course.course_id]"
-              @click="cloneCourse(course.course_id)"
-            >
-              <span v-if="!cloning[course.course_id]">Clone & Edit</span>
-              <span v-else>Cloning...</span>
-            </button>
-            <button
-              class="btn btn-outline btn-sm"
-              :disabled="hasUserRated(course.course_id)"
-              :title="hasUserRated(course.course_id) ? 'You have already rated this course' : 'Rate this course'"
-              @click="showRatingModal(course)"
-            >
-              {{ hasUserRated(course.course_id) ? 'Rated' : 'Rate' }}
-            </button>
-          </div>
+              <div
+                v-for="(card, index) in item.previewCards"
+                :key="index"
+                class="flashcard-preview-card"
+              >
+                <strong>Card {{ index + 1 }}</strong>
+                <div v-html="renderMarkdown(card.front)" />
+              </div>
+            </div>
+
+            <div class="course-card-meta">
+              <span class="meta-badge">
+                🗂️ {{ item.raw.total_cards || 0 }} Cards
+              </span>
+              <span
+                v-if="item.raw.subject"
+                class="meta-badge"
+              >
+                🏷️ {{ item.raw.subject }}
+              </span>
+              <span class="meta-badge">
+                👤 {{ item.raw.creator || 'Anonymous' }}
+              </span>
+              <span class="meta-badge">
+                📅 {{ formatDate(item.raw.created_at) }}
+              </span>
+              <span
+                v-if="item.raw.source_course_id"
+                class="meta-badge"
+              >
+                🔗 Linked Course
+              </span>
+            </div>
+
+            <div class="course-card-footer">
+              <button
+                class="btn btn-secondary btn-sm"
+                :disabled="isCloning('flashcard', item.id)"
+                @click="!isCloning('flashcard', item.id) && viewFlashcard(item.id)"
+              >
+                Study Flashcards
+              </button>
+              <button
+                class="btn btn-primary btn-sm"
+                :disabled="isCloning('flashcard', item.id)"
+                @click="cloneFlashcard(item.id)"
+              >
+                <span v-if="!isCloning('flashcard', item.id)">Clone & Edit</span>
+                <span v-else>Cloning...</span>
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                :disabled="hasUserRated(item.id, 'flashcard')"
+                :title="hasUserRated(item.id, 'flashcard') ? 'You have already rated this flashcard set' : 'Rate this flashcard set'"
+                @click="showRatingModal(item)"
+              >
+                {{ hasUserRated(item.id, 'flashcard') ? 'Rated' : 'Rate' }}
+              </button>
+            </div>
+          </template>
         </div>
       </div>
 
-      <!-- Load More Button -->
       <div
-        v-if="courses.length > 0 && hasMore"
+        v-if="libraryItems.length > 0 && hasMore"
         class="load-more-section"
       >
         <button
@@ -243,7 +342,6 @@
       </div>
     </div>
 
-    <!-- Rating Modal -->
     <div
       v-if="showRating"
       class="modal-overlay"
@@ -253,8 +351,8 @@
         class="modal-content"
         @click.stop
       >
-        <h3>Rate Course</h3>
-        <p>{{ ratingCourse?.course_title }}</p>
+        <h3>Rate {{ ratingItem?.type === 'flashcard' ? 'Flashcard Set' : 'Course' }}</h3>
+        <p>{{ ratingItem?.title }}</p>
 
         <div class="rating-stars">
           <button
@@ -293,158 +391,250 @@
 import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useCourseStore } from '../stores/course'
 import api from '../services/api'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 
+const PAGE_SIZE = 20
+
 export default {
-    name: 'LibraryView',
-    setup() {
-    // MathJax typesetting helper
-    function typesetMathJax() {
+  name: 'LibraryView',
+  setup() {
+    const router = useRouter()
+    const authStore = useAuthStore()
+
+    const courses = ref([])
+    const flashcards = ref([])
+    const loading = ref(false)
+    const searchQuery = ref('')
+    const selectedSubject = ref('')
+    const contentType = ref('both')
+    const sortBy = ref('created_at')
+    const currentPage = ref(0)
+    const hasMoreState = ref({ courses: true, flashcards: true })
+    const cloning = ref({})
+    const navigatingToCourseId = ref(null)
+    const navigatingToFlashcardId = ref(null)
+
+    const showRating = ref(false)
+    const ratingItem = ref(null)
+    const selectedRating = ref(0)
+    const submittingRating = ref(false)
+
+    const showNotification = ref(false)
+    const notificationMessage = ref('')
+    const notificationType = ref('success')
+
+    const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
+    const renderMarkdown = (text) => {
+      if (!text) return ''
+      const rendered = md.render(String(text))
+      return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } })
+    }
+
+    const typesetMathJax = () => {
       nextTick(() => {
         if (window.MathJax && window.MathJax.typesetPromise) {
-          // Typeset all course-card-title, meta-badge, and course-description blocks
-          const elements = document.querySelectorAll('.course-card-title, .meta-badge, .course-description');
-          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {});
+          const elements = document.querySelectorAll('.library-card-title, .meta-badge, .flashcard-preview')
+          window.MathJax.typesetPromise(Array.from(elements)).catch(() => {})
         }
-      });
+      })
     }
-        const router = useRouter()
-        const authStore = useAuthStore()
-        const courseStore = useCourseStore()
 
-        const courses = ref([])
-        const loading = ref(false)
-        const searchQuery = ref('')
-        const selectedSubject = ref('')
-        const sortBy = ref('created_at')
-        const currentPage = ref(0)
-        const hasMore = ref(true)
-        const cloning = ref({})
-        const navigatingToCourseId = ref(null) // Comment 3: Track pending navigation
+    const hasMore = computed(() => {
+      if (contentType.value === 'courses') return hasMoreState.value.courses
+      if (contentType.value === 'flashcards') return hasMoreState.value.flashcards
+      return hasMoreState.value.courses || hasMoreState.value.flashcards
+    })
 
-        // Rating modal state
-        const showRating = ref(false)
-        const ratingCourse = ref(null)
-        const selectedRating = ref(0)
-        const submittingRating = ref(false)
+    const buildQueryParams = () => {
+      const params = new URLSearchParams({
+        content_type: contentType.value,
+        page: currentPage.value.toString(),
+        limit: PAGE_SIZE.toString(),
+        sort_by: sortBy.value,
+        sort_order: sortBy.value === 'title' ? '1' : '-1'
+      })
 
-        const isAuthenticated = computed(() => authStore.isAuthenticated)
+      if (searchQuery.value.trim()) {
+        params.set('q', searchQuery.value.trim())
+      } else if (selectedSubject.value) {
+        params.set('subject', selectedSubject.value)
+      }
 
-        // Track user ratings in localStorage
-        const getUserRatingsKey = () => {
-            const username = authStore.user?.username || 'guest'
-            return `user_ratings_${username}`
-        }
+      return params
+    }
 
-        const hasUserRated = (courseId) => {
-            const ratingsKey = getUserRatingsKey()
-            const ratingsData = localStorage.getItem(ratingsKey)
-            if (!ratingsData) return false
-            try {
-                const ratings = JSON.parse(ratingsData)
-                return ratings.includes(courseId)
-            } catch (e) {
-                return false
-            }
-        }
-
-        const markCourseAsRated = (courseId) => {
-            const ratingsKey = getUserRatingsKey()
-            const ratingsData = localStorage.getItem(ratingsKey)
-            let ratings = []
-            if (ratingsData) {
-                try {
-                    ratings = JSON.parse(ratingsData)
-                } catch (e) {
-                    ratings = []
-                }
-            }
-            if (!ratings.includes(courseId)) {
-                ratings.push(courseId)
-                localStorage.setItem(ratingsKey, JSON.stringify(ratings))
-            }
-        }
-
-        // In-app notification state
-        const showNotification = ref(false)
-        const notificationMessage = ref('')
-        const notificationType = ref('success')
-
-    const loadCourses = async (reset = true) => {
+    const loadLibraryContent = async (reset = true) => {
+      if (loading.value) return
       loading.value = true
 
       if (reset) {
         currentPage.value = 0
         courses.value = []
+        flashcards.value = []
+        hasMoreState.value = { courses: true, flashcards: true }
       }
 
       try {
-        let url = `/library/courses?page=${currentPage.value}&limit=20&sort_by=${sortBy.value}&sort_order=-1`
+        const response = await api.get(`/library/content?${buildQueryParams().toString()}`)
+        const { courses: newCourses = [], flashcards: newFlashcards = [], has_more: hasMoreData = {} } = response.data || {}
 
-        if (searchQuery.value.trim()) {
-          url = `/library/search?q=${encodeURIComponent(searchQuery.value)}&page=${currentPage.value}&limit=20`
-        } else if (selectedSubject.value) {
-          url = `/library/subject/${selectedSubject.value}?page=${currentPage.value}&limit=20`
+        if (contentType.value !== 'flashcards') {
+          courses.value = reset ? newCourses : [...courses.value, ...newCourses]
+        }
+        if (contentType.value !== 'courses') {
+          flashcards.value = reset ? newFlashcards : [...flashcards.value, ...newFlashcards]
         }
 
-        const response = await api.get(url)
-        const newCourses = response.data.courses || []
-
-        if (reset) {
-          courses.value = newCourses
+        if (contentType.value === 'courses') {
+          hasMoreState.value = {
+            courses: hasMoreData?.courses ?? (newCourses.length === PAGE_SIZE),
+            flashcards: false
+          }
+        } else if (contentType.value === 'flashcards') {
+          hasMoreState.value = {
+            courses: false,
+            flashcards: hasMoreData?.flashcards ?? (newFlashcards.length === PAGE_SIZE)
+          }
         } else {
-          courses.value = [...courses.value, ...newCourses]
+          hasMoreState.value = {
+            courses: hasMoreData?.courses ?? (newCourses.length === PAGE_SIZE),
+            flashcards: hasMoreData?.flashcards ?? (newFlashcards.length === PAGE_SIZE)
+          }
         }
 
-        hasMore.value = newCourses.length === 20
-        typesetMathJax();
+        await nextTick()
+        typesetMathJax()
       } catch (error) {
-        console.error('Error loading courses:', error)
-        courses.value = []
+        console.error('Error loading library content:', error)
+        if (reset) {
+          courses.value = []
+          flashcards.value = []
+        }
       } finally {
         loading.value = false
       }
     }
 
-        const loadMore = () => {
-            currentPage.value++
-            loadCourses(false)
+    const libraryItems = computed(() => {
+      const items = []
+
+      if (contentType.value !== 'flashcards') {
+        items.push(...courses.value.map((course) => ({
+          type: 'course',
+          id: course.course_id,
+          title: course.course_title || 'Untitled Course',
+          rating: course.rating || 0,
+          totalRatings: course.total_ratings || 0,
+          createdAt: course.created_at,
+          popularityScore: course.popularity_score || 0,
+          hasFlashcards: Boolean(course.has_flashcards),
+          linkedFlashcardCount: course.linked_flashcard_count || 0,
+          raw: course
+        })))
+      }
+
+      if (contentType.value !== 'courses') {
+        items.push(...flashcards.value.map((flashcard) => ({
+          type: 'flashcard',
+          id: flashcard.flashcard_id,
+          title: flashcard.flashcard_title || 'Untitled Flashcards',
+          rating: flashcard.rating || 0,
+          totalRatings: flashcard.total_ratings || 0,
+          createdAt: flashcard.created_at,
+          popularityScore: flashcard.popularity_score || 0,
+          previewCards: Array.isArray(flashcard.cards) ? flashcard.cards.slice(0, 2) : [],
+          raw: flashcard
+        })))
+      }
+
+      const getSortValue = (item) => {
+        switch (sortBy.value) {
+          case 'rating':
+            return item.rating || 0
+          case 'popularity_score':
+            return item.popularityScore || 0
+          case 'title':
+            return (item.title || '').toLowerCase()
+          case 'created_at':
+          default:
+            return item.createdAt ? new Date(item.createdAt).getTime() : 0
+        }
+      }
+
+      return items.sort((a, b) => {
+        const valueA = getSortValue(a)
+        const valueB = getSortValue(b)
+
+        if (sortBy.value === 'title') {
+          const compare = valueA.localeCompare(valueB)
+          if (compare !== 0) return compare
+          return a.title.localeCompare(b.title)
         }
 
-        const searchCourses = () => {
-            loadCourses(true)
-        }
+        const diff = (valueB || 0) - (valueA || 0)
+        if (diff !== 0) return diff
+        return a.title.localeCompare(b.title)
+      })
+    })
 
-        const filterBySubject = () => {
-            searchQuery.value = ''
-            loadCourses(true)
-        }
+    const isCloning = (type, id) => Boolean(cloning.value[`${type}_${id}`])
 
-        const clearFilters = () => {
-            searchQuery.value = ''
-            selectedSubject.value = ''
-            loadCourses(true)
-        }
+    const loadMore = () => {
+      if (!hasMore.value || loading.value) return
+      currentPage.value += 1
+      loadLibraryContent(false)
+    }
 
-        const viewCourse = (courseId) => {
-            router.push(`/course/${courseId}`)
-        }
+    const searchLibrary = () => {
+      loadLibraryContent(true)
+    }
 
-        const showNotificationMessage = (message, type = 'success', timeout = 3500) => {
-            notificationMessage.value = message
-            notificationType.value = type
-            showNotification.value = true
-            setTimeout(() => {
-                showNotification.value = false
-            }, timeout)
-        }
+    const filterBySubject = () => {
+      searchQuery.value = ''
+      loadLibraryContent(true)
+    }
 
-        const cloneCourse = async (courseId) => {
-      if (cloning.value[courseId]) return; // Prevent double navigation
-      cloning.value = { ...cloning.value, [courseId]: true }
+    const clearFilters = () => {
+      searchQuery.value = ''
+      selectedSubject.value = ''
+      contentType.value = 'both'
+      loadLibraryContent(true)
+    }
+
+    const onContentTypeChange = () => {
+      loadLibraryContent(true)
+    }
+
+    const onSortChange = () => {
+      loadLibraryContent(true)
+    }
+
+    const viewCourse = (courseId) => {
+      router.push(`/course/${courseId}`)
+    }
+
+    const viewFlashcard = (flashcardId) => {
+      router.push(`/flashcard/${flashcardId}`)
+    }
+
+    const showNotificationMessage = (message, type = 'success', timeout = 3500) => {
+      notificationMessage.value = message
+      notificationType.value = type
+      showNotification.value = true
+      setTimeout(() => {
+        showNotification.value = false
+      }, timeout)
+    }
+
+    const cloneCourse = async (courseId) => {
+      const key = `course_${courseId}`
+      if (isCloning('course', courseId)) return
+
+      cloning.value = { ...cloning.value, [key]: true }
 
       try {
         const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
@@ -452,170 +642,217 @@ export default {
 
         if (response.data.success) {
           showNotificationMessage('Course cloned successfully! You can find it in your courses.', 'success')
-          // Comment 3: Set navigatingToCourseId before setTimeout
           navigatingToCourseId.value = response.data.course_id
-          // Debounce navigation to prevent double reloads
           setTimeout(() => {
-            // Comment 3: Only navigate if both conditions are met
             if (router.currentRoute.value.params.id !== response.data.course_id &&
                 navigatingToCourseId.value === response.data.course_id) {
               router.push(`/course/${response.data.course_id}`)
             }
-          }, 300);
+          }, 300)
         }
       } catch (error) {
         console.error('Error cloning course:', error)
         showNotificationMessage('Failed to clone course. Please try again.', 'error')
       } finally {
-        cloning.value = { ...cloning.value, [courseId]: false }
+        cloning.value = { ...cloning.value, [key]: false }
       }
-        }
+    }
 
-        const showRatingModal = (course) => {
-            // Check if user is authenticated
-            if (!isAuthenticated.value) {
-                showNotificationMessage('Please log in to rate courses', 'error', 3000)
-                return
+    const cloneFlashcard = async (flashcardId) => {
+      const key = `flashcard_${flashcardId}`
+      if (isCloning('flashcard', flashcardId)) return
+
+      cloning.value = { ...cloning.value, [key]: true }
+
+      try {
+        const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
+        const response = await api.post(`/library/flashcard/${flashcardId}/clone`, {}, { params })
+
+        if (response.data.success) {
+          showNotificationMessage('Flashcard set cloned successfully! You can review it now.', 'success')
+          navigatingToFlashcardId.value = response.data.flashcard_id
+          setTimeout(() => {
+            if (router.currentRoute.value.params.id !== response.data.flashcard_id &&
+                navigatingToFlashcardId.value === response.data.flashcard_id) {
+              router.push(`/flashcard/${response.data.flashcard_id}`)
             }
-            ratingCourse.value = course
-            selectedRating.value = 0
-            showRating.value = true
+          }, 300)
         }
+      } catch (error) {
+        console.error('Error cloning flashcards:', error)
+        showNotificationMessage('Failed to clone flashcards. Please try again.', 'error')
+      } finally {
+        cloning.value = { ...cloning.value, [key]: false }
+      }
+    }
 
-        const closeRatingModal = () => {
-            showRating.value = false
-            ratingCourse.value = null
-            selectedRating.value = 0
+    const getRatingsKey = (type) => {
+      const username = authStore.user?.username || 'guest'
+      return type === 'flashcard' ? `flashcard_ratings_${username}` : `user_ratings_${username}`
+    }
+
+    const hasUserRated = (itemId, type) => {
+      const ratingsData = localStorage.getItem(getRatingsKey(type))
+      if (!ratingsData) return false
+      try {
+        const ratings = JSON.parse(ratingsData)
+        return ratings.includes(itemId)
+      } catch {
+        return false
+      }
+    }
+
+    const markItemAsRated = (itemId, type) => {
+      const key = getRatingsKey(type)
+      const existing = localStorage.getItem(key)
+      let ratings = []
+      if (existing) {
+        try {
+          ratings = JSON.parse(existing)
+        } catch {
+          ratings = []
         }
+      }
+      if (!ratings.includes(itemId)) {
+        ratings.push(itemId)
+        localStorage.setItem(key, JSON.stringify(ratings))
+      }
+    }
 
-        const selectRating = (rating) => {
-            selectedRating.value = rating
+    const showRatingModal = (item) => {
+      if (!isAuthenticated.value) {
+        showNotificationMessage('Please log in to rate items', 'error', 3000)
+        return
+      }
+      ratingItem.value = item
+      selectedRating.value = 0
+      showRating.value = true
+    }
+
+    const closeRatingModal = () => {
+      showRating.value = false
+      ratingItem.value = null
+      selectedRating.value = 0
+    }
+
+    const selectRating = (rating) => {
+      selectedRating.value = rating
+    }
+
+    const submitRating = async () => {
+      if (!ratingItem.value || selectedRating.value === 0) return
+
+      const item = ratingItem.value
+      const ratingValue = selectedRating.value
+
+      if (hasUserRated(item.id, item.type)) {
+        closeRatingModal()
+        showNotificationMessage('You have already rated this item', 'error', 3000)
+        return
+      }
+
+      closeRatingModal()
+      markItemAsRated(item.id, item.type)
+
+      const targetList = item.type === 'course' ? courses : flashcards
+      const idKey = item.type === 'course' ? 'course_id' : 'flashcard_id'
+      const target = targetList.value.find(entry => entry[idKey] === item.id)
+      let rollbackData = null
+
+      if (target) {
+        rollbackData = { rating: target.rating || 0, total_ratings: target.total_ratings || 0 }
+        const originalRating = target.rating || 0
+        const originalTotal = target.total_ratings || 0
+        const newTotal = originalTotal + 1
+        const newAverage = ((originalRating * originalTotal) + ratingValue) / newTotal
+        target.rating = newAverage
+        target.total_ratings = newTotal
+      }
+
+      showNotificationMessage('Thanks for rating — submitted!')
+
+      try {
+        const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
+        const endpoint = item.type === 'course'
+          ? `/library/course/${item.id}/rate`
+          : `/library/flashcard/${item.id}/rate`
+
+        submittingRating.value = true
+        await api.post(endpoint, { rating: ratingValue }, { params })
+        loadLibraryContent(true)
+      } catch (error) {
+        console.error('Error submitting rating:', error)
+        if (target && rollbackData) {
+          target.rating = rollbackData.rating
+          target.total_ratings = rollbackData.total_ratings
         }
+        showNotificationMessage('Failed to submit rating. Reverted.', 'error')
+      } finally {
+        submittingRating.value = false
+      }
+    }
 
-        const submitRating = async () => {
-            if (!ratingCourse.value || selectedRating.value === 0) return
+    const getStarRating = (rating) => {
+      const fullStars = Math.floor(rating)
+      const hasHalfStar = rating % 1 >= 0.5
+      return '⭐'.repeat(fullStars) + (hasHalfStar ? '⭐' : '')
+    }
 
-            const courseToRate = ratingCourse.value
-            const ratingValue = selectedRating.value
-
-            // Check if user already rated this course
-            if (hasUserRated(courseToRate.course_id)) {
-                closeRatingModal()
-                showNotificationMessage('You have already rated this course', 'error', 3000)
-                return
-            }
-
-            // Close modal immediately for instant feedback
-            closeRatingModal()
-
-            // Mark course as rated locally
-            markCourseAsRated(courseToRate.course_id)
-
-            // Optimistic UI update: adjust course rating locally
-            const originalCourse = courses.value.find(c => c.course_id === courseToRate.course_id)
-            let rollbackData = null
-            if (originalCourse) {
-                rollbackData = { rating: originalCourse.rating, total_ratings: originalCourse.total_ratings }
-                const originalRating = originalCourse.rating || 0
-                const originalTotalRatings = originalCourse.total_ratings || 0
-                const newTotalRatings = originalTotalRatings + 1
-                const newAverageRating = ((originalRating * originalTotalRatings) + ratingValue) / newTotalRatings
-                originalCourse.rating = newAverageRating
-                originalCourse.total_ratings = newTotalRatings
-            }
-
-            // Show success notification
-            showNotificationMessage('Thanks for rating — submitted!')
-
-            // Submit rating in background and refresh/rollback on failure
-            try {
-                const params = isAuthenticated.value ? { username: authStore.user?.username } : {}
-                await api.post(`/library/course/${courseToRate.course_id}/rate`, {
-                    rating: ratingValue
-                }, { params })
-
-                // Refresh the course in the background to get accurate server values
-                loadCourses(true)
-            } catch (error) {
-                console.error('Error rating course:', error)
-                // Rollback optimistic update if present
-                if (originalCourse && rollbackData) {
-                    originalCourse.rating = rollbackData.rating
-                    originalCourse.total_ratings = rollbackData.total_ratings
-                }
-                showNotificationMessage('Failed to submit rating. Reverted.', 'error')
-            }
-        }
-
-        const getStarRating = (rating) => {
-            const fullStars = Math.floor(rating)
-            const hasHalfStar = rating % 1 >= 0.5
-            return '⭐'.repeat(fullStars) + (hasHalfStar ? '⭐' : '')
-        }
-
-        // Markdown renderer
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-        const renderMarkdown = (text) => {
-            if (!text) return '';
-            const rendered = md.render(String(text));
-            return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
-        };
-
-        const formatDate = (dateString) => {
-            if (!dateString) return 'Unknown date'
-            const date = new Date(dateString)
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            })
-        }
+    const formatDate = (dateString) => {
+      if (!dateString) return 'Unknown date'
+      const date = new Date(dateString)
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
 
     onMounted(() => {
-      loadCourses()
-      typesetMathJax();
+      loadLibraryContent(true)
     })
 
-    // Watch for changes in courses and typeset
-    watch(courses, () => {
-      typesetMathJax();
-    });
+    watch([courses, flashcards], () => {
+      typesetMathJax()
+    })
 
-        return {
-            courses,
-            loading,
-            searchQuery,
-            selectedSubject,
-            sortBy,
-            hasMore,
-            cloning,
-            navigatingToCourseId,
-            showRating,
-            ratingCourse,
-            selectedRating,
-            submittingRating,
-            isAuthenticated,
-            loadCourses,
-            loadMore,
-            searchCourses,
-            filterBySubject,
-            clearFilters,
-            viewCourse,
-            cloneCourse,
-            showRatingModal,
-            closeRatingModal,
-            selectRating,
-            submitRating,
-            getStarRating,
-            formatDate,
-            hasUserRated,
-            // notification state for template
-            showNotification,
-            notificationMessage,
-            notificationType,
-            renderMarkdown
-        }
+    return {
+      libraryItems,
+      loading,
+      searchQuery,
+      selectedSubject,
+      contentType,
+      sortBy,
+      hasMore,
+      showNotification,
+      notificationMessage,
+      notificationType,
+      searchLibrary,
+      filterBySubject,
+      clearFilters,
+      onContentTypeChange,
+      onSortChange,
+      loadMore,
+      viewCourse,
+      viewFlashcard,
+      cloneCourse,
+      cloneFlashcard,
+      showRatingModal,
+      closeRatingModal,
+      selectRating,
+      submitRating,
+      getStarRating,
+      formatDate,
+      hasUserRated,
+      renderMarkdown,
+      showRating,
+      ratingItem,
+      selectedRating,
+      submittingRating,
+      isAuthenticated,
+      isCloning
     }
+  }
 }
 </script>
 
@@ -696,6 +933,7 @@ export default {
     justify-content: center;
 }
 
+.type-filter,
 .subject-filter,
 .sort-filter {
     padding: 0.75rem 1rem;
@@ -733,21 +971,23 @@ export default {
     margin-bottom: 2rem;
 }
 
-.courses-grid {
+.library-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 2rem;
 }
 
-.course-card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    position: relative;
-    transition: all 0.3s ease;
+.course-card,
+.flashcard-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  transition: all 0.3s ease;
 }
 
-.course-card:hover {
+.course-card:hover,
+.flashcard-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 20px 40px rgba(119, 51, 255, 0.2);
 }
@@ -756,7 +996,7 @@ export default {
     margin-bottom: 1rem;
 }
 
-.course-card-title {
+.library-card-title {
     font-size: 1.4rem;
     font-weight: 600;
     color: var(--accent-primary);
@@ -801,6 +1041,15 @@ export default {
     flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1rem;
+}
+
+.status-badge {
+  background: linear-gradient(135deg, rgba(119, 51, 255, 0.15), rgba(0, 212, 255, 0.15));
+  color: var(--accent-primary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .meta-badge {
@@ -856,6 +1105,22 @@ export default {
 .load-more-section {
     text-align: center;
     padding: 2rem 0;
+}
+
+.flashcard-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.flashcard-preview-card {
+  background: var(--bg-tertiary);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 /* Modal Styles */
@@ -920,7 +1185,7 @@ export default {
 }
 
 @media (max-width: 768px) {
-    .courses-grid {
+  .library-grid {
         grid-template-columns: 1fr;
     }
 

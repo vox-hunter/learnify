@@ -28,6 +28,12 @@
   --card-bg: #ffffff;
   --input-bg: #ffffff;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  /* Activity Indicator Colors */
+  --activity-thinking: #8b5cf6;
+  --activity-searching: #3b82f6;
+  --activity-generating: #10b981;
+  --activity-processing: #f59e0b;
+  --activity-error: #ef4444;
 }
 
 * {
@@ -160,6 +166,18 @@ body {
   color: var(--text-primary);
   font-size: 1rem;
   transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Dropdown arrow for select elements */
+.form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px;
+  padding-right: 2.5rem;
 }
 
 :root[data-theme="light"] .form-input,
@@ -182,9 +200,56 @@ body {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
+/* Focus-visible for keyboard navigation */
+.form-input:focus-visible,
+.form-textarea:focus-visible,
+.form-select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 .form-textarea {
   min-height: 120px;
   resize: vertical;
+}
+
+/* Enhanced select/option styling to match theme */
+select,
+.form-select {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+/* Style for select options - ensure text remains visible */
+select option {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  padding: 0.5rem;
+}
+
+/* Dark theme option styling */
+:root[data-theme="dark"] select option {
+  background-color: #1f2937;
+  color: #ffffff;
+}
+
+/* Light theme option styling */
+:root[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #1E3A8A;
+}
+
+/* Ensure selected options are visible on Windows/Chrome */
+select option:checked {
+  background: linear-gradient(var(--accent-primary), var(--accent-primary));
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+/* Option styling for hover state */
+select option:hover {
+  background-color: var(--accent-light);
+  color: white;
 }
 
 /* Alert styles */
@@ -237,6 +302,108 @@ body {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Global Blur Animation Utilities */
+.blur-in {
+    animation: blurIn 0.4s ease-out forwards;
+}
+
+.blur-out {
+    animation: blurOut 0.3s ease-in forwards;
+}
+
+@keyframes blurIn {
+    from {
+        filter: blur(8px);
+        opacity: 0;
+    }
+    to {
+        filter: blur(0);
+        opacity: 1;
+    }
+}
+
+@keyframes blurOut {
+    from {
+        filter: blur(0);
+        opacity: 1;
+    }
+    to {
+        filter: blur(4px);
+        opacity: 0.7;
+    }
+}
+
+/* Smooth Transition Utilities */
+.smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smooth-transition-fast {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smooth-transition-slow {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* GPU-Accelerated Animation Base */
+.gpu-accelerated {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Performance Optimization Hints */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Custom checkbox styles for goal selection */
+.goal-checkbox input,
+.custom-checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.goal-checkbox,
+.custom-checkbox {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.goal-checkbox.active,
+.custom-checkbox.active {
+  background: var(--accent-primary) !important;
+  color: white !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Focus-visible styles for interactive elements */
+.suggestion-chip:focus-visible,
+.stage-btn:focus-visible,
+.goal-checkbox:focus-visible,
+.custom-checkbox:focus-visible,
+.subject-chip:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(119, 51, 255, 0.2);
+}
+
+:root[data-theme="light"] .suggestion-chip:focus-visible,
+:root[data-theme="light"] .stage-btn:focus-visible,
+:root[data-theme="light"] .goal-checkbox:focus-visible,
+:root[data-theme="light"] .custom-checkbox:focus-visible,
+:root[data-theme="light"] .subject-chip:focus-visible {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* Utility classes */

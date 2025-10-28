@@ -706,6 +706,43 @@ class MongoCourseManager:
             'description': description
         }
 
+    def _annotate_flashcard_availability(self, courses: List[Dict]):
+        """Mark courses that have public flashcards linked to them"""
+        if not courses:
+            return
+
+        try:
+            course_ids = [course.get('course_id') for course in courses if course.get('course_id')]
+            if not course_ids:
+                for course in courses:
+                    course['has_flashcards'] = False
+                    course['linked_flashcard_count'] = 0
+                return
+
+            flashcards_collection = self.db.get_collection('flashcards') if self.db is not None else None
+            if flashcards_collection is None:
+                for course in courses:
+                    course['has_flashcards'] = False
+                    course['linked_flashcard_count'] = 0
+                return
+
+            pipeline = [
+                {"$match": {"source_course_id": {"$in": course_ids}, "is_public": True}},
+                {"$group": {"_id": "$source_course_id", "total": {"$sum": 1}}}
+            ]
+            results = list(flashcards_collection.aggregate(pipeline))
+            availability = {result['_id']: result.get('total', 0) for result in results if result.get('_id')}
+
+            for course in courses:
+                course_id = course.get('course_id')
+                linked_total = availability.get(course_id, 0)
+                course['has_flashcards'] = linked_total > 0
+                course['linked_flashcard_count'] = linked_total
+        except Exception:
+            for course in courses:
+                course['has_flashcards'] = False
+                course['linked_flashcard_count'] = 0
+
     def get_public_courses(self, page: int = 0, limit: int = 20, sort_by: str = 'created_at', 
                           sort_order: int = -1) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """Get paginated list of public courses"""
@@ -725,7 +762,8 @@ class MongoCourseManager:
                 for course in courses:
                     if 'title' in course:
                         course['course_title'] = course.pop('title')
-                
+                self._annotate_flashcard_availability(courses)
+
                 return courses, None
             else:
                 return None, "Database connection error."
@@ -760,7 +798,8 @@ class MongoCourseManager:
                 for course in courses:
                     if 'title' in course:
                         course['course_title'] = course.pop('title')
-                
+                self._annotate_flashcard_availability(courses)
+
                 return courses, None
             else:
                 return None, "Database connection error."
@@ -795,7 +834,8 @@ class MongoCourseManager:
                 for course in courses:
                     if 'title' in course:
                         course['course_title'] = course.pop('title')
-                
+                self._annotate_flashcard_availability(courses)
+
                 return courses, None
             else:
                 return None, "Database connection error."

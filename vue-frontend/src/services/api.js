@@ -3,7 +3,7 @@ import axios from 'axios'
 // Configure API URL based on environment
 // Production: Use the Render backend URL
 // Development: Use localhost:8000
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   // Check if VITE_API_URL is set in environment variables
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL

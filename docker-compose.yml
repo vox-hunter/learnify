@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: learnify-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DEBUG_MODE=True
+    env_file:
+      - .env
+    volumes:
+      - ./api:/app/api
+      - ./backend:/app/backend
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    networks:
+      - learnify-network
+    command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+  mongodb:
+    image: mongo:7.0
+    container_name: learnify-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=learnify_auth
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    networks:
+      - learnify-network
+
+networks:
+  learnify-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

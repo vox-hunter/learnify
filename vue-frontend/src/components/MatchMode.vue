@@ -46,31 +46,29 @@
       >
         <div
           v-for="(card, index) in shuffledCards"
-          :key="index"
+          :key="card.uid"
           :class="[
             'match-card',
             {
-              flipped: card.isFlipped,
-              matched: card.isMatched,
-              selected: selectedCards.includes(index)
+              selected: selectedCards.includes(index),
+              error: card.hasError,
+              hidden: !card.isVisible
             }
           ]"
+          role="button"
+          :tabindex="card.isVisible ? 0 : -1"
+          :aria-hidden="!card.isVisible"
+          :aria-pressed="selectedCards.includes(index)"
+          :aria-label="selectedCards.includes(index) ? 'Selected card' : 'Unselected card'"
           @click="handleCardClick(index)"
+          @keydown.space.prevent="handleCardClick(index)"
+          @keydown.enter.prevent="handleCardClick(index)"
         >
-          <div class="card-inner">
-            <!-- Card Back -->
-            <div class="card-back">
-              <div class="card-pattern">
-                ?
-              </div>
-            </div>
-            <!-- Card Front -->
-            <div class="card-front">
-              <div
-                class="card-content"
-                v-html="renderMarkdown(card.content)"
-              />
-            </div>
+          <div class="card-face">
+            <div
+              class="card-content"
+              v-html="renderMarkdown(card.content)"
+            />
           </div>
         </div>
       </div>
@@ -156,7 +154,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 
@@ -183,6 +181,20 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true
 })
+
+// MathJax global loader (assumes MathJax is loaded in public/mathjax/tex-chtml.js)
+function typesetMathJax(el) {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise([el])
+  }
+}
+
+function mathjaxTypesetNextTick() {
+  nextTick(() => {
+    const gridContainer = document.querySelector('.game-grid')
+    if (gridContainer) typesetMathJax(gridContainer)
+  })
+}
 
 // Game state
 const shuffledCards = ref([])
@@ -240,7 +252,7 @@ const computeGridLayout = () => {
   const containerWidth = container.clientWidth
   const containerHeight = container.clientHeight
   
-  const totalCells = cardCount.value
+  const totalCells = shuffledCards.value.length
   const MIN_CARD_WIDTH = 80
   const MIN_CARD_HEIGHT = 100
   const GAP = 12
@@ -260,9 +272,9 @@ const computeGridLayout = () => {
     // Skip if cards would be too small
     if (cardWidth < MIN_CARD_WIDTH || cardHeight < MIN_CARD_HEIGHT) continue
     
-    // Prefer configurations where cards fit well
+    // Prefer configurations where cards fit well (4:3 aspect ratio)
     const aspectRatio = cardWidth / cardHeight
-    const score = Math.abs(aspectRatio - 0.75) + Math.abs(rows * cardHeight - containerHeight) / 100
+    const score = Math.abs(aspectRatio - 1.33) + Math.abs(rows * cardHeight - containerHeight) / 100
     
     if (score < bestScore) {
       bestScore = score
@@ -286,24 +298,27 @@ const initializeGame = () => {
   }
   
   // Take first pairCount cards
-  const selectedCards = availableIndices.slice(0, props.pairCount).map(i => props.cards[i])
+  const pickedCards = availableIndices.slice(0, props.pairCount).map(i => props.cards[i])
   
   // Create pairs (each card appears twice)
   const pairs = []
-  selectedCards.forEach((card, index) => {
+  let uidCounter = 0
+  pickedCards.forEach((card, index) => {
     // Use front for one card
     pairs.push({
+      uid: `card-${uidCounter++}`,
       content: card.front,
       pairId: index,
-      isFlipped: false,
-      isMatched: false
+      isVisible: true,
+      hasError: false
     })
     // Use back for the matching card
     pairs.push({
+      uid: `card-${uidCounter++}`,
       content: card.back,
       pairId: index,
-      isFlipped: false,
-      isMatched: false
+      isVisible: true,
+      hasError: false
     })
   })
   
@@ -344,8 +359,17 @@ const stopTimer = () => {
 }
 
 const handleCardClick = (index) => {
-  // Ignore if checking, card already flipped, or card matched
-  if (isChecking.value || shuffledCards.value[index].isFlipped || shuffledCards.value[index].isMatched) {
+  const card = shuffledCards.value[index]
+  
+  // Ignore if checking, card not visible (already matched), or card has error animation
+  if (isChecking.value || !card.isVisible || card.hasError) {
+    return
+  }
+  
+  // If clicking the same card again, deselect it
+  const cardIndex = selectedCards.value.indexOf(index)
+  if (cardIndex !== -1) {
+    selectedCards.value.splice(cardIndex, 1)
     return
   }
   
@@ -354,39 +378,62 @@ const handleCardClick = (index) => {
     return
   }
   
-  // Flip the card
-  shuffledCards.value[index].isFlipped = true
+  // Select the card
   selectedCards.value.push(index)
   
   // Check for match if two cards selected
   if (selectedCards.value.length === 2) {
-    moveCount.value++
-    isChecking.value = true
+    checkMatch()
+  }
+}
+
+const checkMatch = () => {
+  moveCount.value++
+  isChecking.value = true
+  
+  const [firstIndex, secondIndex] = selectedCards.value
+  const firstCard = shuffledCards.value[firstIndex]
+  const secondCard = shuffledCards.value[secondIndex]
+  
+  if (firstCard.pairId === secondCard.pairId) {
+    // Match found! Start fade-out animation
+    firstCard.isVisible = false
+    secondCard.isVisible = false
+    matchedPairs.value++
     
-    const [firstIndex, secondIndex] = selectedCards.value
-    const firstCard = shuffledCards.value[firstIndex]
-    const secondCard = shuffledCards.value[secondIndex]
+    // Clear selection immediately
+    selectedCards.value = []
     
+    // Wait for fade-out animation to complete before removing cards
     setTimeout(() => {
-      if (firstCard.pairId === secondCard.pairId) {
-        // Match found!
-        firstCard.isMatched = true
-        secondCard.isMatched = true
-        matchedPairs.value++
-        
-        // Check if game completed
-        if (matchedPairs.value === props.pairCount) {
-          completeGame()
-        }
-      } else {
-        // No match - flip back
-        firstCard.isFlipped = false
-        secondCard.isFlipped = false
-      }
+      // Remove matched cards from array in descending order to avoid index shift
+      const indices = [firstIndex, secondIndex].sort((a, b) => b - a)
+      indices.forEach(idx => {
+        shuffledCards.value.splice(idx, 1)
+      })
       
+      // Recompute grid layout for optimal card sizing
+      computeGridLayout()
+      
+      isChecking.value = false
+      
+      // Check if game completed
+      if (matchedPairs.value === props.pairCount) {
+        completeGame()
+      }
+    }, 400)
+  } else {
+    // No match - show error animation
+    firstCard.hasError = true
+    secondCard.hasError = true
+    
+    // Wait for shake animation to complete
+    setTimeout(() => {
+      firstCard.hasError = false
+      secondCard.hasError = false
       selectedCards.value = []
       isChecking.value = false
-    }, 1000)
+    }, 600)
   }
 }
 
@@ -441,10 +488,15 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 })
 
-// Watch for play again
-watch(() => props.pairCount, () => {
-  initializeGame()
-})
+// Watch for progress changes and re-render MathJax
+watch(shuffledCards, () => {
+  mathjaxTypesetNextTick()
+}, { deep: true })
+
+// Watch for card state changes
+watch([selectedCards, moveCount], () => {
+  mathjaxTypesetNextTick()
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -551,93 +603,110 @@ watch(() => props.pairCount, () => {
 
 /* Match Cards */
 .match-card {
-  perspective: 1000px;
   cursor: pointer;
-  aspect-ratio: 3 / 4;
-  min-width: 80px;
-  min-height: 100px;
+  aspect-ratio: 4 / 3;
+  min-width: 120px;
+  min-height: 90px;
+  transition: all 0.2s ease;
 }
 
-.match-card.matched {
-  cursor: default;
-}
-
-.card-inner {
-  position: relative;
+.card-face {
   width: 100%;
   height: 100%;
-  transition: transform 0.6s;
-  transform-style: preserve-3d;
-}
-
-.match-card.flipped .card-inner {
-  transform: rotateY(180deg);
-}
-
-.card-back,
-.card-front {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.75rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.card-back {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary, #a78bfa));
-  color: white;
-  transform: rotateY(0deg);
-}
-
-.card-pattern {
-  font-size: 3rem;
-  font-weight: 700;
-  opacity: 0.8;
-}
-
-.card-front {
   background: var(--card-bg);
   color: var(--text-primary);
-  transform: rotateY(180deg);
-  overflow-y: auto;
-}
-
-.match-card.matched .card-front {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .card-content {
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  line-height: 1.3;
   text-align: center;
-  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   max-width: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  hyphens: auto;
 }
 
 .card-content :deep(p) {
   margin: 0;
+  padding: 0;
 }
 
 .card-content :deep(code) {
   background: rgba(0, 0, 0, 0.1);
   padding: 0.2rem 0.4rem;
   border-radius: 0.25rem;
-  font-size: 0.85em;
+  font-size: 0.8em;
+  word-break: break-all;
+}
+
+.card-content :deep(strong),
+.card-content :deep(b) {
+  font-weight: 600;
+}
+
+.card-content :deep(em),
+.card-content :deep(i) {
+  font-style: italic;
+}
+
+/* Card States */
+.match-card.selected .card-face {
+  border: 3px solid var(--accent-primary);
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(var(--accent-primary-rgb, 139, 92, 246), 0.4),
+              0 0 0 4px rgba(var(--accent-primary-rgb, 139, 92, 246), 0.1);
+}
+
+.match-card.error .card-face {
+  border: 3px solid #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+  20%, 40%, 60%, 80% { transform: translateX(10px); }
+}
+
+.match-card.hidden {
+  animation: fadeOut 0.4s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+    visibility: hidden;
+  }
 }
 
 /* Hover Effects */
-.match-card:not(.matched):not(.flipped):hover .card-inner {
-  transform: scale(1.05);
+.match-card:not(.hidden):not(.selected):hover {
+  transform: scale(1.03);
 }
 
-.match-card.selected .card-back {
-  box-shadow: 0 0 20px rgba(var(--accent-primary), 0.5);
+.match-card:not(.hidden):not(.selected):hover .card-face {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 /* Completion Modal */

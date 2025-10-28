@@ -271,6 +271,13 @@ const md = new MarkdownIt({
   typographer: true
 })
 
+// MathJax global loader (assumes MathJax is loaded in public/mathjax/tex-chtml.js)
+function typesetMathJax(el) {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise([el])
+  }
+}
+
 // State
 const loading = ref(true)
 const error = ref(null)
@@ -556,8 +563,15 @@ const typesetMath = () => {
   // Debounce MathJax typesetting to reduce redundant reflows
   mathJaxTimer = setTimeout(() => {
     if (window.MathJax) {
-      window.MathJax.typesetPromise?.()
-        .catch((err) => console.error('MathJax typesetting failed:', err))
+      // Typeset the entire flashcard view to catch all LaTeX
+      const cardContainer = document.querySelector('.card-container')
+      if (cardContainer) {
+        typesetMathJax(cardContainer)
+      } else {
+        // Fallback to global typeset if card not found
+        window.MathJax.typesetPromise?.()
+          .catch((err) => console.error('MathJax typesetting failed:', err))
+      }
     }
   }, 200)
 }

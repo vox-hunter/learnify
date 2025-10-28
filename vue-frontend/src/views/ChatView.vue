@@ -64,9 +64,93 @@
               <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
             </div>
             <div
+              v-if="isStreamingMessage(index)"
+              class="message-text"
+            >
+              <span
+                v-for="(word, wordIndex) in getStreamingWords(msg.text)"
+                :key="wordIndex"
+                class="streaming-word"
+                :style="{ animationDelay: `${wordIndex * 0.03}s` }"
+              >{{ word }}</span>
+            </div>
+            <div
+              v-else
               class="message-text"
               v-html="formatMessage(msg.text, msg.role)"
             />
+            <!-- Grounding metadata: Show search queries and citations if available -->
+            <div
+              v-if="msg.grounding_metadata && (msg.grounding_metadata.search_queries || msg.grounding_metadata.grounding_chunks)"
+              class="message-grounding"
+            >
+              <details v-if="msg.grounding_metadata.search_queries && msg.grounding_metadata.search_queries.length > 0">
+                <summary class="grounding-summary">
+                  🔍 Sources ({{ msg.grounding_metadata.grounding_chunks.length }})
+                </summary>
+                <div class="grounding-details">
+                  <div class="search-queries">
+                    <span class="queries-label">Search queries used:</span>
+                    <ul>
+                      <li
+                        v-for="(query, idx) in msg.grounding_metadata.search_queries"
+                        :key="idx"
+                      >
+                        {{ query }}
+                      </li>
+                    </ul>
+                  </div>
+                  <div
+                    v-if="msg.grounding_metadata.grounding_chunks && msg.grounding_metadata.grounding_chunks.length > 0"
+                    class="citations"
+                  >
+                    <span class="citations-label">Sources:</span>
+                    <ul>
+                      <li
+                        v-for="(chunk, idx) in msg.grounding_metadata.grounding_chunks"
+                        :key="idx"
+                        class="citation-item"
+                      >
+                        <a
+                          :href="chunk.uri"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="citation-link"
+                        >[{{ idx + 1 }}] {{ chunk.title || new URL(chunk.uri).hostname }}</a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <!-- URL Context metadata -->
+            <div
+              v-if="msg.grounding_metadata && msg.grounding_metadata.url_context && msg.grounding_metadata.url_context.length > 0"
+              class="message-url-context"
+            >
+              <details>
+                <summary class="grounding-summary">
+                  🔗 URLs Retrieved
+                </summary>
+                <div class="url-list">
+                  <div
+                    v-for="(urlInfo, idx) in msg.grounding_metadata.url_context"
+                    :key="idx"
+                    class="url-item"
+                  >
+                    <a
+                      :href="urlInfo.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="url-link"
+                    >{{ urlInfo.url }}</a>
+                    <span
+                      :class="['url-status', urlInfo.status.toLowerCase()]"
+                    >{{ urlInfo.status === 'URL_RETRIEVAL_STATUS_SUCCESS' ? '✓' : '✗' }}</span>
+                  </div>
+                </div>
+              </details>
+            </div>
             <div
               v-if="msg.attachment"
               class="message-attachment"
@@ -76,45 +160,32 @@
             </div>
           </div>
         </div>
-        <!-- Loading Indicator -->
-        <div
-          v-if="isLoading"
-          class="message ai-message loading"
-        >
+        <!-- Loading Indicator - Removed duplicate avatar, uses avatar from assistant message placeholder -->
+        <Transition name="activity-fade">
           <div
-            class="message-avatar"
-            style="display: flex; align-items: center; justify-content: center; margin-right: 16px;"
+            v-if="aiActivity.isActive"
+            :key="aiActivity.type"
+            :class="['activity-indicator-enhanced', `activity-${aiActivity.type}`]"
           >
-            <span>
-              <img
-                src="/STITCH.png"
-                alt="AI"
-                style="width: 36px; height: 36px; object-fit: contain; vertical-align: middle;"
-              >
-            </span>
-          </div>
-          <div class="message-content">
-            <div class="activity-indicator">
-              <div class="typing-indicator">
-                <span />
-                <span />
-                <span />
+            <div class="activity-icon-container">
+              <div :class="['activity-icon', aiActivity.type]">
+                {{ getActivityIcon(aiActivity.type) }}
               </div>
+            </div>
+            <TransitionGroup
+              name="status-slide"
+              tag="div"
+            >
               <div
-                v-if="aiActivity.isActive"
-                class="activity-message"
+                :key="`${aiActivity.type}-${aiActivity.message}`"
+                class="activity-message-text"
               >
                 {{ aiActivity.message }}
               </div>
-              <div
-                v-else
-                class="activity-message"
-              >
-                Thinking...
-              </div>
-            </div>
+            </TransitionGroup>
+            <div class="activity-progress-bar" />
           </div>
-        </div>
+        </Transition>
       </div>
 
       <!-- Input Area -->
@@ -223,12 +294,13 @@
 </template>
 
 <script>
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useCourseStore } from '../stores/course'
 import { useFlashcardStore } from '../stores/flashcard'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
+import { streamChatMessage } from '../services/chatStream'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 
@@ -257,6 +329,16 @@ export default {
             type: '',
             message: ''
         })
+        const streamController = ref(null)
+        const currentStreamingMessageIndex = ref(null)
+        const isCurrentlyStreaming = ref(false)
+        const isRetrying = ref(false)
+        const retryAttempt = ref(0)
+        const fallbackTriggered = ref(false)
+        const savedCourseTitles = ref(new Set())
+        const savedFlashcardTitles = ref(new Set())
+        const processedIdempotencyIds = ref(new Set())
+        const suppressStreamingText = ref(false)
 
         const examplePrompts = [
             'Create a course about Python basics',
@@ -474,12 +556,17 @@ export default {
             sendMessage()
         }
 
-
         const sendMessage = async () => {
 
             // ...existing code...
             if (typeof window.saEvent === 'function') {
                 window.saEvent('chat_send_clicked');
+            }
+
+            // Close any active streaming connection before starting a new message
+            if (streamController.value) {
+                streamController.value.close()
+                streamController.value = null
             }
 
             if (!canSend.value) return
@@ -518,11 +605,11 @@ export default {
             error.value = null
             isLoading.value = true
 
-            // Set initial activity indicator based on content (will be updated by backend response)
+            // Set initial activity indicator to thinking (will be updated by backend status events)
             aiActivity.value = {
                 isActive: true,
-                type: determineActivityType(userMessage, file, url),
-                message: getActivityMessage(userMessage, file, url)
+                type: 'thinking',
+                message: 'Processing your request...'
             }
 
             scrollToBottom()
@@ -536,48 +623,508 @@ export default {
                     return
                 }
 
-                const formData = new FormData()
-                formData.append('message', userMessage || 'Please analyze this content')
-                if (sessionId.value) formData.append('session_id', sessionId.value)
-                if (file) formData.append('file', file)
-                if (url) formData.append('url', url)
-                if (authStore.user?.username) formData.append('username', authStore.user.username)
+                // Handle file uploads using POST endpoint
+                if (file) {
+                    const formData = new FormData()
+                    formData.append('message', userMessage || 'Please analyze this content')
+                    if (sessionId.value) formData.append('session_id', sessionId.value)
+                    formData.append('file', file)
+                    if (url) formData.append('url', url)
+                    if (authStore.user?.username) formData.append('username', authStore.user.username)
 
-                const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                console.log('Chat API response:', response)
+                    const response = await api.post('/chat/message', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                    console.log('Chat API response:', response)
 
-                // Development-only debug log for response structure
-                if (import.meta.env.DEV) {
-                    console.log('[DEV] Response data keys:', Object.keys(response.data))
-                    console.log('[DEV] is_course:', response.data.is_course, 'has course_data:', !!response.data.course_data)
-                    console.log('[DEV] is_flashcard:', response.data.is_flashcard, 'has flashcard_data:', !!response.data.flashcard_data)
+                    // Development-only debug log for response structure
+                    if (import.meta.env.DEV) {
+                        console.log('[DEV] Response data keys:', Object.keys(response.data))
+                        console.log('[DEV] is_course:', response.data.is_course, 'has course_data:', !!response.data.course_data)
+                        console.log('[DEV] is_flashcard:', response.data.is_flashcard, 'has flashcard_data:', !!response.data.flashcard_data)
+                    }
+
+                    // Update activity indicator with backend info if available
+                    if (response.data.activity_info) {
+                        aiActivity.value = {
+                            isActive: true,
+                            type: response.data.activity_info.type,
+                            message: response.data.activity_info.message
+                        }
+                    }
+
+                    if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
+
+                    sessionId.value = response.data.session_id
+                    localStorage.setItem('chat_session_id', sessionId.value)
+
+                    if (response.data.is_course && response.data.course_data) {
+                        const saveResult = await courseStore.saveCourse(response.data.course_data.sections, response.data.course_data.course_title)
+                        if (saveResult.success) {
+                            messages.value.push({ role: 'system', text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                            scrollToBottom()
+                            setTimeout(() => router.push(`/course/${saveResult.courseId}`), 1200)
+                        } else {
+                            throw new Error(saveResult.error || 'Failed to save course')
+                        }
+                    } else if (response.data.is_flashcard && response.data.flashcard_data) {
+                        // Handle flashcard generation
+                        const flashcardData = response.data.flashcard_data
+                        const saveResult = await flashcardStore.saveFlashcard(
+                            flashcardData.cards,
+                            flashcardData.flashcard_title,
+                            flashcardData.source_course_id || null
+                        )
+                        if (saveResult.success) {
+                            messages.value.push({ role: 'system', text: `🃏 Flashcard set "${flashcardData.flashcard_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                            scrollToBottom()
+                            setTimeout(() => router.push(`/flashcard/${saveResult.flashcardId}`), 1200)
+                        } else {
+                            throw new Error(saveResult.error || 'Failed to save flashcards')
+                        }
+                    } else {
+                        if (response.data.reply && response.data.reply.trim()) {
+                            const aiMsg = { role: 'assistant', text: response.data.reply, timestamp: Date.now() }
+                            // Attach grounding metadata if available
+                            if (response.data.grounding_metadata) {
+                                aiMsg.grounding_metadata = response.data.grounding_metadata
+                            }
+                            messages.value.push(aiMsg)
+                        } else {
+                            messages.value.push({ role: 'system', text: '⚠️ No reply received from AI. Please check backend logs or try again later.', timestamp: Date.now() })
+                        }
+                    }
+
+                    scrollToBottom()
+                    isLoading.value = false
+                    aiActivity.value = { isActive: false, type: '', message: '' }
+                    return
                 }
 
-                // Update activity indicator with backend info if available
-                if (response.data.activity_info) {
-                    aiActivity.value = {
-                        isActive: true,
-                        type: response.data.activity_info.type,
-                        message: response.data.activity_info.message
+                // Handle text-only messages using streaming
+                const aiMessageIndex = messages.value.length
+                messages.value.push({
+                    role: 'assistant',
+                    text: '',
+                    timestamp: Date.now()
+                })
+                currentStreamingMessageIndex.value = aiMessageIndex
+
+                // Adaptive typewriter effect - adjusts speed based on streaming rate
+                let characterQueue = ''
+                let characterTicker = null
+                let isStreamComplete = false
+                let lastChunkTime = Date.now()
+                let chunkCount = 0
+                let adaptiveDelay = 40 // Start with 40ms per character
+                
+                const calculateAdaptiveDelay = () => {
+                    const now = Date.now()
+                    const timeSinceLastChunk = now - lastChunkTime
+                    lastChunkTime = now
+                    chunkCount++
+                    
+                    // If chunks arrive very quickly (< 100ms apart), use sentence-based display
+                    if (timeSinceLastChunk < 100 && chunkCount > 1) {
+                        // Display at ~1 sentence per second (roughly 60-80 words per second)
+                        return 15 // 15ms per character = ~67 characters per second
+                    }
+                    // If chunks arrive slowly, use character-by-character
+                    return 40 // 40ms per character
+                }
+                
+                const processCharacter = () => {
+                    if (characterQueue.length > 0) {
+                        const char = characterQueue.charAt(0)
+                        characterQueue = characterQueue.slice(1)
+                        
+                        if (messages.value[aiMessageIndex]) {
+                            messages.value[aiMessageIndex].text += char
+                            isCurrentlyStreaming.value = true
+                            scrollToBottom()
+                            debouncedSaveChatMessages()
+                        }
+                        
+                        // Recalculate delay for next character
+                        adaptiveDelay = calculateAdaptiveDelay()
+                        characterTicker = setTimeout(processCharacter, adaptiveDelay)
+                    } else if (isStreamComplete) {
+                        // Stream is complete and queue is empty, stop processing
+                        characterTicker = null
                     }
                 }
 
-                if (!response.data.success) throw new Error(response.data.error || 'Failed to get response')
+                const startCharacterTicker = () => {
+                    if (!characterTicker) {
+                        adaptiveDelay = calculateAdaptiveDelay()
+                        characterTicker = setTimeout(processCharacter, adaptiveDelay)
+                    }
+                }
 
+                const stopCharacterTicker = () => {
+                    if (characterTicker) {
+                        clearTimeout(characterTicker)
+                        characterTicker = null
+                    }
+                }
+
+                // Start streaming
+                streamController.value = streamChatMessage({
+                    message: userMessage || 'Hello',
+                    sessionId: sessionId.value,
+                    url: url || null,
+                    username: authStore.user?.username || null,
+                    
+                    onStatus: (statusData) => {
+                        // Only show specific tags for function call actions, otherwise default to thinking
+                        let activityType = 'thinking'
+                        let activityMessage = statusData.message || 'Processing...'
+                        
+                        if (statusData.action === 'course_generation' || statusData.action === 'flashcard_generation') {
+                            activityType = statusData.type || activityType
+                        }
+                        
+                        aiActivity.value = {
+                            isActive: true,
+                            type: activityType,
+                            message: activityMessage
+                        }
+                    },
+                    
+                    onChunk: (text) => {
+                        // Suppress text chunks if tool is generating content
+                        if (suppressStreamingText.value) {
+                            return
+                        }
+                        
+                        // Queue characters for throttled display
+                        characterQueue += text
+                        startCharacterTicker()
+                    },
+                    
+                    onCourse: async (courseData) => {
+                        try {
+                            // Comment 6: Suppress streaming text and show generation status
+                            suppressStreamingText.value = true
+                            
+                            // Clear placeholder text and update activity
+                            if (messages.value[aiMessageIndex]) {
+                                messages.value[aiMessageIndex].text = ''
+                            }
+                            
+                            aiActivity.value = {
+                                isActive: true,
+                                type: 'generating_course',
+                                message: 'Generating course content…'
+                            }
+                            
+                            // Extract idempotency ID if present
+                            let courseContent = courseData
+                            let idempotencyId = null
+                            
+                            if (courseData.idempotency_id) {
+                                idempotencyId = courseData.idempotency_id
+                                courseContent = courseData.data || courseData
+                            }
+                            
+                            // Check if already processed using idempotency ID
+                            if (idempotencyId && processedIdempotencyIds.value.has(idempotencyId)) {
+                                console.log('[ChatView] Idempotent course already processed, skipping duplicate')
+                                return
+                            }
+                            
+                            // Check if course was already saved using Set
+                            if (savedCourseTitles.value.has(courseContent.course_title)) {
+                                console.log('[ChatView] Course already saved, skipping duplicate')
+                                return
+                            }
+
+                            const saveResult = await courseStore.saveCourse(
+                                courseContent.sections,
+                                courseContent.course_title
+                            )
+                            if (saveResult.success) {
+                                // Track saved course and idempotency ID
+                                savedCourseTitles.value.add(courseContent.course_title)
+                                if (idempotencyId) {
+                                    processedIdempotencyIds.value.add(idempotencyId)
+                                }
+                                
+                                // Update activity to show redirect status
+                                aiActivity.value = {
+                                    isActive: true,
+                                    type: 'thinking',
+                                    message: 'Redirecting you…'
+                                }
+                                
+                                messages.value.push({
+                                    role: 'system',
+                                    text: `🎓 Course "${courseContent.course_title}" created successfully! Redirecting...`,
+                                    timestamp: Date.now()
+                                })
+                                scrollToBottom()
+                                setTimeout(() => {
+                                    aiActivity.value = { isActive: false, type: '', message: '' }
+                                    router.push(`/course/${saveResult.courseId}`)
+                                }, 1200)
+                            } else {
+                                throw new Error(saveResult.error || 'Failed to save course')
+                            }
+                        } catch (err) {
+                            console.error('Error saving course:', err)
+                            error.value = err.message || 'Failed to save course'
+                            messages.value.push({
+                                role: 'system',
+                                text: `⚠️ Error saving course: ${error.value}`,
+                                timestamp: Date.now()
+                            })
+                            scrollToBottom()
+                        }
+                    },
+                    
+                    onFlashcard: async (flashcardData) => {
+                        try {
+                            // Comment 6: Suppress streaming text and show generation status
+                            suppressStreamingText.value = true
+                            
+                            // Clear placeholder text and update activity
+                            if (messages.value[aiMessageIndex]) {
+                                messages.value[aiMessageIndex].text = ''
+                            }
+                            
+                            aiActivity.value = {
+                                isActive: true,
+                                type: 'generating_flashcard',
+                                message: 'Generating flashcards…'
+                            }
+                            
+                            // Extract idempotency ID if present
+                            let flashcardContent = flashcardData
+                            let idempotencyId = null
+                            
+                            if (flashcardData.idempotency_id) {
+                                idempotencyId = flashcardData.idempotency_id
+                                flashcardContent = flashcardData.data || flashcardData
+                            }
+                            
+                            // Check if already processed using idempotency ID
+                            if (idempotencyId && processedIdempotencyIds.value.has(idempotencyId)) {
+                                console.log('[ChatView] Idempotent flashcard already processed, skipping duplicate')
+                                return
+                            }
+                            
+                            // Check if flashcard was already saved using Set
+                            if (savedFlashcardTitles.value.has(flashcardContent.flashcard_title)) {
+                                console.log('[ChatView] Flashcard already saved, skipping duplicate')
+                                return
+                            }
+
+                            const saveResult = await flashcardStore.saveFlashcard(
+                                flashcardContent.cards,
+                                flashcardContent.flashcard_title,
+                                flashcardContent.source_course_id || null
+                            )
+                            if (saveResult.success) {
+                                // Track saved flashcard and idempotency ID
+                                savedFlashcardTitles.value.add(flashcardContent.flashcard_title)
+                                if (idempotencyId) {
+                                    processedIdempotencyIds.value.add(idempotencyId)
+                                }
+                                
+                                // Update activity to show redirect status
+                                aiActivity.value = {
+                                    isActive: true,
+                                    type: 'thinking',
+                                    message: 'Redirecting you…'
+                                }
+                                
+                                messages.value.push({
+                                    role: 'system',
+                                    text: `🃏 Flashcard set "${flashcardContent.flashcard_title}" created successfully! Redirecting...`,
+                                    timestamp: Date.now()
+                                })
+                                scrollToBottom()
+                                setTimeout(() => {
+                                    aiActivity.value = { isActive: false, type: '', message: '' }
+                                    router.push(`/flashcard/${saveResult.flashcardId}`)
+                                }, 1200)
+                            } else {
+                                throw new Error(saveResult.error || 'Failed to save flashcards')
+                            }
+                        } catch (err) {
+                            console.error('Error saving flashcards:', err)
+                            error.value = err.message || 'Failed to save flashcards'
+                            messages.value.push({
+                                role: 'system',
+                                text: `⚠️ Error saving flashcards: ${error.value}`,
+                                timestamp: Date.now()
+                            })
+                            scrollToBottom()
+                        }
+                    },
+                    
+                    onComplete: (newSessionId, groundingMetadata) => {
+                        // Attach grounding metadata to the latest AI message
+                        if (groundingMetadata && messages.value[aiMessageIndex]) {
+                            messages.value[aiMessageIndex].grounding_metadata = groundingMetadata
+                        }
+                        
+                        // Mark stream as complete so ticker stops when queue is empty
+                        isStreamComplete = true
+                        
+                        // Wait for character queue to drain
+                        if (characterQueue.length === 0) {
+                            stopCharacterTicker()
+                            // Clear activity indicator immediately
+                            isRetrying.value = false
+                            retryAttempt.value = 0
+                            sessionId.value = newSessionId
+                            localStorage.setItem('chat_session_id', sessionId.value)
+                            isLoading.value = false
+                            isCurrentlyStreaming.value = false
+                            aiActivity.value = { isActive: false, type: '', message: '' }
+                            streamController.value = null
+                            currentStreamingMessageIndex.value = null
+                            suppressStreamingText.value = false
+                            scrollToBottom()
+                        } else {
+                            // Schedule cleanup after queue drains
+                            const checkQueueEmpty = setInterval(() => {
+                                if (characterQueue.length === 0 && !characterTicker) {
+                                    clearInterval(checkQueueEmpty)
+                                    isRetrying.value = false
+                                    retryAttempt.value = 0
+                                    sessionId.value = newSessionId
+                                    localStorage.setItem('chat_session_id', sessionId.value)
+                                    isLoading.value = false
+                                    isCurrentlyStreaming.value = false
+                                    aiActivity.value = { isActive: false, type: '', message: '' }
+                                    streamController.value = null
+                                    currentStreamingMessageIndex.value = null
+                                    suppressStreamingText.value = false
+                                    scrollToBottom()
+                                }
+                            }, 50)
+                        }
+                    },
+                    
+                    onRetry: (retryState) => {
+                        isRetrying.value = true
+                        retryAttempt.value = retryState.retryCount
+                        aiActivity.value = {
+                            isActive: true,
+                            type: 'thinking',
+                            message: `Connection lost, reconnecting (${retryState.retryCount}/${retryState.maxRetries})...`
+                        }
+                    },
+                    
+                    onFallback: () => {
+                        console.log('[ChatView] Fallback callback triggered')
+                        handleStreamFallback(userMessage, url, aiMessageIndex)
+                    },
+                    
+                    onError: (errorMsg) => {
+                        console.error('Streaming error:', errorMsg)
+                        
+                        // Don't push error if fallback was already triggered
+                        if (fallbackTriggered.value) {
+                            console.log('[ChatView] Fallback in progress, suppressing error message')
+                            return
+                        }
+
+                        error.value = errorMsg
+
+                        // Remove placeholder AI message if it's empty
+                        if (messages.value[aiMessageIndex] && !messages.value[aiMessageIndex].text) {
+                            messages.value.splice(aiMessageIndex, 1)
+                        }
+
+                        messages.value.push({
+                            role: 'system',
+                            text: `⚠️ Error: ${errorMsg}`,
+                            timestamp: Date.now()
+                        })
+
+                        isLoading.value = false
+                        isRetrying.value = false
+                        aiActivity.value = { isActive: false, type: '', message: '' }
+                        streamController.value = null
+                        currentStreamingMessageIndex.value = null
+                        scrollToBottom()
+                    }
+                })
+
+            } catch (err) {
+                console.error('Error sending message:', err)
+                error.value = err.response?.data?.detail || err.message || 'Failed to send message'
+                messages.value.push({ role: 'system', text: `⚠️ Error: ${error.value}`, timestamp: Date.now() })
+                scrollToBottom()
+                isLoading.value = false
+                aiActivity.value = { isActive: false, type: '', message: '' }
+            }
+        }
+
+        /**
+         * Fallback handler when streaming fails after max retries
+         */
+        async function handleStreamFallback(userMessage, url, aiMessageIndex) {
+            // Prevent duplicate fallback calls
+            if (fallbackTriggered.value) {
+                console.log('[ChatView] Fallback already triggered, skipping duplicate call')
+                return
+            }
+
+            fallbackTriggered.value = true
+            console.log('[ChatView] Streaming failed, falling back to POST endpoint')
+
+            try {
+                // Update activity indicator
+                aiActivity.value = {
+                    isActive: true,
+                    type: 'thinking',
+                    message: 'Retrying with standard mode...'
+                }
+
+                // Build FormData for POST endpoint
+                const formData = new FormData()
+                formData.append('message', userMessage || 'Hello')
+                if (sessionId.value) formData.append('session_id', sessionId.value)
+                if (url) formData.append('url', url)
+                if (authStore.user?.username) formData.append('username', authStore.user.username)
+
+                // Call POST endpoint with FormData
+                const response = await api.post('/chat/message', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                })
+
+                console.log('[ChatView] Fallback POST response:', response)
+
+                if (!response.data.success) {
+                    throw new Error(response.data.error || 'Failed to get response')
+                }
+
+                // Update session ID
                 sessionId.value = response.data.session_id
                 localStorage.setItem('chat_session_id', sessionId.value)
 
+                // Handle course response
                 if (response.data.is_course && response.data.course_data) {
-                    const saveResult = await courseStore.saveCourse(response.data.course_data.sections, response.data.course_data.course_title)
+                    const saveResult = await courseStore.saveCourse(
+                        response.data.course_data.sections,
+                        response.data.course_data.course_title
+                    )
                     if (saveResult.success) {
-                        messages.value.push({ role: 'system', text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                        messages.value.push({
+                            role: 'system',
+                            text: `🎓 Course "${response.data.course_data.course_title}" created successfully! Redirecting...`,
+                            timestamp: Date.now()
+                        })
                         scrollToBottom()
                         setTimeout(() => router.push(`/course/${saveResult.courseId}`), 1200)
                     } else {
                         throw new Error(saveResult.error || 'Failed to save course')
                     }
-                } else if (response.data.is_flashcard && response.data.flashcard_data) {
-                    // Handle flashcard generation
+                }
+                // Handle flashcard response
+                else if (response.data.is_flashcard && response.data.flashcard_data) {
                     const flashcardData = response.data.flashcard_data
                     const saveResult = await flashcardStore.saveFlashcard(
                         flashcardData.cards,
@@ -585,30 +1132,54 @@ export default {
                         flashcardData.source_course_id || null
                     )
                     if (saveResult.success) {
-                        messages.value.push({ role: 'system', text: `🃏 Flashcard set "${flashcardData.flashcard_title}" created successfully! Redirecting...`, timestamp: Date.now() })
+                        messages.value.push({
+                            role: 'system',
+                            text: `🃏 Flashcard set "${flashcardData.flashcard_title}" created successfully! Redirecting...`,
+                            timestamp: Date.now()
+                        })
                         scrollToBottom()
                         setTimeout(() => router.push(`/flashcard/${saveResult.flashcardId}`), 1200)
                     } else {
                         throw new Error(saveResult.error || 'Failed to save flashcards')
                     }
-                } else {
+                }
+                // Handle regular text response
+                else {
                     if (response.data.reply && response.data.reply.trim()) {
-                        messages.value.push({ role: 'assistant', text: response.data.reply, timestamp: Date.now() })
+                        // Append to existing AI message if it exists, otherwise create new one
+                        if (aiMessageIndex !== null && messages.value[aiMessageIndex]) {
+                            messages.value[aiMessageIndex].text += response.data.reply
+                        } else {
+                            messages.value.push({
+                                role: 'assistant',
+                                text: response.data.reply,
+                                timestamp: Date.now()
+                            })
+                        }
                     } else {
-                        messages.value.push({ role: 'system', text: '⚠️ No reply received from AI. Please check backend logs or try again later.', timestamp: Date.now() })
+                        messages.value.push({
+                            role: 'system',
+                            text: '⚠️ No reply received from AI. Please check backend logs or try again later.',
+                            timestamp: Date.now()
+                        })
                     }
                 }
 
                 scrollToBottom()
             } catch (err) {
-                console.error('Error sending message:', err)
+                console.error('[ChatView] Fallback error:', err)
                 error.value = err.response?.data?.detail || err.message || 'Failed to send message'
-                messages.value.pop()
-                messages.value.push({ role: 'system', text: `⚠️ Error: ${error.value}`, timestamp: Date.now() })
+                messages.value.push({
+                    role: 'system',
+                    text: `⚠️ Error: ${error.value}`,
+                    timestamp: Date.now()
+                })
                 scrollToBottom()
             } finally {
                 isLoading.value = false
+                isRetrying.value = false
                 aiActivity.value = { isActive: false, type: '', message: '' }
+                fallbackTriggered.value = false
             }
         }
 
@@ -636,6 +1207,17 @@ export default {
             return 'thinking'
         }
 
+        const getActivityIcon = (type) => {
+            const icons = {
+                'thinking': '🧠',
+                'searching_web': '🌐',
+                'generating_course': '🎓',
+                'generating_flashcard': '🃏',
+                'processing_file': '📄'
+            }
+            return icons[type] || '🧠'
+        }
+
         const getActivityMessage = (message, file, url) => {
             if (file) {
                 if (message && (message.toLowerCase().includes('course') || message.toLowerCase().includes('generate'))) {
@@ -657,6 +1239,14 @@ export default {
                 }
             }
             return '🧠 Thinking...'
+        }
+
+        const isStreamingMessage = (index) => {
+            return currentStreamingMessageIndex.value === index && isCurrentlyStreaming.value
+        }
+
+        const getStreamingWords = (text) => {
+            return text.split(/(\s+)/).filter(word => word.length > 0)
         }
 
         // Save and load chat messages from localStorage
@@ -697,9 +1287,20 @@ export default {
             }
         }
 
-        // Watch messages and save to localStorage whenever they change
+        // Debounced save function to reduce localStorage thrash during streaming
+        let saveTimeout = null
+        const debouncedSaveChatMessages = () => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout)
+            }
+            saveTimeout = setTimeout(() => {
+                saveChatMessages()
+            }, 400) // 400ms debounce
+        }
+
+        // Watch messages and save to localStorage whenever they change (debounced)
         watch(messages, () => {
-            saveChatMessages()
+            debouncedSaveChatMessages()
         }, { deep: true })
 
         onMounted(() => {
@@ -714,6 +1315,13 @@ export default {
                 console.log('[ChatView] Initialized count on mount:', count, 'for user:', authStore.user.username)
             } else if (authStore.user?.isGoogleUser) {
                 console.log('[ChatView] Google user on mount, count stays 0')
+            }
+        })
+
+        onUnmounted(() => {
+            // Cleanup: close any active streaming connection when component is unmounted
+            if (streamController.value) {
+                streamController.value.close()
             }
         })
 
@@ -742,7 +1350,22 @@ export default {
             showGoogleLinkButton,
             linkGoogleAccount,
             reachedNgLimit,
-            aiActivity
+            aiActivity,
+            streamController,
+            currentStreamingMessageIndex,
+            isCurrentlyStreaming,
+            isStreamingMessage,
+            getStreamingWords,
+            getActivityIcon,
+            determineActivityType,
+            getActivityMessage,
+            isRetrying,
+            retryAttempt,
+            fallbackTriggered,
+            handleStreamFallback,
+            savedCourseTitles,
+            savedFlashcardTitles,
+            processedIdempotencyIds
         }
     }
 }
@@ -996,6 +1619,7 @@ export default {
 
 .ai-message .message-text {
     padding: 0.5rem 0;
+    contain: layout style paint;
 }
 
 /* Message Attachment */
@@ -1483,6 +2107,349 @@ export default {
         width: 32px;
         height: 32px;
         font-size: 1rem;
+    }
+}
+
+/* Enhanced Activity Indicator Styles */
+.activity-indicator-enhanced {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(119, 51, 255, 0.05);
+    border-radius: 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.activity-icon-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.activity-icon {
+    font-size: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    background: rgba(119, 51, 255, 0.1);
+}
+
+.activity-icon.thinking {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.activity-icon.searching_web {
+    animation: rotate 2s linear infinite;
+}
+
+.activity-icon.generating_course {
+    animation: bounce 1.5s ease-in-out infinite;
+}
+
+.activity-icon.generating_flashcard {
+    animation: flip 1.5s ease-in-out infinite;
+}
+
+.activity-icon.processing_file {
+    animation: slide 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+@keyframes flip {
+    0%, 100% {
+        transform: rotateY(0deg);
+    }
+    50% {
+        transform: rotateY(180deg);
+    }
+}
+
+@keyframes slide {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(8px);
+    }
+}
+
+@keyframes progress {
+    0% {
+        width: 0%;
+    }
+    100% {
+        width: 100%;
+    }
+}
+
+.activity-progress-bar {
+    height: 2px;
+    background: rgba(119, 51, 255, 0.1);
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+}
+
+.activity-progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--accent-primary) 50%,
+        transparent 100%
+    );
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(200%);
+    }
+}
+
+.activity-message-text {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+    font-style: italic;
+}
+
+/* ChatGPT-style typewriter effect */
+.ai-message .message-text {
+    display: inline-block;
+    animation: typewriterText steps(1, end) 0.05s;
+    animation-fill-mode: forwards;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+@keyframes typewriterText {
+    0% {
+        max-width: 0;
+        opacity: 1;
+    }
+    99% {
+        max-width: 100vw;
+        opacity: 1;
+    }
+    100% {
+        max-width: 100%;
+        opacity: 1;
+    }
+}
+
+/* Vue Transition Styles */
+.activity-fade-enter-active,
+.activity-fade-leave-active {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activity-fade-enter-from,
+.activity-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.status-slide-enter-active,
+.status-slide-leave-active {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-slide-enter-from {
+    opacity: 0;
+    transform: translateX(-20px);
+}
+
+.status-slide-leave-to {
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.status-slide-move {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Grounding Metadata Styles */
+.message-grounding,
+.message-url-context {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(119, 51, 255, 0.08);
+    border-left: 3px solid rgba(119, 51, 255, 0.4);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.grounding-summary {
+    cursor: pointer;
+    color: var(--accent-primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    user-select: none;
+}
+
+.grounding-summary:hover {
+    text-decoration: underline;
+}
+
+.grounding-summary::marker {
+    color: var(--accent-primary);
+}
+
+.grounding-details {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.search-queries,
+.citations,
+.url-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.queries-label,
+.citations-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.search-queries ul,
+.citations ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    list-style-type: disc;
+}
+
+.search-queries li {
+    margin: 0.25rem 0;
+    color: var(--text-secondary);
+}
+
+.citation-item {
+    margin: 0.25rem 0;
+    word-break: break-word;
+}
+
+.citation-link {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px dotted var(--accent-primary);
+}
+
+.citation-link:hover {
+    text-decoration: underline;
+    background: rgba(119, 51, 255, 0.1);
+    border-radius: 0.2rem;
+    padding: 0.1rem 0.2rem;
+}
+
+.url-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0.25rem;
+    word-break: break-all;
+}
+
+.url-link {
+    flex: 1;
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px dotted var(--accent-primary);
+}
+
+.url-link:hover {
+    text-decoration: underline;
+}
+
+.url-status {
+    flex-shrink: 0;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.url-status.url_retrieval_status_success {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgb(22, 163, 74);
+}
+
+.url-status.url_retrieval_status_failed,
+.url-status.unknown {
+    background: rgba(239, 68, 68, 0.2);
+    color: rgb(220, 38, 38);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .streaming-word {
+        animation-duration: 0.3s;
+        margin-right: 0.2em;
+        filter: blur(2px);
+    }
+
+    .activity-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+    }
+
+    .activity-indicator-enhanced {
+        padding: 0.75rem;
+        gap: 0.5rem;
     }
 }
 </style>
